@@ -30,7 +30,6 @@ class Material {
 
         this.#properties = new Map();
         Object.keys(properties).forEach(propName => {
-            // map property name to property value
             this.setProperty(propName, properties[propName]);
         });
 
@@ -270,8 +269,8 @@ class Material {
         for (const [propName, value] of this.#properties.entries()) {
             const uniformName = `material.${propName}`;
             // check to see if the shader has the uniform variable. This shouldn't happen with the best fit logic, but just in case.
-            if (!shaderProgram.hasUniform(uniformName)) {
-                console.warn(`[Material ID#${this.#materialID}] ValueError: Expected '${propName}' to be a uniform name of ${shaderProgram.getName()}. Skipping this uniform for material.`);
+            if (!shaderProgram.supports(uniformName)) {
+                console.warn(`[Material ID#${this.#materialID}] ValueError: Expected '${uniformName}' to be a uniform name of ${shaderProgram.getName()}. Skipping this uniform for material.`);
                 continue;
             }
             this.#setUniform(shaderProgram, uniformName, value, false);
@@ -279,12 +278,11 @@ class Material {
 
         // only set texture uniforms if allowed by mesh
         if (renderTextures) {
-            // iterate through properties and set their uniforms
             let textureIndex = 0;
             for (const [texType, texture] of this.#textures.entries()) {
                 // only set texture if the shader program supports it and the texture is valid.
                 // these two things should be either both true or both false, but we need to be sure
-                if (shaderProgram.supportsTexture(texType) && texture.loadSuccess()) {
+                if (shaderProgram.supports(texType) && texture.loadSuccess()) {
                     const texUniformName = `material.${texType}Map`; // uniform name formatted like 'material.diffuseMap'
                     texture.bind(textureIndex);
                     // WebGL uses the index to reference textures in GPU memory, so setInt is fine here
@@ -324,7 +322,6 @@ class Material {
             if (logUniform) console.log(`[Material ID#${this.#materialID}]: Setting ${uniformName} with value ${uniformValue} as bool`);
             shaderProgram.setBool(uniformName, uniformValue);
         } else if (typeof uniformValue === 'number') {
-            // somehow differentiate between an int and a float? - this is fine for now
             if (logUniform) console.log(`[Material ID#${this.#materialID}]: Setting ${uniformName} with value ${uniformValue} as float`);
             shaderProgram.setFloat(uniformName, uniformValue);
         } else {

@@ -3,7 +3,7 @@ precision mediump float;
 
 // vertex attributes
 in vec3 aPosition;
-in vec3 vertex_normal;
+in vec3 aNormal;
 in vec2 aTexCoord;
 
 // transformation matrices
@@ -24,7 +24,7 @@ void main()
     
     // pipeline interpolates the vertex normal
     mat4 modelViewInverseTranspose = transpose(inverse(modelView));
-    frag_normal = normalize(mat3(modelViewInverseTranspose) * vertex_normal);
+    frag_normal = normalize(mat3(modelViewInverseTranspose) * aNormal);
 
     eyeSpace_vector = eyeSpace_vertex.xyz;
     

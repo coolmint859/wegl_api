@@ -24,7 +24,7 @@ class AssetLoader {
                 console.log(`[AssetLoader]: Using existing asset '${assetPath}'. Reference Count: ${assetInfo.refCount}.`);
                 return assetInfo.loadPromise;
             } else {
-                return Promise.reject(new Error(`Asset '${assetPath}' previously failed to load.`));
+                return Promise.reject(new Error(`Asset '${assetPath}' previously failed to load. Try reloading data to resolve any issues.`));
             }
         } else {
             let resolveFunc, rejectFunc;
@@ -38,6 +38,7 @@ class AssetLoader {
                 loadState: AssetLoader.AssetState.LOADING,
                 data: null,
                 _disposeFunc: disposeFunction,
+                _loadFunc: loadFunction,
                 loadPromise: loadPromise,
                 _resolve: resolveFunc,
                 _reject: rejectFunc
@@ -45,9 +46,66 @@ class AssetLoader {
             AssetLoader.#assetRegistry.set(assetPath, assetInfo);
 
             console.log(`[AssetLoader]: Initiating load for asset '${assetPath}'. Reference Count: ${assetInfo.refCount}.`);
-            loadFunction(assetPath)
-            .then(data => AssetLoader.#onLoadSuccess(assetPath, data))
-            .catch(error => AssetLoader.#onLoadFailure(assetPath, error))
+            try {
+                const assetData = await loadFunction(assetPath);
+                AssetLoader.#onLoadSuccess(assetPath, assetData)
+                // console.log(assetData);
+                return assetData;
+            } catch (error) {
+                AssetLoader.#onLoadFailure(assetPath, error);
+                throw error;
+            }
+        }
+    }
+
+    /**
+     * Reload the data from the given path to memory, if it exists. Uses the loadFunction and disposalFunction provided at first load.
+     * If the reload attempt fails, this will fall back to the last known state of the data.
+     * @param {string} assetPath the path/url to the asset
+     * @returns {Promise} a promise inidicating success or failure on reloading
+     */
+    static async reload(assetPath) {
+        const assetInfo = AssetLoader.#assetRegistry.get(assetPath);
+        if (!assetInfo) {
+            console.error(`[AssetLoader]: Asset '${assetPath}' was not found in the registry. Cannot reload.`)
+            return Promise.reject(new Error(`Asset '${assetPath}' was not found in the registry.`));
+        }
+
+        const oldData = assetInfo.data;
+        const oldState = assetInfo.loadState;
+
+        // obtain new load promise
+        let newResolveFunc, newRejectFunc;
+        const newLoadPromise = new Promise((resolve, reject) => {
+            newResolveFunc = resolve;
+            newRejectFunc = reject;
+        });
+
+        // update state to prepare for reloading
+        assetInfo.loadState = AssetLoader.AssetState.LOADING;
+        assetInfo.loadPromise = newLoadPromise;
+        assetInfo._resolve = newResolveFunc;
+        assetInfo._reject = newRejectFunc;
+
+        try {
+            // attempt to load in new data
+            const newAssetData = await assetInfo._loadFunc(assetPath);
+
+            // dispose old data
+            if (assetInfo._disposeFunc && assetInfo.data) {
+                assetInfo._disposeFunc(assetInfo.data);
+            }
+
+            AssetLoader.#onLoadSuccess(assetPath, newAssetData);
+            return newAssetData;
+        } catch (error) {
+            // reload failed, fallback to old data
+            assetInfo.data = oldData;
+            assetInfo.loadState = oldState;
+            assetInfo._reject(error);
+
+            console.error(`[AssetLoader] Attempt to reload data at ${assetPath} failed. Reverting back to old state. Error: ${error}`)
+            throw error;
         }
     }
 

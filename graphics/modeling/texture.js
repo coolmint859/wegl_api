@@ -33,8 +33,7 @@ class Texture {
             AssetLoader.load(texturePath, this.#loadTexture.bind(this), this.#disposeTexture.bind(this))
             .then(assetData => {
                 console.log(`[Texture ID#${this.#textureID}] Created new texture '${texturePath}'.`);
-            })
-            .catch(error => {
+            }).catch(error => {
                 console.error(`[Texture ID#${this.#textureID}] Failed to create texture '${texturePath}': ${error}`)
             });
         } else {
@@ -72,6 +71,17 @@ class Texture {
      * */
     loadFailure() {
         return AssetLoader.isFailed(this.#texturePath);
+    }
+
+    async reload() {
+        try {
+            reloadedData = await AssetLoader.reload(this.#texturePath);
+            console.log(`[Texture ID#${this.#textureID}]: Successfully reloaded '${this.#texturePath}'.`);
+            return reloadedData;
+        } catch (error) {
+            console.log(`[Texture ID#${this.#textureID}]: Failed to reload '${this.#texturePath}'.`);
+            throw error;
+        }
     }
 
     /** 
@@ -156,15 +166,13 @@ class Texture {
     }
 
     /** Called when a new texture should be loaded into memory for the first time */
-    #loadTexture(texturePath) {
-        return loadTextureFromServer(texturePath)
-        .then(imageData => {
-            return {
-                glTexture: Texture.#defineTexture(Texture.#gl, imageData, this.#texOptions),
-                width: imageData.width,
-                height: imageData.height,
-            }
-        })
+    async #loadTexture(texturePath) {
+        const imageData = await loadTextureFromServer(texturePath);
+        return {
+            glTexture: Texture.#defineTexture(imageData, this.#texOptions),
+            width: imageData.width,
+            height: imageData.height,
+        }
     }
 
     /** called when a texture should be removed from memory */
@@ -173,7 +181,8 @@ class Texture {
     }
 
     /** create a webgl texture from the given image */
-    static #defineTexture(gl, image, options) {
+    static #defineTexture(image, options) {
+        const gl = Texture.#gl;
         let glTexture = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, glTexture); // bind texture
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);

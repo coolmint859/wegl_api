@@ -28,7 +28,6 @@ class Graphics3D {
         this.sceneObjects = [];
         this.pointLights = [];
         this.shaders = new Map();
-        this.shadersLoaded = new Map();
 
         this.RenderType = {
             'PHONG': 'phong',
@@ -65,23 +64,8 @@ class Graphics3D {
         let vertexPath = "shaders/" + name + ".vert";
         let fragmentPath = "shaders/" + name + ".frag";
 
-        let shader = new Shader(Graphics3D.#gl, name, vertexPath, fragmentPath);
-
+        let shader = new Shader(name, vertexPath, fragmentPath);
         this.shaders.set(name, shader);
-        this.shadersLoaded.set(name, false);
-
-        shader.create().then((success) => {
-            let capitalName = name.charAt(0).toUpperCase() + name.slice(1);
-
-            if (success) {
-                console.log(capitalName + " shaders created successfully.");
-            } else {
-                console.warn(capitalName + " shaders were not created successfully.");
-            }
-            this.shadersLoaded.set(name, success);
-            // shader.listUniforms();
-        })
-        return shader;
     }
 
     /** Returns the current WebGl context. */
@@ -91,10 +75,11 @@ class Graphics3D {
 
     /** Go through all active shaders and check if they're loaded */
     activeShadersLoaded() {
-        for (const isLoaded of this.shadersLoaded.values()) {
-            if (!isLoaded) return false; 
+        let shadersLoaded = true;
+        for (const shader of this.shaders.values()) {
+            if (!shader.isLoaded()) shadersLoaded = false;
         }
-        return true;
+        return shadersLoaded;
     }
 
     /** sets the width/height of the viewport */
@@ -271,9 +256,7 @@ class Graphics3D {
         phongShader.setMatrix4('view', this.currentCamera.getViewMatrix());
         phongShader.setMatrix4('projection', this.currentCamera.getProjectionMatrix());
         phongShader.setColor('ambientColor', this.ambientColor);
-        phongShader.setColor("object.diffuseColor", object.mesh.diffuseColor);
-        phongShader.setColor("object.specularColor", object.mesh.specularColor);
-        phongShader.setFloat("object.shininess", object.mesh.shininess);
+        object.mesh.material.applyToShader(phongShader, false);
     }
 
     #setTextureShaderUniforms(textureShader, object) {
@@ -312,7 +295,7 @@ class Graphics3D {
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 
-        let positionLocation = gl.getAttribLocation(shader.programID, 'aPosition');
+        let positionLocation = gl.getAttribLocation(shader.getProgramID(), 'aPosition');
         if (positionLocation !== -1){
             gl.enableVertexAttribArray(positionLocation);
             gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 0, 0);
@@ -330,12 +313,12 @@ class Graphics3D {
         gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW);
 
-        let normalLocation = gl.getAttribLocation(shader.programID, 'vertex_normal');
+        let normalLocation = gl.getAttribLocation(shader.getProgramID(), 'aNormal');
         if (normalLocation !== -1){
             gl.enableVertexAttribArray(normalLocation);
             gl.vertexAttribPointer(normalLocation, 3, gl.FLOAT, false, 0, 0);
         } else {
-            console.warn("Attribute 'vertex_normal' not found in shader.");
+            console.warn("Attribute 'aNormal' not found in shader.");
         }
         
         return normalBuffer;
@@ -349,7 +332,7 @@ class Graphics3D {
         gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, textureCoords, gl.STATIC_DRAW);
 
-        let texCoord = gl.getAttribLocation(shader.programID, 'aTexCoord');
+        let texCoord = gl.getAttribLocation(shader.getProgramID(), 'aTexCoord');
         if (texCoord !== -1){
             gl.enableVertexAttribArray(texCoord);
             gl.vertexAttribPointer(texCoord, 2, gl.FLOAT, false, 0, 0);
@@ -357,23 +340,6 @@ class Graphics3D {
             console.warn("Attribute 'aTexCoord' not found in shader.");
         }
         return textureCoordBuffer;
-    }
-
-    #createTextureImageBuffer(textureImage) {
-        const gl = Graphics3D.#gl;
-
-        let textureImageBuffer = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, textureImageBuffer);
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-
-        // const borderColor = [1.0, 1.0, 1.0, 1.0]; // set to white
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textureImage);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        
-        return textureImageBuffer;
     }
 
     #createIndexBuffer(indices) {

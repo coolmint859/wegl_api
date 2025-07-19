@@ -18,7 +18,7 @@ struct PointLight {
     float atten_quad;
 };
 
-uniform Material object;
+uniform Material material;
 
 uniform PointLight pointLights[5];
 uniform vec3 ambientColor;
@@ -49,12 +49,12 @@ vec3 calculatePointLight(PointLight light, float light_dist, vec3 N, vec3 L, vec
 
     // diffuse
     float diffuse_impact = max(dot(N, L), 0.0);
-    vec3 diffuse = object.diffuseColor * light.diffuseColor * diffuse_impact;
+    vec3 diffuse = material.diffuseColor * light.diffuseColor * diffuse_impact;
 
     // I use blinn-phong for specular instead, I think it looks nicer
     vec3 H = normalize(L + V);
     float specular_impact = max(dot(N, H), 0.0);
-    vec3 specular = object.specularColor * light.specularColor * pow(specular_impact, object.shininess * 64.0);
+    vec3 specular = material.specularColor * light.specularColor * pow(specular_impact, material.shininess * 64.0);
 
     return (diffuse + specular) * atten;
 }
@@ -76,7 +76,7 @@ void main()
 
         fragColor += calculatePointLight(light, light_dist, N, L, V);
     }
-    fragColor += object.diffuseColor * ambientColor;
+    fragColor += material.diffuseColor * ambientColor;
 
     // float depth = linearizeDepth(gl_FragCoord.z) / far;
     // outColor = vec4(vec3(1.0-depth), 1.0);
