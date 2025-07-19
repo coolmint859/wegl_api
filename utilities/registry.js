@@ -12,7 +12,7 @@ class AssetRegistry {
     /**
      * Asyncronously load an asset (image, audio, text, etc..) into main memory
      * @param {string} assetPath the path/url to the asset
-     * @param {Function} loadFunction the primary loading function for the asset. Must by asyncronous and should return an object of desired stored information.
+     * @param {Function} loadFunction the primary loading function for the asset. Must be asyncronous and should return an object of desired stored information.
      * @param {Function} disposeFunction called when this asset is deleted from memory (i.e no has no references). Only called when release(), delete() or deleteAll() are called. Should receive the stored data provided by loadFunction as a parameter.
      * @returns {Promise} a promise indicating success or failure of loading the asset
      */
@@ -20,11 +20,11 @@ class AssetRegistry {
         if (AssetRegistry.#cache.has(assetPath)) {
             const assetInfo = AssetRegistry.#cache.get(assetPath);
             if (assetInfo.loadState !== AssetRegistry.AssetState.FAILED) {
+                console.log(`[AssetRegistry] Reusing cached asset '${assetPath}'`)
                 assetInfo.refCount++;
-                console.log(`[AssetLoader]: Using existing asset '${assetPath}'. Reference Count: ${assetInfo.refCount}.`);
                 return assetInfo.loadPromise;
             } else {
-                return Promise.reject(new Error(`Asset '${assetPath}' previously failed to load. Try reloading data to resolve any issues.`));
+                return Promise.reject(new Error(`[AssetRegistry] Asset '${assetPath}' previously failed to load. Try reloading data to resolve any issues.`));
             }
         } else {
             let resolveFunc, rejectFunc;
@@ -45,11 +45,10 @@ class AssetRegistry {
             }
             AssetRegistry.#cache.set(assetPath, assetInfo);
 
-            console.log(`[AssetLoader]: Initiating load for asset '${assetPath}'. Reference Count: ${assetInfo.refCount}.`);
             try {
                 const assetData = await loadFunction(assetPath);
                 AssetRegistry.#onLoadSuccess(assetPath, assetData)
-                // console.log(assetData);
+                console.log(`[AssetRegistry] Created and cached new asset '${assetPath}'`)
                 return assetData;
             } catch (error) {
                 AssetRegistry.#onLoadFailure(assetPath, error);
@@ -67,8 +66,8 @@ class AssetRegistry {
     static async reload(assetPath) {
         const assetInfo = AssetRegistry.#cache.get(assetPath);
         if (!assetInfo) {
-            console.error(`[AssetLoader]: Asset '${assetPath}' was not found in the registry. Cannot reload.`)
-            return Promise.reject(new Error(`Asset '${assetPath}' was not found in the registry.`));
+            console.error(`[AssetRegistry] Asset '${assetPath}' was not found in the registry. Cannot reload.`)
+            return Promise.reject(new Error(`[AssetRegistry] Asset '${assetPath}' was not found in the registry.`));
         }
 
         const oldData = assetInfo.data;
@@ -104,7 +103,7 @@ class AssetRegistry {
             assetInfo.loadState = oldState;
             assetInfo._reject(error);
 
-            console.error(`[AssetLoader] Attempt to reload data at ${assetPath} failed. Reverting back to old state. Error: ${error}`)
+            console.error(`[AssetRegistry] Attempt to reload data at ${assetPath} failed. Reverting back to old state. Error: ${error}`)
             throw error;
         }
     }
@@ -165,15 +164,14 @@ class AssetRegistry {
         // then check if the collection has this specific texture defined
         const assetInfo = AssetRegistry.#cache.get(assetPath);
         if (!assetInfo) {
-            console.warn(`[AssetLoader]: Asset '${assetPath}' was not found in the registry. Cannot release asset from memory.`);
+            console.warn(`[AssetRegistry] Asset '${assetPath}' was not found in the registry. Cannot release asset.`);
             return false;
         }
         assetInfo.refCount--;
-        console.log(`Released Asset '${assetPath}'. New reference count: ${assetInfo.refCount}.`);
 
         // if the reference count is <= 0, delete the texture from memory
         if (assetInfo.refCount <= 0 ) {
-            console.log(`No more references exist for texture '${assetPath}'. Removing texture from GPU memory.`);
+            console.warn(`[AssetRegistry] No more references exist for asset '${assetPath}'. Deleting asset.`);
             if (assetInfo._disposeFunc && assetInfo.data) {
                 assetInfo._disposeFunc(assetInfo.data);
             }
@@ -195,10 +193,9 @@ class AssetRegistry {
             }
             AssetRegistry.#cache.delete(assetPath);
 
-            console.log(`Deleted Asset '${assetPath}' from memory. All references removed.`);
             return true;
         } else {
-            console.warn(`[AssetLoader]: Asset '${assetPath}' was not found in the registry. Cannot release asset from memory.`);
+            console.warn(`[AssetRegistry] Asset '${assetPath}' was not found in the registry. Cannot release asset.`);
             return false;
         }
     }
@@ -219,13 +216,13 @@ class AssetRegistry {
     /** Called if loading a resource was successful */
     static #onLoadSuccess(assetPath, loadedData) {
         if (loadedData === null) {
-            console.warn(`[AssetLoader]: Provided loading function for '${assetPath}' did not return usable data. Loaded data discarded.`);
+            console.warn(`[AssetRegistry] Provided loading function for '${assetPath}' did not return usable data. Loaded data discarded.`);
             return;
         }
 
         const assetInfo = AssetRegistry.#cache.get(assetPath);
         if (!assetInfo || assetInfo.loadState !== AssetRegistry.AssetState.LOADING) {
-            console.warn(`[AssetLoader]: Async load of '${assetPath}' completed, but assetInfo was modified/removed. Loaded data discarded.`);
+            console.warn(`[AssetRegistry] Async load of '${assetPath}' completed, but assetInfo was modified/removed. Loaded data discarded.`);
             return;
         }
 
@@ -233,7 +230,6 @@ class AssetRegistry {
         assetInfo.data = loadedData;
         assetInfo.loadState = AssetRegistry.AssetState.LOADED;
         assetInfo._resolve(loadedData);
-        console.log(`[AssetLoader]: Asset '${assetPath}' successfully loaded.`);
 
         // If refCount dropped to 0 while loading, clean up immediately
         if (assetInfo.refCount <= 0) {
@@ -245,7 +241,7 @@ class AssetRegistry {
     static #onLoadFailure(assetPath, error) {
         const assetInfo = AssetRegistry.#cache.get(assetPath);
         if (!assetInfo || assetInfo.loadState !== AssetRegistry.AssetState.LOADING) {
-            console.warn(`[AssetLoader]: Async load of '${assetPath}' failed, but assetInfo was modified/removed. Error discarded.`);
+            console.warn(`[AssetRegistry] Async load of '${assetPath}' failed, but assetInfo was modified/removed.`);
             return;
         }
 
@@ -253,7 +249,7 @@ class AssetRegistry {
         assetInfo.loadState = AssetRegistry.LoadState.FAILED;
         assetInfo.data = null;
         assetInfo._reject(error);
-        console.error(`[AssetLoader]: Failed to load asset '${assetPath}'. Error:`, error);
+        console.error(`[AssetRegistry] Failed to load asset '${assetPath}'. Error:\n`, error);
 
         // If refCount dropped to 0, clean up immediately
         if (assetInfo.refCount <= 0) {

@@ -151,7 +151,6 @@ class Material {
         }
         // all checks pass, attach texture to material
         this.#textures.set(type, texture);
-        console.log(`[Material ID#${this.#materialID}]: Attached Texture '${texture.getTexturePath()}' as Texture.Type.${type.toUpperCase()}.`)
         return true;
     }
 
@@ -264,6 +263,7 @@ class Material {
     applyToShader(shaderProgram, renderTextures) {
         if (!(shaderProgram instanceof Shader && shaderProgram.isActive())) {
             console.error(`[Material ID#${this.#materialID}] TypeError: Expected 'shaderProgram' to be an active instance of Shader. Cannot set material uniforms.`);
+            return;
         }
         // iterate through properties and set their uniforms
         for (const [propName, value] of this.#properties.entries()) {
@@ -273,7 +273,7 @@ class Material {
                 console.warn(`[Material ID#${this.#materialID}] ValueError: Expected '${uniformName}' to be a uniform name of ${shaderProgram.getName()}. Skipping this uniform for material.`);
                 continue;
             }
-            this.#setUniform(shaderProgram, uniformName, value, false);
+            this.#setUniform(shaderProgram, uniformName, value);
         }
 
         // only set texture uniforms if allowed by mesh
@@ -285,7 +285,7 @@ class Material {
                 if (shaderProgram.supports(texType) && texture.loadSuccess()) {
                     const texUniformName = `material.${texType}Map`; // uniform name formatted like 'material.diffuseMap'
                     texture.bind(textureIndex);
-                    // WebGL uses the index to reference textures in GPU memory, so setInt is fine here
+
                     shaderProgram.setInt(texUniformName, textureIndex);
                     textureIndex++;
                 }
@@ -293,36 +293,47 @@ class Material {
         }
     }
 
+    /**
+     * Goes through this material's textures and unbinds them from GPU memory
+     * @param {Shader} shaderProgram the shader program currently in use.
+     */
+    unbindTextures(shaderProgram) {
+        if (!(shaderProgram instanceof Shader && shaderProgram.isActive())) {
+            console.error(`[Material ID#${this.#materialID}] TypeError: Expected 'shaderProgram' to be an active instance of Shader. Cannot set material uniforms.`);
+            return;
+        }
+
+        // unbind supported textures
+        let textureIndex = 0;
+        for (const [texType, texture] of this.#textures.entries()) {
+            if (shaderProgram.supports(texType) && texture.loadSuccess()) {
+                texture.unbind(textureIndex);
+                textureIndex++;
+            }
+        }
+    }
+
     /** using the shader program, apply the value to the uniform name in the shader */
-    #setUniform(shaderProgram, uniformName, uniformValue, logUniform) {
+    #setUniform(shaderProgram, uniformName, uniformValue) {
         // no other easy way to do this other than guess and check
         if (uniformValue instanceof Vector2) {
-            if (logUniform) console.log(`[Material ID#${this.#materialID}]: Setting ${uniformName} with value ${uniformValue.str()} as vec2`);
             shaderProgram.setVector2(uniformName, uniformValue);
         } else if (uniformValue instanceof Vector3) {
-            if (logUniform) console.log(`[Material ID#${this.#materialID}]: Setting ${uniformName} with value ${uniformValue.str()} as vec3`);
             shaderProgram.setVector3(uniformName, uniformValue);
         } else if (uniformValue instanceof Vector4) {
-            if (logUniform) console.log(`[Material ID#${this.#materialID}]: Setting ${uniformName} with value ${uniformValue.str()} as vec4`);
             shaderProgram.setVector4(uniformName, uniformValue);
         } else if (uniformValue instanceof Matrix2) {
-            if (logUniform) console.log(`[Material ID#${this.#materialID}]: Setting ${uniformName} with value ${uniformValue.str()} as mat2`);
             shaderProgram.setMatrix2(uniformName, uniformValue);
         } else if (uniformValue instanceof Matrix3) {
-            if (logUniform) console.log(`[Material ID#${this.#materialID}]: Setting ${uniformName} with value ${uniformValue.str()} as mat3`);
             shaderProgram.setMatrix3(uniformName, uniformValue);
         } else if (uniformValue instanceof Matrix4) {
-            if (logUniform) console.log(`[Material ID#${this.#materialID}]: Setting ${uniformName} with value ${uniformValue.str()} as mat4`);
             shaderProgram.setMatrix4(uniformName, uniformValue);
         } else if (uniformValue instanceof Color) {
-            if (logUniform) console.log(`[Material ID#${this.#materialID}]: Setting ${uniformName} with value ${uniformValue.str()} as vec3(color)`);
             shaderProgram.setColor(uniformName, uniformValue);
         // check if boolean first, then if number
         } else if (typeof uniformValue === 'boolean') {
-            if (logUniform) console.log(`[Material ID#${this.#materialID}]: Setting ${uniformName} with value ${uniformValue} as bool`);
             shaderProgram.setBool(uniformName, uniformValue);
         } else if (typeof uniformValue === 'number') {
-            if (logUniform) console.log(`[Material ID#${this.#materialID}]: Setting ${uniformName} with value ${uniformValue} as float`);
             shaderProgram.setFloat(uniformName, uniformValue);
         } else {
             // property is some weird type! Theoretically this shouldn't happen if we check if the shader program supports it, but gotta be sure

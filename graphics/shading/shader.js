@@ -16,7 +16,6 @@ class Shader {
      * @param {string} fragment_path the path to the fragment shader
      */
     constructor(shaderName, vertex_path, fragment_path) {
-        console.log(shaderName, vertex_path, fragment_path);
         Shader.#gl = Graphics3D.getGLContext();
         this.#shaderName = shaderName;
 
@@ -25,9 +24,9 @@ class Shader {
 
         AssetRegistry.load(shaderName, this.#buildProgram.bind(this), this.#disposeProgram.bind(this))
         .then(programData => {
-            console.log(`[Shader @${shaderName}]: Compiled and linked Shader successfully. ${programData}`);
+            console.log(`[Shader @${shaderName}] Compiled and linked Shader successfully.`);
         }).catch(error => {
-            console.error(`[Shader @${shaderName}]: Failed to compile and link Shader. Error: ${error}`);
+            console.error(`[Shader @${shaderName}] Failed to compile and link Shader. Error: ${error}`);
         });
     }
 
@@ -49,7 +48,7 @@ class Shader {
             const shaderData = AssetRegistry.getAssetData(this.#shaderName);
             return shaderData.variableNames.sort();
         } else {
-            console.warn(`[Shader @${this.#shaderName}]: Cannot retreive shader variables as this shader is not yet loaded.`);
+            console.warn(`[Shader @${this.#shaderName}] Cannot retreive shader variables as this shader is not yet loaded.`);
             return [];
         }
     }
@@ -114,7 +113,7 @@ class Shader {
         } else if (typeof value !== 'boolean') {
             console.error(`[Shader @${this.#shaderName}] TypeError: Expected 'value' to be a boolean. Unable to set uniform.`);
         } else {
-            console.error(`[Shader @${this.#shaderName}]: Cannot set boolean uniform as this shader is not yet loaded.`)
+            console.error(`[Shader @${this.#shaderName}] Cannot set boolean uniform as this shader is not yet loaded.`)
         }
     }
 
@@ -128,7 +127,7 @@ class Shader {
         } else if (typeof value !== 'number') {
             console.error(`[Shader @${this.#shaderName}] TypeError: Expected 'value' to be an integer. Unable to set uniform.`);
         } else {
-            console.error(`[Shader @${this.#shaderName}]: Cannot set integer uniform as this shader is not yet loaded.`)
+            console.error(`[Shader @${this.#shaderName}] Cannot set integer uniform as this shader is not yet loaded.`)
         }
     }
 
@@ -142,7 +141,7 @@ class Shader {
         } else if (typeof value !== 'number') {
             console.error(`[Shader @${this.#shaderName}] TypeError: Expected 'value' to be a float. Unable to set uniform.`);
         } else {
-            console.error(`[Shader @${this.#shaderName}]: Cannot set float uniform as this shader is not yet loaded.`)
+            console.error(`[Shader @${this.#shaderName}] Cannot set float uniform as this shader is not yet loaded.`)
         }
     }
 
@@ -156,7 +155,7 @@ class Shader {
         } else if (!(matrix instanceof Matrix4)) {
             console.error(`[Shader @${this.#shaderName}] TypeError: Expected 'matrix' to be an instance of Matrix4. Unable to set uniform.`);
         } else {
-            console.error(`[Shader @${this.#shaderName}]: Cannot set mat4 uniform as this shader is not yet loaded.`)
+            console.error(`[Shader @${this.#shaderName}] Cannot set mat4 uniform as this shader is not yet loaded.`)
         }
     }
 
@@ -170,7 +169,7 @@ class Shader {
         } else if (!(matrix instanceof Matrix3)) {
             console.error(`[Shader @${this.#shaderName}] TypeError: Expected 'matrix' to be an instance of Matrix3. Unable to set uniform.`);
         } else {
-            console.error(`[Shader @${this.#shaderName}]: Cannot set mat3 uniform as this shader is not yet loaded.`)
+            console.error(`[Shader @${this.#shaderName}] Cannot set mat3 uniform as this shader is not yet loaded.`)
         }
     }
 
@@ -184,7 +183,7 @@ class Shader {
         } else if (!(matrix instanceof Matrix2)) {
             console.error(`[Shader @${this.#shaderName}] TypeError: Expected 'matrix' to be an instance of Matrix2. Unable to set uniform.`);
         } else {
-            console.error(`[Shader @${this.#shaderName}]: Cannot set mat2 uniform as this shader is not yet loaded.`)
+            console.error(`[Shader @${this.#shaderName}] Cannot set mat2 uniform as this shader is not yet loaded.`)
         }
     }
 
@@ -198,7 +197,7 @@ class Shader {
         } else if (!(vector instanceof Vector4)) {
             console.error(`[Shader @${this.#shaderName}] TypeError: Expected 'vector' to be an instance of Vector4. Unable to set uniform.`);
         } else {
-            console.error(`[Shader @${this.#shaderName}]: Cannot set vec4 uniform as this shader is not yet loaded.`)
+            console.error(`[Shader @${this.#shaderName}] Cannot set vec4 uniform as this shader is not yet loaded.`)
         }
     }
 
@@ -212,7 +211,7 @@ class Shader {
         } else if (!(vector instanceof Vector3)) {
             console.error(`[Shader @${this.#shaderName}] TypeError: Expected 'vector' to be an instance of Vector3. Unable to set uniform.`);
         } else {
-            console.error(`[Shader @${this.#shaderName}]: Cannot set vec3 uniform as this shader is not yet loaded.`)
+            console.error(`[Shader @${this.#shaderName}] Cannot set vec3 uniform as this shader is not yet loaded.`)
         }
     }
 
@@ -226,7 +225,7 @@ class Shader {
         } else if (!(vector instanceof Vector2)) {
             console.error(`[Shader @${this.#shaderName}] TypeError: Expected 'vector' to be an instance of Vector2. Unable to set uniform.`);
         } else {
-            console.error(`[Shader @${this.#shaderName}]: Cannot set vec2 uniform as this shader is not yet loaded.`)
+            console.error(`[Shader @${this.#shaderName}] Cannot set vec2 uniform as this shader is not yet loaded.`)
         }
     }
 
@@ -244,7 +243,7 @@ class Shader {
         } else if (!(color instanceof Color)) {
             console.error(`[Shader @${this.#shaderName}] TypeError: Expected 'color' to be an instance of Color. Unable to set uniform.`);
         } else {
-            console.error(`[Shader @${this.#shaderName}]: Cannot set vec3/vec4 uniform as this shader is not yet loaded.`)
+            console.error(`[Shader @${this.#shaderName}] Cannot set vec3/vec4 uniform as this shader is not yet loaded.`)
         }
     }
 
@@ -257,7 +256,7 @@ class Shader {
 
         let location = Shader.#gl.getUniformLocation(programData.programID, name);
         if (location === -1) {
-            console.warn(`[Shader @${this.#shaderName}]: Unable to find uniform location for '${name}'.`);
+            console.warn(`[Shader @${this.#shaderName}] Unable to find uniform location for '${name}'.`);
             return -1;
         }
 
@@ -296,7 +295,7 @@ class Shader {
                 uniformMap: new Map()
             }
         } catch (error) {
-            console.error(`[Shader @${shaderName}]: An error occurred during shader compilation:\n${error}`);
+            console.error(`[Shader @${shaderName}] An error occurred during shader compilation:\n${error}`);
             throw error;
         }
     }
@@ -312,9 +311,7 @@ class Shader {
         const compileSuccess = gl.getShaderParameter(shaderObject, gl.COMPILE_STATUS);
         if (!compileSuccess) {
             const infoLog = gl.getShaderInfoLog(shaderObject);
-            console.error(`[Shader @${shaderName}]: Failed to compile ${shaderTypeName} shader: ${infoLog}`);
-        } else {
-            console.log(`[Shader @${shaderName}]: ${shaderTypeName} shader complilation successful.`);
+            console.error(`[Shader @${shaderName}] Failed to compile ${shaderTypeName} shader: ${infoLog}`);
         }
         return shaderObject;
     }
@@ -329,9 +326,7 @@ class Shader {
         const linkSuccess = gl.getProgramParameter(programID, gl.LINK_STATUS);
         if (!linkSuccess) {
             const infoLog = gl.getProgramInfoLog(programID);
-            console.error(`[Shader @${shaderName}]: Failed to link shader program: ${infoLog}`);
-        } else {
-            console.log(`[Shader @${shaderName}]: Shader program link successful.`);
+            console.error(`[Shader @${shaderName}] Failed to link shader program: ${infoLog}`);
         }
         return programID;
     }

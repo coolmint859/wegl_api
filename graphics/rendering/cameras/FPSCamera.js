@@ -36,10 +36,8 @@ class FPSCamera extends MoveableCamera {
      * @param {number} aspectRatio the aspectRatio of the camera view
      */
     update(dt, aspectRatio) {
-        // console.log("updating from FPSCamera");
         // update view matrix if camera orientation changed
         if (this._isViewDirty) {
-            // console.log("camera moved!");
             this.#updateCameraOrientation();
 
             const eye = this.transform.getPosition();
@@ -51,10 +49,8 @@ class FPSCamera extends MoveableCamera {
         // update projection matrix if camera settings have changed.
         if (this._isProjectionDirty || this._prevAspectRatio !== aspectRatio) {
             if (this._isPerspective) {
-                console.log("projecting perspective!");
                 this._projectionMatrix = Matrix4.perspectiveProjSymmetic(this._fov, aspectRatio, this._nearPlane, this._farPlane);
             } else {
-                console.log("projecting orthographic!");
                 let orthoHeight = this._baseOrthoHeight / this._orthoZoom;
                 let top = orthoHeight / 2.0;
                 let bottom = -orthoHeight / 2.0;

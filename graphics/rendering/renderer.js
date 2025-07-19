@@ -227,6 +227,11 @@ class Graphics3D {
             
             // draw object
             gl.drawElements(object.mType, object.mesh.indices.length, gl.UNSIGNED_SHORT, 0);
+
+            // unbind material textures (if exist)
+            if (object.mesh.material) {
+                object.mesh.material.unbindTextures(shader);
+            }
             
             // unbind vertex array
             gl.bindVertexArray(null);
