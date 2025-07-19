@@ -3,10 +3,11 @@
  * Represents a generic shader program. Handling creation, linking, and setting uniforms.
  */
 class Shader {
-    constructor(gl, vertex_path, fragment_path) {
+    constructor(gl, shaderName, vertex_path, fragment_path) {
         this.gl = gl;
 
         this.locationMap = new Map();
+        this.shaderName = shaderName;
 
         this.vertex_path = vertex_path;
         this.fragment_path = fragment_path;
@@ -81,6 +82,24 @@ class Shader {
 
         this.locationMap.set(name, location);
         return location;
+    }
+
+    listUniforms() {
+        // Get the number of active uniforms
+        const numUniforms = this.gl.getProgramParameter(this.programID, this.gl.ACTIVE_UNIFORMS);
+
+        for (let i = 0; i < numUniforms; i++) {
+            const uniformInfo = this.gl.getActiveUniform(this.programID, i);
+            console.log(`[Shader @${this.shaderName}] Uniform Name: ${uniformInfo.name}`);
+        }
+    }
+
+    hasUniform() {
+        return true;
+    }
+
+    supportsTexture() {
+        return true;
     }
 
     /**

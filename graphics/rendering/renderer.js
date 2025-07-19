@@ -2,23 +2,27 @@
  * Core real-time 3D application renderer. 
  */
 class Graphics3D {
-    constructor(canvasID, width, height) {
-        this.canvas = document.getElementById(canvasID);
-        this.gl = this.canvas.getContext('webgl2', { alpha: true, antialias: true, preserveDrawingBuffer: false });
-        console.log("WebGL Context Type:", this.gl ? this.gl.constructor.name : "null");
-        this.gl.viewport(0, 0, width, height);
+    static #canvas = document.getElementById("canvas-main");
+    static #gl =  Graphics3D.#canvas.getContext('webgl2', { alpha: true, antialias: true, preserveDrawingBuffer: false });
+
+    constructor(width, height) {
+        const gl = Graphics3D.#gl;
+        const canvas = Graphics3D.#canvas;
+        canvas.width = width;
+        canvas.height = height;
+
+        console.log("WebGL Context Type:", gl ? gl.constructor.name : "null");
+        gl.viewport(0, 0, width, height);
 
         // enable color blending
-        this.gl.enable(this.gl.BLEND);
-        this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA)
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
         // enable back-face culling
-        this.gl.enable(this.gl.CULL_FACE);
-        this.gl.frontFace(this.gl.CCW);
-        this.gl.cullFace(this.gl.BACK);
+        gl.enable(gl.CULL_FACE);
+        gl.frontFace(gl.CCW);
+        gl.cullFace(gl.BACK);
 
-        this.canvas.width = width;
-        this.canvas.height = height;
         this.aspectRatio = height / width;
 
         this.sceneObjects = [];
@@ -33,21 +37,20 @@ class Graphics3D {
             'TEXTURE': 'texture'
         }
         this.MeshType = {
-            'STRIP': this.gl.TRIANGLE_STRIP,
-            'FAN': this.gl.TRIANGLE_FAN,
-            'TRIANGLES': this.gl.TRIANGLES
+            'STRIP': gl.TRIANGLE_STRIP,
+            'FAN': gl.TRIANGLE_FAN,
+            'TRIANGLES': gl.TRIANGLES
         }
         Object.freeze(this.RenderType);
         Object.freeze(this.MeshType);
         
-
         this.scenes = new Map();
 
         // setup camera information
         this.cameras = new Map();
         this.cameras.set('default', new FPSCamera());
         this.currentCamera = this.cameras.get('default');
-        this.currentCamera.initMouseControls(this.canvas);
+        this.currentCamera.initMouseControls(canvas);
 
         this.ambientColor = Color.BLACK;
         this.clearColor = Color.CF_BLUE;
@@ -62,7 +65,7 @@ class Graphics3D {
         let vertexPath = "shaders/" + name + ".vert";
         let fragmentPath = "shaders/" + name + ".frag";
 
-        let shader = new Shader(this.gl, vertexPath, fragmentPath);
+        let shader = new Shader(Graphics3D.#gl, name, vertexPath, fragmentPath);
 
         this.shaders.set(name, shader);
         this.shadersLoaded.set(name, false);
@@ -76,13 +79,14 @@ class Graphics3D {
                 console.warn(capitalName + " shaders were not created successfully.");
             }
             this.shadersLoaded.set(name, success);
+            // shader.listUniforms();
         })
         return shader;
     }
 
     /** Returns the current WebGl context. */
-    getGLContext() {
-        return this.gl;
+    static getGLContext() {
+        return Graphics3D.#gl;
     }
 
     /** Go through all active shaders and check if they're loaded */
@@ -95,10 +99,11 @@ class Graphics3D {
 
     /** sets the width/height of the viewport */
     setViewport(width, height) {
-        this.canvas.width = width;
-        this.canvas.height = height;
+        const canvas = Graphics3D.#canvas;
+        canvas.width = width;
+        canvas.height = height;
         this.aspectRatio = width/height;
-        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        Graphics3D.#gl.viewport(0, 0, canvas.width, canvas.height);
     }
 
     /** add a new camera to the scene */
@@ -135,6 +140,7 @@ class Graphics3D {
 
     /** clears the screen and scene to make way for new objects. Should be called every frame before rendering */
     begin(dt) {
+        const gl = Graphics3D.#gl;
         // update current camera
         this.currentCamera.update(dt, this.aspectRatio);
 
@@ -146,15 +152,15 @@ class Graphics3D {
         this.pointLights = [];
 
         // set background color
-        this.gl.clearColor(this.clearColor.r, this.clearColor.g, this.clearColor.b, this.clearColor.a);
-        this.gl.clearDepth(1.0);
+        gl.clearColor(this.clearColor.r, this.clearColor.g, this.clearColor.b, this.clearColor.a);
+        gl.clearDepth(1.0);
 
         // enable depth testing
-        this.gl.depthFunc(this.gl.LEQUAL);
-        this.gl.enable(this.gl.DEPTH_TEST);
+        gl.depthFunc(gl.LEQUAL);
+        gl.enable(gl.DEPTH_TEST);
 
         // clear the screen & depth buffer
-        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     }
 
     /** draws an object */
@@ -209,6 +215,7 @@ class Graphics3D {
 
     /** renders objects and lights to the screen. */
     end() {
+        const gl = Graphics3D.#gl;
         for (let i = 0; i < this.sceneObjects.length; i++) {
             let object = this.sceneObjects[i];
             
@@ -220,7 +227,7 @@ class Graphics3D {
             if (!object.mesh.VAO) {
                 this.#setupBuffers(shader, object.rType, object.mesh);
             }
-            this.gl.bindVertexArray(object.mesh.VAO);
+            gl.bindVertexArray(object.mesh.VAO);
 
             // set up shader uniforms && attributes
             if (object.rType == this.RenderType.PHONG) {
@@ -234,10 +241,10 @@ class Graphics3D {
             }
             
             // draw object
-            this.gl.drawElements(object.mType, object.mesh.indices.length, this.gl.UNSIGNED_SHORT, 0);
+            gl.drawElements(object.mType, object.mesh.indices.length, gl.UNSIGNED_SHORT, 0);
             
             // unbind vertex array
-            this.gl.bindVertexArray(null);
+            gl.bindVertexArray(null);
         }
     }
 
@@ -270,20 +277,13 @@ class Graphics3D {
     }
 
     #setTextureShaderUniforms(textureShader, object) {
+        const gl = Graphics3D.#gl;
         const modelMatrix = Matrix4.TRS4(object.mesh.center, object.mesh.rotation, object.mesh.dimensions);
         textureShader.setMatrix4("model", modelMatrix);
         textureShader.setMatrix4('view', this.currentCamera.getViewMatrix());
         textureShader.setMatrix4('projection', this.currentCamera.getProjectionMatrix());
         textureShader.setColor('ambientColor', this.ambientColor);
-        textureShader.setFloat("object.shininess", object.mesh.shininess);
-
-        this.gl.activeTexture(this.gl.TEXTURE0);
-        this.gl.bindTexture(this.gl.TEXTURE_2D, object.mesh.diffuseTexBuffer);
-        textureShader.setInt('object.diffuseMap', 0);
-
-        this.gl.activeTexture(this.gl.TEXTURE1);
-        this.gl.bindTexture(this.gl.TEXTURE_2D, object.mesh.specularTexBuffer);
-        textureShader.setInt('object.specularMap', 1);
+        object.mesh.material.applyToShader(textureShader, true);
     }
 
     #setLightingAttributes(shader) {
@@ -307,14 +307,15 @@ class Graphics3D {
     }
 
     #createVertexBuffer(shader, vertices) {
-        let vertexBuffer = this.gl.createBuffer();
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vertexBuffer);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, vertices, this.gl.STATIC_DRAW);
+        const gl = Graphics3D.#gl;
+        let vertexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 
-        let positionLocation = this.gl.getAttribLocation(shader.programID, 'aPosition');
+        let positionLocation = gl.getAttribLocation(shader.programID, 'aPosition');
         if (positionLocation !== -1){
-            this.gl.enableVertexAttribArray(positionLocation);
-            this.gl.vertexAttribPointer(positionLocation, 3, this.gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(positionLocation);
+            gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 0, 0);
         } else {
             console.warn("Attribute 'aPosition' not found in shader.");
         }
@@ -323,14 +324,16 @@ class Graphics3D {
     }
 
     #createNormalBuffer(shader, normals) {
-        let normalBuffer = this.gl.createBuffer();
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, normalBuffer);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, normals, this.gl.STATIC_DRAW);
+        const gl = Graphics3D.#gl;
 
-        let normalLocation = this.gl.getAttribLocation(shader.programID, 'vertex_normal');
+        let normalBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW);
+
+        let normalLocation = gl.getAttribLocation(shader.programID, 'vertex_normal');
         if (normalLocation !== -1){
-            this.gl.enableVertexAttribArray(normalLocation);
-            this.gl.vertexAttribPointer(normalLocation, 3, this.gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(normalLocation);
+            gl.vertexAttribPointer(normalLocation, 3, gl.FLOAT, false, 0, 0);
         } else {
             console.warn("Attribute 'vertex_normal' not found in shader.");
         }
@@ -339,15 +342,17 @@ class Graphics3D {
     }
 
     #createTextureCoordBuffer(shader, textureCoords) {
-        // create coordinate buffer
-        let textureCoordBuffer = this.gl.createBuffer();
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, textureCoordBuffer);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, textureCoords, this.gl.STATIC_DRAW);
+        const gl = Graphics3D.#gl;
 
-        let texCoord = this.gl.getAttribLocation(shader.programID, 'aTexCoord');
+        // create coordinate buffer
+        let textureCoordBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, textureCoords, gl.STATIC_DRAW);
+
+        let texCoord = gl.getAttribLocation(shader.programID, 'aTexCoord');
         if (texCoord !== -1){
-            this.gl.enableVertexAttribArray(texCoord);
-            this.gl.vertexAttribPointer(texCoord, 2, this.gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(texCoord);
+            gl.vertexAttribPointer(texCoord, 2, gl.FLOAT, false, 0, 0);
         } else {
             console.warn("Attribute 'aTexCoord' not found in shader.");
         }
@@ -355,31 +360,36 @@ class Graphics3D {
     }
 
     #createTextureImageBuffer(textureImage) {
-        let textureImageBuffer = this.gl.createTexture();
-        this.gl.bindTexture(this.gl.TEXTURE_2D, textureImageBuffer);
-        this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, true);
+        const gl = Graphics3D.#gl;
+
+        let textureImageBuffer = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, textureImageBuffer);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 
         // const borderColor = [1.0, 1.0, 1.0, 1.0]; // set to white
-        this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, textureImage);
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textureImage);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
         
         return textureImageBuffer;
     }
 
     #createIndexBuffer(indices) {
-        let indexBuffer = this.gl.createBuffer();
-        this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-        this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, indices, this.gl.STATIC_DRAW);
+        const gl = Graphics3D.#gl
+        let indexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
 
         return indexBuffer;
     }
 
     #setupBuffers(shader, renderType, mesh) {
-        mesh.VAO = this.gl.createVertexArray();
-        this.gl.bindVertexArray(mesh.VAO);
+        const gl = Graphics3D.#gl;
+
+        mesh.VAO = gl.createVertexArray();
+        gl.bindVertexArray(mesh.VAO);
 
         mesh.vertexBuffer = this.#createVertexBuffer(shader, mesh.vertices);
         if (renderType != this.RenderType.BASIC && renderType != this.RenderType.LIGHT) {
@@ -388,12 +398,10 @@ class Graphics3D {
 
         if (renderType == this.RenderType.TEXTURE) {
             mesh.textureCoordBuffer = this.#createTextureCoordBuffer(shader, mesh.textureCoords);
-            mesh.diffuseTexBuffer = this.#createTextureImageBuffer(mesh.diffuseImage);
-            mesh.specularTexBuffer = this.#createTextureImageBuffer(mesh.specularImage);
         }
         mesh.indexBuffer = this.#createIndexBuffer(mesh.indices);
 
-        this.gl.bindVertexArray(null);
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
+        gl.bindVertexArray(null);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
     }
 }

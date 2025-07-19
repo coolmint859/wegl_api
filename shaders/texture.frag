@@ -6,6 +6,7 @@ precision highp sampler2D;
 struct Material {
     sampler2D diffuseMap;
     sampler2D specularMap;
+    vec3 diffuseColor;
     float shininess;
 };
 
@@ -19,7 +20,7 @@ struct PointLight {
     float atten_quad;
 };
 
-uniform Material object;
+uniform Material material;
 
 uniform PointLight pointLights[5];
 uniform vec3 ambientColor;
@@ -53,10 +54,10 @@ vec3 calculatePointLight(vec3 diffMapColor, vec3 specMapColor, PointLight light,
     vec3 diffuse = diffMapColor * light.diffuseColor * diffuse_impact;
 
     // I use blinn-phong for specular instead, I think it looks nicer
-    if (object.shininess >= 0.175) {
+    if (material.shininess >= 0.175) {
         vec3 H = normalize(L + V);
         float specular_impact = max(dot(N, H), 0.0);
-        vec3 specular = specMapColor * light.specularColor * pow(specular_impact, object.shininess * 64.0);
+        vec3 specular = specMapColor * light.specularColor * pow(specular_impact, material.shininess * 64.0);
         return (diffuse + specular) * atten;
     } else {
         return diffuse * atten;
@@ -66,10 +67,12 @@ vec3 calculatePointLight(vec3 diffMapColor, vec3 specMapColor, PointLight light,
 void main()
 {
     float gamma = 2.2;
-    vec4 sRGB_diff = texture(object.diffuseMap, vTexCoord);
-    vec4 sRGB_spec = texture(object.specularMap, vTexCoord);
+    vec4 sRGB_diff = texture(material.diffuseMap, vTexCoord);
+    vec4 sRGB_spec = texture(material.specularMap, vTexCoord);
     vec3 diffMapColor = pow(sRGB_diff.rgb, vec3(gamma));
     vec3 specMapColor = pow(sRGB_spec.rgb, vec3(gamma));
+
+    // outColor = vec4(material.shininess, material.shininess, material.shininess, 1.0);
 
     vec3 N = normalize(frag_normal);
     vec3 V = normalize(-eyeSpace_vector);
@@ -87,8 +90,8 @@ void main()
     }
     fragColor += diffMapColor * ambientColor;
 
-    // float depth = linearizeDepth(gl_FragCoord.z) / far;
-    // outColor = vec4(vec3(1.0-depth), 1.0);
+    float depth = linearizeDepth(gl_FragCoord.z) / far;
+    outColor = vec4(vec3(1.0-depth), 1.0);
 
     outColor = vec4(pow(fragColor, vec3(1.0/gamma)), 1.0);
 }

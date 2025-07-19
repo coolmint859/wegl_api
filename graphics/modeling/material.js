@@ -1,46 +1,42 @@
 class Material {
     static #ID_COUNTER = 0;
+    static #defaultColor = Color.WHITE;
+    static #defaultColorName = 'diffuseColor';
+
     // static registry of common properties. This allows for loose type checking
     static #propertyRegistry = new Map([
         // common scalar properties
-        ['shininess', Number],
-        ['roughness', Number],
-        ['metallic', Number],
-        ['alphaCutoff', Number],
+        ['shininess', 'number'],
+        ['roughness', 'number'],
+        ['metallic', 'number'],
+        ['alphaCutoff', 'number'],
 
         // common Color properties
         ['specularColor', Color],
+        ['diffuseColor', Color],
     ]);
 
     // instance variables
-    #contextName;           // the name of the WebGL context. Needed for textures
-    #baseColor;             // the base color
     #properties;            // map of material properties
     #textures;              // map of material textures
     #materialID;
 
     /**
      * Create a new Material Instance
-     * @param {string} contextName the name of the WebGL context. This is needed for consistency with attaching Textures
-     * @param {Color} baseColor default color to fall back to if shaders fail. Also serves as the diffuse color in non-Textured Materials
-     * @param {object} properties optional set of additional properties, like 'shininess' or 'roughness'. Do NOT place Texture instances here.
+     * @param {object} properties optional set of properties, like 'shininess' or 'roughness'. Do NOT place Texture instances here.
      */
-    constructor(contextName, baseColor, properties={}) {
-        this.#contextName = contextName;
+    constructor(properties={}) {
         this.#materialID = Material.#ID_COUNTER++;
-        
-        let color;
-        if (!(baseColor instanceof Color)) {
-            console.warn("TypeError: Expected 'baseColor' to be an instance of Color. Assigning default color Color.WHITE.");
-            color = Color.WHITE;
-        } else { color = baseColor };
-        this.#baseColor = color;
 
         this.#properties = new Map();
         Object.keys(properties).forEach(propName => {
             // map property name to property value
             this.setProperty(propName, properties[propName]);
         });
+
+        if (!this.#properties.has(Material.#defaultColorName)) {
+            this.#properties.set(Material.#defaultColorName, Material.#defaultColor);
+        }
 
         // create texture map, initially empty
         this.#textures = new Map();
@@ -55,50 +51,32 @@ class Material {
     }
 
     /**
-     * Get the WebGL context name that this material was created with.
-     * @returns {string} This material's webGL context's name
+     * Check if all currently attached textures have loaded into GPU memory.
+     * @returns {boolean} true if all textures have loaded, false otherwise
      */
-    getGLContextName() {
-        return this.#contextName;
-    }
-
-    /**
-     * Set the base (diffuse) color for this Material
-     * @param {Color} color the new base color
-     * @returns {boolean} true if the base color was successfully set, false otherwise
-     */
-    setBaseColor(color) {
-        if (!(color instanceof Color)) {
-            console.warn(`TypeError: Expected 'color' to be an instance of Color. Cannot set baseColor of this material ID@${this.#materialID} (Context @${this.#contextName})`);
-            return false;
+    allTexturesLoaded() {
+        let texturesLoaded = true;
+        for (const texture of this.#textures.values()) {
+            if (!texture.loadSuccess()) texturesLoaded = false;
         }
-        this.#baseColor = color;
-        return true;
-    }
-
-    /**
-     * Retrieve the current base color from this Material
-     * @returns {Color} the base color
-     */
-    getBaseColor() {
-        return this.#baseColor.clone();
+        return texturesLoaded;
     }
 
     /**
      * Add/set a property for this material.
      * @param {string} propertyName the name of the property
-     * @param {any} value the value for this property. Must match the associated type, if the propertyName is a known property. 
+     * @param {any} value the value for this property. Must match the associated type.
      * 
      * Note: Cannot be a Texture instance, use attachTexture() to add Textures
      * @returns {boolean} true if the property was successfully set, false otherwise
      */
     setProperty(propertyName, value) {
         if (typeof propertyName !== 'string' || propertyName.trim() === '') {
-            console.error(`TypeError: Expected 'propertyName' to be a non-empty string. Cannot set property of this material ID@${this.#materialID} (Context @${this.#contextName})`);
+            console.error(`[Material ID#${this.#materialID}] TypeError: Expected 'propertyName' to be a non-empty string. Cannot set property of this material.`);
             return false;
         }
-        if (!(Material.validProperty(propertyName, value) || value instanceof Texture)) {
-            console.warn(`ValueError: The provided value for 'value' does not match the expected type for '${propertyName}', or the value is of type Texture. Cannot set property of this material ID@${this.#materialID} (Context @${this.#contextName})`);
+        if (!Material.validProperty(propertyName, value) || value instanceof Texture) {
+            console.warn(`[Material ID#${this.#materialID}] ValueError: The provided value for 'value' does not match the expected type for '${propertyName}', or the value is of type Texture. Cannot set property of this material.`);
             return false;
         }
         this.#properties.set(propertyName, value);
@@ -112,11 +90,11 @@ class Material {
      */
     getProperty(propertyName) {
         if (typeof propertyName !== 'string' || propertyName.trim() === '') {
-            console.error(`TypeError: Expected 'propertyName' to be a non-empty string. Cannot get property of this material ID@${this.#materialID} (Context @${this.#contextName})`);
+            console.error(`[Material ID#${this.#materialID}] TypeError: Expected 'propertyName' to be a non-empty string. Cannot get property of this material.`);
             return undefined;
         }
         if (!(this.#properties.has(propertyName))) {
-            console.warn(`KeyError: '${propertyName}' is not a known property for this Material ID@${this.#materialID} (Context @${this.#contextName}). Cannot get property value.`);
+            console.warn(`[Material ID#${this.#materialID}] KeyError: '${propertyName}' is not a known property for this material. Cannot get property value.`);
             return undefined;
         }
         return this.#properties.get(propertyName);
@@ -144,6 +122,12 @@ class Material {
             return false;
         }
         this.#properties.delete(propertyName);
+
+        // add back in defualt color if it was removed
+        if (!this.#properties.has(Material.#defaultColorName)) {
+            console.warn(`[Material ID#${this.#materialID}]: Default color '${Material.#defaultColorName}' was removed. Applying default color ${Material.#defaultColor.str()}`);
+            this.#properties.set(Material.#defaultColorName, Material.#defaultColor);
+        }
         return true;
     }
 
@@ -153,43 +137,50 @@ class Material {
      * @param {Texture} texture the texture instance to attach.
      * @returns {boolean} true if the texture was successfully attached, false otherwise.
      */
-    attachTexture(type, texture) {
+    attachTexture(texture, type) {
         if (!(texture instanceof Texture)) {
-            console.error(`TypeError: Expected 'texture' to be an instance of Texture. Cannot add texture to this material ID@${this.#materialID} (Context @${this.#contextName})`);
-            return false;
-        }
-        if (texture.getGLContextName() !== this.#contextName) {
-            console.error(`ValueError: ${texture.getGLContextName()} does not match this material's WebGL context name ${this.#contextName}. Cannot attach texture to this material ID@${this.#materialID}.`);
+            console.error(`[Material ID#${this.#materialID}] TypeError: Expected 'texture' to be an instance of Texture. Cannot add texture to this material.`);
             return false;
         }
         if (!(Object.values(Texture.Type).includes(type))) {
-            console.error(`TypeError: Expected 'type' to be a known texture type (e.g Texture.Type.DIFFUSE). Cannot add texture to this material ID@${this.#materialID} (Context @${this.#contextName})`);
+            console.error(`[Material ID#${this.#materialID}] TypeError: Expected 'type' to be a known texture type (e.g Texture.Type.DIFFUSE). Cannot add texture to this material.`);
             return false;
         }
         if (this.#textures.has(type)) {
-            console.error(`ValueError: This material already has texture type ${type} attached. Cannot add texture to this material ID@${this.#materialID} (Context @${this.#contextName})`);
+            console.error(`[Material ID#${this.#materialID}] ValueError: This material already has texture type ${type} attached. Cannot add texture to this material.`);
             return false;
         }
         // all checks pass, attach texture to material
         this.#textures.set(type, texture);
+        console.log(`[Material ID#${this.#materialID}]: Attached Texture '${texture.getTexturePath()}' as Texture.Type.${type.toUpperCase()}.`)
         return true;
     }
 
     /**
      * Get this material's texture instance given the texture's type.
-     * @param {Texture.Type} type the texture type
+     * @param {Texture.Type} type the texture type 
      * @returns {Texture | null} the texture instance, if it exists. (returns null otherwise).
      */
     getTexture(type) {
         if (!(Object.values(Texture.Type).includes(type))) {
-            console.error(`TypeError: Expected 'type' to be a known texture type (e.g Texture.Type.DIFFUSE). Cannot retreive texture from this material ID@${this.#materialID} (Context @${this.#contextName})`);
+            console.error(`[Material ID#${this.#materialID}] TypeError: Expected 'type' to be a known texture type (e.g Texture.Type.DIFFUSE). Cannot retreive texture from this material.`);
             return null;
         }
         if (!this.#textures.has(type)) {
-            console.error(`ValueError: This material doesn't have texture type ${type} attached. Cannot retreive texture from this material ID@${this.#materialID} (Context @${this.#contextName})`);
+            console.error(`[Material ID#${this.#materialID}] ValueError: This material doesn't have texture type ${type} attached. Cannot retreive texture from this material.`);
             return null;
         }
         return this.#textures.get(type);
+    }
+
+    /**
+     * Check if this Material currently has the provided texture type attached to it.
+     * @param {Texture.Type} type the texture type
+     * @returns {boolean} true if this material has a texture of the given type, false otherwise
+     */
+    hasTexture(type) {
+        if (!(Object.values(Texture.Type).includes(type))) return false;
+        return this.#textures.has(type);
     }
 
     /**
@@ -199,60 +190,46 @@ class Material {
      */
     detachTexture(type) {
         if (!(Object.values(Texture.Type).includes(type))) {
-            console.error(`TypeError: Expected 'type' to be a known texture type (e.g Texture.Type.DIFFUSE). Cannot detach texture from this material ID@${this.#materialID} (Context @${this.#contextName})`);
+            console.error(`[Material ID#${this.#materialID}] TypeError: Expected 'type' to be a known texture type (e.g Texture.Type.DIFFUSE). Cannot detach texture from this material.`);
             return false;
         }
         if (!this.#textures.has(type)) {
-            console.error(`ValueError: This material doesn't have texture type '${type}' attached. Cannot detach texture from this material ID@${this.#materialID} (Context @${this.#contextName})`);
+            console.error(`[Material ID#${this.#materialID}] ValueError: This material doesn't have texture type '${type}' attached. Cannot detach texture from this material.`);
             return false;
         }
         return this.#textures.delete(type);
     }
 
-
     /**
-     * Get a list of property names and texture types in a javascript object.
-     * @returns {{properties: Array<string>, textures: Array<string>}} the lists of properties and textures.
+     * Retrieve a list of property names and texture types
+     * @returns {Array<string>} a list of property names and texture types.
      */
     getCapabilities() {
         // get property names
-        let propertyNames = Array.from(this.#properties.keys());
-        propertyNames.push('baseColor'); // all materials have a base color
+        let capabilities = Array.from(this.#properties.keys());
 
         // get texture types (if texture is valid)
-        let validTextures = [];
         for (const [texType, texture] of this.#textures.entries()) {
             // only include the texture if it's valid (and loaded)
-            if (texture.isValid()) validTextures.push(texType);
+            if (texture.loadSuccess()) capabilities.push(texType);
         }
 
-        // create immutable object of properties and types
-        return Object.freeze({ properties: propertyNames, textures: validTextures });
+        return capabilities.sort();
     }
 
     /**
      * Creates an exact replica of this Material, including Textures
      * @returns {Material} a copy of this Material
      */
-    clone(contextName = null) {
-        let glContextName;
-        if (contextName === null) {
-            glContextName = this.#contextName;
-        } else if (!Graphics3D.getGLContext(contextName)) {
-            console.warn("ValueError: Expected 'contextName' to be a non-empty string, refering to a valid WebGL context. Creating Texture in current context.");
-            glContextName = this.#contextName;
-        } else {
-            glContextName = contextName;
-        }
-
+    clone() {
         // create object from properties map
         const properties = Object.fromEntries(this.#properties);
 
         // create a material copy
-        const materialCopy = new Material(this.#contextName, this.#baseColor, properties);
+        const materialCopy = new Material(properties);
         for (const [texType, texture] of this.#textures.entries()) {
             // copy texture over
-            const textureCopy = texture.clone(glContextName);
+            const textureCopy = texture.clone();
             if (textureCopy === null) continue; // skip invalid textures
 
             // attach texture to material copy
@@ -264,16 +241,18 @@ class Material {
 
     /**
      * Clear the textures and properties with this Material, effectively resetting it.
+     * @returns {boolean} true if the textures and properties were successfully disposed, false otherwise
      */
     dispose() {
+        let allTexturesDisposed = true;
         const texturesToRelease = Array.from(this.#textures.values());
         for (const texture of texturesToRelease) {
-            const texturePath = texture.getTexturePath();
-            const textureContext = texture.getGLContextName();
-            Texture.release(textureContext, texturePath);
+            if (!texture.release()) allTexturesDisposed = false;
         }
         this.#textures.clear();
         this.#properties.clear();
+
+        return allTexturesDisposed;
     }
 
     /**
@@ -285,36 +264,27 @@ class Material {
      */
     applyToShader(shaderProgram, renderTextures) {
         if (!(shaderProgram instanceof Shader && shaderProgram.isActive())) {
-            console.error(`TypeError: Expected 'shaderProgram' to be an active instance of Shader. Cannot set material uniforms ID@${this.#materialID}.`);
+            console.error(`[Material ID#${this.#materialID}] TypeError: Expected 'shaderProgram' to be an active instance of Shader. Cannot set material uniforms.`);
         }
-        // from here on out, we know that the given shader program is already active.
-
-        // materials always have a base color, but the shader might not
-        // 'best fit' logic should provide loose matching with base color (i.e. if the shader supports diffuse maps, it doesn't need to support the base color)
-        const baseColorUniform = 'material.diffuseColor';
-        if (shaderProgram.hasUniform(baseColorUniform)) {
-            shaderProgram.setColor(baseColorUniform, this.#baseColor);
-        }
-
         // iterate through properties and set their uniforms
         for (const [propName, value] of this.#properties.entries()) {
             const uniformName = `material.${propName}`;
             // check to see if the shader has the uniform variable. This shouldn't happen with the best fit logic, but just in case.
             if (!shaderProgram.hasUniform(uniformName)) {
-                console.warn(`ValueError: Expected '${propName}' to be a uniform name of ${shaderProgram.getName()}. Skipping this uniform for material ID@${this.#materialID}. `);
+                console.warn(`[Material ID#${this.#materialID}] ValueError: Expected '${propName}' to be a uniform name of ${shaderProgram.getName()}. Skipping this uniform for material.`);
                 continue;
             }
-            this.#setUniform(shaderProgram, uniformName, value);
+            this.#setUniform(shaderProgram, uniformName, value, false);
         }
 
-        // skip setting texture uniforms if not allowed by mesh
+        // only set texture uniforms if allowed by mesh
         if (renderTextures) {
             // iterate through properties and set their uniforms
             let textureIndex = 0;
             for (const [texType, texture] of this.#textures.entries()) {
                 // only set texture if the shader program supports it and the texture is valid.
                 // these two things should be either both true or both false, but we need to be sure
-                if (shaderProgram.supportsTexture(texType) && texture.isValid()) {
+                if (shaderProgram.supportsTexture(texType) && texture.loadSuccess()) {
                     const texUniformName = `material.${texType}Map`; // uniform name formatted like 'material.diffuseMap'
                     texture.bind(textureIndex);
                     // WebGL uses the index to reference textures in GPU memory, so setInt is fine here
@@ -326,31 +296,40 @@ class Material {
     }
 
     /** using the shader program, apply the value to the uniform name in the shader */
-    #setUniform(shaderProgram, uniformName, uniformValue) {
+    #setUniform(shaderProgram, uniformName, uniformValue, logUniform) {
         // no other easy way to do this other than guess and check
         if (uniformValue instanceof Vector2) {
+            if (logUniform) console.log(`[Material ID#${this.#materialID}]: Setting ${uniformName} with value ${uniformValue.str()} as vec2`);
             shaderProgram.setVector2(uniformName, uniformValue);
         } else if (uniformValue instanceof Vector3) {
+            if (logUniform) console.log(`[Material ID#${this.#materialID}]: Setting ${uniformName} with value ${uniformValue.str()} as vec3`);
             shaderProgram.setVector3(uniformName, uniformValue);
         } else if (uniformValue instanceof Vector4) {
+            if (logUniform) console.log(`[Material ID#${this.#materialID}]: Setting ${uniformName} with value ${uniformValue.str()} as vec4`);
             shaderProgram.setVector4(uniformName, uniformValue);
         } else if (uniformValue instanceof Matrix2) {
+            if (logUniform) console.log(`[Material ID#${this.#materialID}]: Setting ${uniformName} with value ${uniformValue.str()} as mat2`);
             shaderProgram.setMatrix2(uniformName, uniformValue);
         } else if (uniformValue instanceof Matrix3) {
+            if (logUniform) console.log(`[Material ID#${this.#materialID}]: Setting ${uniformName} with value ${uniformValue.str()} as mat3`);
             shaderProgram.setMatrix3(uniformName, uniformValue);
         } else if (uniformValue instanceof Matrix4) {
+            if (logUniform) console.log(`[Material ID#${this.#materialID}]: Setting ${uniformName} with value ${uniformValue.str()} as mat4`);
             shaderProgram.setMatrix4(uniformName, uniformValue);
         } else if (uniformValue instanceof Color) {
+            if (logUniform) console.log(`[Material ID#${this.#materialID}]: Setting ${uniformName} with value ${uniformValue.str()} as vec3(color)`);
             shaderProgram.setColor(uniformName, uniformValue);
         // check if boolean first, then if number
         } else if (typeof uniformValue === 'boolean') {
+            if (logUniform) console.log(`[Material ID#${this.#materialID}]: Setting ${uniformName} with value ${uniformValue} as bool`);
             shaderProgram.setBool(uniformName, uniformValue);
         } else if (typeof uniformValue === 'number') {
             // somehow differentiate between an int and a float? - this is fine for now
+            if (logUniform) console.log(`[Material ID#${this.#materialID}]: Setting ${uniformName} with value ${uniformValue} as float`);
             shaderProgram.setFloat(uniformName, uniformValue);
         } else {
             // property is some weird type! Theoretically this shouldn't happen if we check if the shader program supports it, but gotta be sure
-            console.warn(`Material: Skipping uniform for property '${uniformName}'. Value type '${typeof uniformValue}' not supported for automatic uniform setting.`);
+            console.warn(`[Material ID#${this.#materialID}]: Skipping uniform for property '${uniformName}'. Value type '${typeof uniformValue}' not supported for automatic uniform setting.`);
         }
     }
 
@@ -379,13 +358,13 @@ class Material {
 
     /**
      * Add a known Material property type to a registy
-     * @param {string} name the name of the property (e.g. 'baseColor')
+     * @param {string} name the name of the property (e.g. 'diffuseColor')
      * @param {function | string} Type the expected type the property should have (e.g. Color, Matrix4...);
      * @returns {boolean} true if the property name and type were successfully added to the registry, false otherwise
      */
     static addKnownProperty(propertyName, Type) {
         if (typeof propertyName !== 'string' || propertyName.trim() === '') {
-            console.error(`TypeError: Expected 'propertyName' to be a non-empty string. Cannot add property type to internal registry.`);
+            console.error(`[Material] TypeError: Expected 'propertyName' to be a non-empty string. Cannot add property type to internal registry.`);
             return false;
         }
         Material.#propertyRegistry.set(propertyName, Type);
