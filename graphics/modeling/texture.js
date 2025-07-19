@@ -30,7 +30,7 @@ class Texture {
         Texture.#gl = Graphics3D.getGLContext();
 
         if (typeof texturePath === 'string' && texturePath.trim() !== '') {
-            AssetLoader.load(texturePath, this.#loadTexture.bind(this), this.#disposeTexture.bind(this))
+            AssetRegistry.load(texturePath, this.#loadTexture.bind(this), this.#disposeTexture.bind(this))
             .then(assetData => {
                 console.log(`[Texture ID#${this.#textureID}] Created new texture '${texturePath}'.`);
             }).catch(error => {
@@ -62,7 +62,7 @@ class Texture {
      * @returns {boolean} true if successfully loaded, false otherwise
      * */
     loadSuccess() {
-        return AssetLoader.isLoaded(this.#texturePath);
+        return AssetRegistry.isLoaded(this.#texturePath);
     }
 
     /** 
@@ -70,12 +70,12 @@ class Texture {
      * @returns {boolean} true if failed to load, false otherwise
      * */
     loadFailure() {
-        return AssetLoader.isFailed(this.#texturePath);
+        return AssetRegistry.isFailed(this.#texturePath);
     }
 
     async reload() {
         try {
-            reloadedData = await AssetLoader.reload(this.#texturePath);
+            reloadedData = await AssetRegistry.reload(this.#texturePath);
             console.log(`[Texture ID#${this.#textureID}]: Successfully reloaded '${this.#texturePath}'.`);
             return reloadedData;
         } catch (error) {
@@ -90,10 +90,10 @@ class Texture {
      * @returns {boolean} true if this texture was successfully bound, false otherwise
      * */
     bind(locationIndex) {
-        if (AssetLoader.isLoaded(this.#texturePath)) {
+        if (AssetRegistry.isLoaded(this.#texturePath)) {
             const gl = Texture.#gl;
 
-            const textureData = AssetLoader.getAssetData(this.#texturePath);
+            const textureData = AssetRegistry.getAssetData(this.#texturePath);
             gl.activeTexture(gl.TEXTURE0 + locationIndex);
             gl.bindTexture(gl.TEXTURE_2D, textureData.glTexture);
             return true;
@@ -109,7 +109,7 @@ class Texture {
      * @returns {boolean} true if this texture was successfully unbound, false otherwise
      * */
     unbind(locationIndex) {
-        if (AssetLoader.isLoaded(this.#texturePath)) {
+        if (AssetRegistry.isLoaded(this.#texturePath)) {
             const gl = Texture.#gl;
 
             gl.activeTexture(gl.TEXTURE0 + locationIndex);
@@ -126,7 +126,7 @@ class Texture {
      * @returns {Texture | null } a copy of this Texture - if not a valid texture, returns null
      */
     clone() {
-        if (!AssetLoader.isLoaded(this.#texturePath)) {
+        if (!AssetRegistry.isLoaded(this.#texturePath)) {
             console.error(`[Texture ID#${this.#textureID}] Error: Texture '${this.#texturePath}' is not yet loaded or is invalid. Cannot create a copy of this Texture.`);
             return null;
         }
@@ -138,7 +138,7 @@ class Texture {
      * @returns {boolean} true if the texture was successfully released, false otherwise
      */
     release() {
-        return AssetLoader.release(this.#texturePath);
+        return AssetRegistry.release(this.#texturePath);
     }
 
     /**
@@ -148,7 +148,7 @@ class Texture {
      */
     getTextureData() {
         // check if the collection has this specific texture defined
-        const textureData = AssetLoader.getAssetData(this.#texturePath);
+        const textureData = AssetRegistry.getAssetData(this.#texturePath);
         if (!textureData) {
             console.warn(`Warning: Texture '${this.#texturePath}' was not found. Cannot get texture data.`);
             return null;

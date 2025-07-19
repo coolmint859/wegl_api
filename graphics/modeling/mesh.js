@@ -54,7 +54,7 @@ class Mesh {
         this.#currentMaterialCapabilities = { 'properties': [], 'textures': [] };
         
         if (typeof meshPath === 'string' && meshPath.trim() !== '') {
-            AssetLoader.load(meshPath, this.#loadMesh.bind(this), this.#disposeMesh.bind(this))
+            AssetRegistry.load(meshPath, this.#loadMesh.bind(this), this.#disposeMesh.bind(this))
             .then(meshData => {
                 this.refreshShaderEvaluation(); 
                 console.log(`[Mesh ID#${this.#meshID}] Created new mesh '${meshPath}'.`);
@@ -92,7 +92,7 @@ class Mesh {
      * @returns {boolean} true if successfully loaded, false otherwise
      * */
     isLoaded() {
-        return AssetLoader.isLoaded(this.#meshPath);
+        return AssetRegistry.isLoaded(this.#meshPath);
     }
 
     /** 
@@ -101,7 +101,7 @@ class Mesh {
      * */
     bind() {
         if (this.isValid()) {
-            const meshData = AssetLoader.getAssetData(this.#meshPath);
+            const meshData = AssetRegistry.getAssetData(this.#meshPath);
             Mesh.#gl.bindVertexArray(meshData.VAO);
             return true;
         } else {
@@ -160,7 +160,7 @@ class Mesh {
         shaderProgram.setMatrix4('model', this.transform.getWorldMatrix());
 
         // apply material uniforms, skip textures if texture coords are not present
-        const meshData = AssetLoader.getAssetData(this.#meshPath);
+        const meshData = AssetRegistry.getAssetData(this.#meshPath);
         this.#material.applyToShader(shaderProgram, meshData.hasTexCoords);
     }
 
@@ -227,7 +227,7 @@ class Mesh {
         if (this.#currentShaderName !== null) {
             shaderReleased = ShaderManager.release(this.#currentShaderName);
         }
-        let meshReleased = AssetLoader.release(this.#meshPath);
+        let meshReleased = AssetRegistry.release(this.#meshPath);
 
         let materialDisposed = this.#material.dispose();
         this.#material = null;

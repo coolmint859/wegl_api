@@ -23,7 +23,7 @@ class Shader {
         this.#vertexPath = vertex_path;
         this.#fragmentPath = fragment_path;
 
-        AssetLoader.load(shaderName, this.#buildProgram.bind(this), this.#disposeProgram.bind(this))
+        AssetRegistry.load(shaderName, this.#buildProgram.bind(this), this.#disposeProgram.bind(this))
         .then(programData => {
             console.log(`[Shader @${shaderName}]: Compiled and linked Shader successfully. ${programData}`);
         }).catch(error => {
@@ -36,7 +36,7 @@ class Shader {
     }
 
     getProgramID() {
-        const shaderData = AssetLoader.getAssetData(this.#shaderName);
+        const shaderData = AssetRegistry.getAssetData(this.#shaderName);
         return shaderData.programID;
     }
 
@@ -46,7 +46,7 @@ class Shader {
      */
     getCapabilities() {
         if (this.isLoaded()) {
-            const shaderData = AssetLoader.getAssetData(this.#shaderName);
+            const shaderData = AssetRegistry.getAssetData(this.#shaderName);
             return shaderData.variableNames.sort();
         } else {
             console.warn(`[Shader @${this.#shaderName}]: Cannot retreive shader variables as this shader is not yet loaded.`);
@@ -70,7 +70,7 @@ class Shader {
      * @returns {boolean} true if the shader is ready, false otherwise
      */
     isLoaded() {
-        return AssetLoader.isLoaded(this.#shaderName);
+        return AssetRegistry.isLoaded(this.#shaderName);
     }
 
     /**
@@ -98,7 +98,7 @@ class Shader {
         const currentProgram = gl.getParameter(gl.CURRENT_PROGRAM);
         if (!currentProgram) return false;
 
-        const shaderData = AssetLoader.getAssetData(this.#shaderName);
+        const shaderData = AssetRegistry.getAssetData(this.#shaderName);
         if (!shaderData) return false;
 
         return shaderData.programID === currentProgram;
@@ -250,7 +250,7 @@ class Shader {
 
     /** Retrieve uniform location names from map */
     #getUniformLocation(name) {
-        const programData = AssetLoader.getAssetData(this.#shaderName);
+        const programData = AssetRegistry.getAssetData(this.#shaderName);
         if (programData.uniformMap.has(name)) {
             return programData.uniformMap.get(name);
         }
@@ -270,8 +270,8 @@ class Shader {
         try {
             const gl = Shader.#gl;
 
-            const vertexShaderSource = await AssetLoader.load(this.#vertexPath, loadFileFromServer);
-            const fragmentShaderSource = await AssetLoader.load(this.#fragmentPath, loadFileFromServer);
+            const vertexShaderSource = await AssetRegistry.load(this.#vertexPath, loadFileFromServer);
+            const fragmentShaderSource = await AssetRegistry.load(this.#fragmentPath, loadFileFromServer);
 
             const vertexShader = this.#compileShader(shaderName, vertexShaderSource, gl.VERTEX_SHADER);
             const fragmentShader = this.#compileShader(shaderName, fragmentShaderSource, gl.FRAGMENT_SHADER);

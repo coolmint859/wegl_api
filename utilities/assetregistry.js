@@ -1,13 +1,13 @@
 /**
  * Utility class for loading and caching common assets 
  * */
-class AssetLoader {
+class AssetRegistry {
     static AssetState = {
         LOADING: 'loading',
         LOADED: 'loaded',
         FAILED: 'failed',
     }
-    static #assetRegistry = new Map();
+    static #cache = new Map();
 
     /**
      * Asyncronously load an asset (image, audio, text, etc..) into main memory
@@ -17,9 +17,9 @@ class AssetLoader {
      * @returns {Promise} a promise indicating success or failure of loading the asset
      */
     static async load(assetPath, loadFunction, disposeFunction = null) {
-        if (AssetLoader.#assetRegistry.has(assetPath)) {
-            const assetInfo = AssetLoader.#assetRegistry.get(assetPath);
-            if (assetInfo.loadState !== AssetLoader.AssetState.FAILED) {
+        if (AssetRegistry.#cache.has(assetPath)) {
+            const assetInfo = AssetRegistry.#cache.get(assetPath);
+            if (assetInfo.loadState !== AssetRegistry.AssetState.FAILED) {
                 assetInfo.refCount++;
                 console.log(`[AssetLoader]: Using existing asset '${assetPath}'. Reference Count: ${assetInfo.refCount}.`);
                 return assetInfo.loadPromise;
@@ -35,7 +35,7 @@ class AssetLoader {
 
             const assetInfo = {
                 refCount: 1,
-                loadState: AssetLoader.AssetState.LOADING,
+                loadState: AssetRegistry.AssetState.LOADING,
                 data: null,
                 _disposeFunc: disposeFunction,
                 _loadFunc: loadFunction,
@@ -43,16 +43,16 @@ class AssetLoader {
                 _resolve: resolveFunc,
                 _reject: rejectFunc
             }
-            AssetLoader.#assetRegistry.set(assetPath, assetInfo);
+            AssetRegistry.#cache.set(assetPath, assetInfo);
 
             console.log(`[AssetLoader]: Initiating load for asset '${assetPath}'. Reference Count: ${assetInfo.refCount}.`);
             try {
                 const assetData = await loadFunction(assetPath);
-                AssetLoader.#onLoadSuccess(assetPath, assetData)
+                AssetRegistry.#onLoadSuccess(assetPath, assetData)
                 // console.log(assetData);
                 return assetData;
             } catch (error) {
-                AssetLoader.#onLoadFailure(assetPath, error);
+                AssetRegistry.#onLoadFailure(assetPath, error);
                 throw error;
             }
         }
@@ -65,7 +65,7 @@ class AssetLoader {
      * @returns {Promise} a promise inidicating success or failure on reloading
      */
     static async reload(assetPath) {
-        const assetInfo = AssetLoader.#assetRegistry.get(assetPath);
+        const assetInfo = AssetRegistry.#cache.get(assetPath);
         if (!assetInfo) {
             console.error(`[AssetLoader]: Asset '${assetPath}' was not found in the registry. Cannot reload.`)
             return Promise.reject(new Error(`Asset '${assetPath}' was not found in the registry.`));
@@ -82,7 +82,7 @@ class AssetLoader {
         });
 
         // update state to prepare for reloading
-        assetInfo.loadState = AssetLoader.AssetState.LOADING;
+        assetInfo.loadState = AssetRegistry.AssetState.LOADING;
         assetInfo.loadPromise = newLoadPromise;
         assetInfo._resolve = newResolveFunc;
         assetInfo._reject = newRejectFunc;
@@ -96,7 +96,7 @@ class AssetLoader {
                 assetInfo._disposeFunc(assetInfo.data);
             }
 
-            AssetLoader.#onLoadSuccess(assetPath, newAssetData);
+            AssetRegistry.#onLoadSuccess(assetPath, newAssetData);
             return newAssetData;
         } catch (error) {
             // reload failed, fallback to old data
@@ -115,9 +115,9 @@ class AssetLoader {
      * @returns {boolean} true if the asset was successfully loaded, false otherwise
      */
     static isLoaded(assetPath) {
-        if (AssetLoader.#assetRegistry.has(assetPath)) {
-            const assetInfo = AssetLoader.#assetRegistry.get(assetPath);
-            return assetInfo.loadState === AssetLoader.AssetState.LOADED;
+        if (AssetRegistry.#cache.has(assetPath)) {
+            const assetInfo = AssetRegistry.#cache.get(assetPath);
+            return assetInfo.loadState === AssetRegistry.AssetState.LOADED;
         }
         return false;
     }
@@ -128,9 +128,9 @@ class AssetLoader {
      * @returns {boolean} true if the asset was failed loading, false otherwise
      */
     static isFailed(assetPath) {
-        if (AssetLoader.#assetRegistry.has(assetPath)) {
-            const assetInfo = AssetLoader.#assetRegistry.get(assetPath);
-            return assetInfo.loadState === AssetLoader.AssetState.FAILED;
+        if (AssetRegistry.#cache.has(assetPath)) {
+            const assetInfo = AssetRegistry.#cache.get(assetPath);
+            return assetInfo.loadState === AssetRegistry.AssetState.FAILED;
         }
         return false;
     }
@@ -141,8 +141,8 @@ class AssetLoader {
      * @returns {object | null} an object containing the data stored with the asset as determined at load time. If the asset has not finished loading, failed loading, or doesn't exist, null is returned.
      */
     static getAssetData(assetPath) {
-        if (AssetLoader.#assetRegistry.has(assetPath)) {
-            return AssetLoader.#assetRegistry.get(assetPath).data;
+        if (AssetRegistry.isLoaded(assetPath)) {
+            return AssetRegistry.#cache.get(assetPath).data;
         }
         return null;
     }
@@ -153,7 +153,7 @@ class AssetLoader {
      * @returns {boolean} true if the asset was found, false otherwise
      */
     static contains(assetPath) {
-        return AssetLoader.#assetRegistry.has(assetPath);
+        return AssetRegistry.#cache.has(assetPath);
     }
 
     /**
@@ -163,7 +163,7 @@ class AssetLoader {
      */
     static release(assetPath) {
         // then check if the collection has this specific texture defined
-        const assetInfo = AssetLoader.#assetRegistry.get(assetPath);
+        const assetInfo = AssetRegistry.#cache.get(assetPath);
         if (!assetInfo) {
             console.warn(`[AssetLoader]: Asset '${assetPath}' was not found in the registry. Cannot release asset from memory.`);
             return false;
@@ -177,7 +177,7 @@ class AssetLoader {
             if (assetInfo._disposeFunc && assetInfo.data) {
                 assetInfo._disposeFunc(assetInfo.data);
             }
-            AssetLoader.#assetRegistry.delete(assetPath);
+            AssetRegistry.#cache.delete(assetPath);
         }
         return true;
     }
@@ -188,12 +188,12 @@ class AssetLoader {
      * @returns {boolean} true if the asset was successfully deleted, false otherwise.
      */
     static delete(assetPath) {
-        const assetInfo = AssetLoader.#assetRegistry.get(assetPath);
+        const assetInfo = AssetRegistry.#cache.get(assetPath);
         if (assetInfo) {
             if (assetInfo._disposeFunc && assetInfo.data) {
                 assetInfo._disposeFunc(assetInfo.data);
             }
-            AssetLoader.#assetRegistry.delete(assetPath);
+            AssetRegistry.#cache.delete(assetPath);
 
             console.log(`Deleted Asset '${assetPath}' from memory. All references removed.`);
             return true;
@@ -209,9 +209,9 @@ class AssetLoader {
      */
     static deleteAll() {
         let allAssetsDeleted = true;
-        const assetPathsArray = Array.from(AssetLoader.#assetRegistry.keys());
+        const assetPathsArray = Array.from(AssetRegistry.#cache.keys());
         for (const assetPath of assetPathsArray) {
-            if (!AssetLoader.delete(assetPath)) allAssetsDeleted = false;
+            if (!AssetRegistry.delete(assetPath)) allAssetsDeleted = false;
         }
         return allAssetsDeleted;
     }
@@ -223,41 +223,41 @@ class AssetLoader {
             return;
         }
 
-        const assetInfo = AssetLoader.#assetRegistry.get(assetPath);
-        if (!assetInfo || assetInfo.loadState !== AssetLoader.AssetState.LOADING) {
+        const assetInfo = AssetRegistry.#cache.get(assetPath);
+        if (!assetInfo || assetInfo.loadState !== AssetRegistry.AssetState.LOADING) {
             console.warn(`[AssetLoader]: Async load of '${assetPath}' completed, but assetInfo was modified/removed. Loaded data discarded.`);
             return;
         }
 
         // update asset info
         assetInfo.data = loadedData;
-        assetInfo.loadState = AssetLoader.AssetState.LOADED;
+        assetInfo.loadState = AssetRegistry.AssetState.LOADED;
         assetInfo._resolve(loadedData);
         console.log(`[AssetLoader]: Asset '${assetPath}' successfully loaded.`);
 
         // If refCount dropped to 0 while loading, clean up immediately
         if (assetInfo.refCount <= 0) {
-            AssetLoader.release(assetPath);
+            AssetRegistry.release(assetPath);
         }
     }
 
     /** Called if loading a resource was unsuccessful. */
     static #onLoadFailure(assetPath, error) {
-        const assetInfo = AssetLoader.#assetRegistry.get(assetPath);
-        if (!assetInfo || assetInfo.loadState !== AssetLoader.AssetState.LOADING) {
+        const assetInfo = AssetRegistry.#cache.get(assetPath);
+        if (!assetInfo || assetInfo.loadState !== AssetRegistry.AssetState.LOADING) {
             console.warn(`[AssetLoader]: Async load of '${assetPath}' failed, but assetInfo was modified/removed. Error discarded.`);
             return;
         }
 
         // update asset info
-        assetInfo.loadState = AssetLoader.LoadState.FAILED;
+        assetInfo.loadState = AssetRegistry.LoadState.FAILED;
         assetInfo.data = null;
         assetInfo._reject(error);
         console.error(`[AssetLoader]: Failed to load asset '${assetPath}'. Error:`, error);
 
         // If refCount dropped to 0, clean up immediately
         if (assetInfo.refCount <= 0) {
-            AssetLoader.release(assetPath);
+            AssetRegistry.release(assetPath);
         }
     }
 }
