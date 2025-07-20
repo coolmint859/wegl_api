@@ -1,5 +1,10 @@
+import { Vector3 } from "../../utilities/vector.js";
+import { Matrix4 } from "../../utilities/matrix.js";
+import Transform from "../../utilities/transform.js";
+import Quaternion from "../../utilities/quaternion.js";
+
 /** Provides common attributes/methods for all camera types. This class is abstract and should not be instatiated directly */
-class Camera {
+export default class Camera {
     // static variables, always constant
     // we can let the user directly configure these since they're universal to all camera subclasses
     static MAX_FOV = 2.094; // 120 degrees

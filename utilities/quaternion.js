@@ -1,17 +1,20 @@
+import { Vector3 } from './vector.js';
+import { Matrix4 } from './matrix.js';
+
 /** Used for converting euler angles into quaternions and vice versa */
-const EulerOrder = {
+export const EulerOrder = Object.freeze({
     XYZ: 'XYZ',
     XZY: 'XZY',
     YXZ: 'YXZ',
     YZX: 'YZX',
     ZXY: 'ZXY',
     ZYX: 'ZYX'
-};
+});
 
 /** 
  * Representes a 4D complex number, useful for 3D rotations 
  * */
-class Quaternion {
+export default class Quaternion {
     /**
      * create a new Quaternion instance
      * @param {number} w the scalar coordinate

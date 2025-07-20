@@ -1,7 +1,8 @@
+import { interpolate } from "./blend.js";
 /**
  * Holds color information in the format (r, g, b, a). Also provides common colors.
  */
-class Color {
+export default class Color {
     static BLACK = new Color(0, 0, 0);
     static GRAY = new Color(0.5, 0.5, 0.5)
     static WHITE = new Color(1, 1, 1);

@@ -1,7 +1,7 @@
 /**
  * Utility class for loading and caching common assets 
  * */
-class AssetRegistry {
+export default class AssetRegistry {
     static AssetState = {
         LOADING: 'loading',
         LOADED: 'loaded',
@@ -255,5 +255,35 @@ class AssetRegistry {
         if (assetInfo.refCount <= 0) {
             AssetRegistry.release(assetPath);
         }
+    }
+
+    /**
+     * load an image file from the server.
+     * 
+     * Note: the loaded image is NOT stored in the registry. Use this function in conjunction with AssetRegistry.load()
+     * @param {string} imagePath the path to the image
+     */
+    static async loadImage(imagePath) {
+        try {
+            let asset = new Image();
+            asset.crossOrigin = "anonymous";
+            asset.src = imagePath;
+            await asset.decode();
+
+            return asset;
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    /**
+     * load a text file from the server.
+     * 
+     * Note: the loaded text is NOT stored in the registry. Use this function in conjunction with AssetRegistry.load()
+     * @param {string} imagePath the path to the image
+     */
+    static async loadFile(filePath) {
+        let result = await fetch(filePath);
+        return result.text();
     }
 }

@@ -1,7 +1,13 @@
+import MoveableCamera from "./mCamera.js";
+import Quaternion from "../../utilities/quaternion.js";
+import Transform from "../../utilities/transform.js";
+import { Matrix4 } from "../../utilities/matrix.js";
+import { Vector3 } from "../../utilities/vector.js";
+
 /**
  * FPS style camera, where the movements of such are directly controlled by the user
  */
-class FPSCamera extends MoveableCamera {
+export default class FPSCamera extends MoveableCamera {
     /**
      * Creates a new FPSCamera instance.
      */

@@ -1,4 +1,8 @@
-class DirectLight extends Light {
+import { Vector3 } from "../../utilities/vector.js";
+import Color from "../../utilities/color.js";
+import Light from "./light.js";
+
+export default class DirectLight extends Light {
     #direction;
 
     /**
@@ -19,7 +23,7 @@ class DirectLight extends Light {
         }
 
         this.#direction = directionVector.normal();
-        this._lightType = Light.DIRECTIONAL;
+        this._lightType = Light.Type.DIRECTIONAL;
     }
 
     /**

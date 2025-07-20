@@ -1,5 +1,8 @@
+import Camera from "./camera.js";
+import Transform from "../../utilities/transform.js";
+
 /** An abstract class defining a camera movable by the user, providing methods for such. */
-class MoveableCamera extends Camera {
+export default class MoveableCamera extends Camera {
     // minimum and maximum pitch allowed by the camera
     static MAX_PITCH = Math.PI/2 - 0.05;
     static MIN_PITCH = -Math.PI/2 + 0.05;

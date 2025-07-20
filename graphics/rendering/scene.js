@@ -1,3 +1,8 @@
+import Color from "../../utilities/color.js";
+import Model from "../modeling/model2.js";
+import Camera from "../cameras/camera.js";
+import Light from "../lighting/light.js";
+
 /**
  * Represents a renderable set of models, lights, and cameras in flat collections.
  * 
@@ -5,7 +10,7 @@
  * You can do whatever you want with the instance (it's name is 'defaultCamera' and it's tagged with 'default'), but you will not be
  * able to add any camera that has the same name or the same tag. This system ensures the default camera is always available as a failsafe.
  */
-class Scene {
+export default class Scene {
     // collections for each object
     #models;
     #lights;

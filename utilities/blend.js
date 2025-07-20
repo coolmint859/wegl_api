@@ -1,12 +1,11 @@
-const EasingFunc = {
+export const EasingFunc = Object.freeze({
     LINEAR: 'linear',
     SMOOTHSTEP: 'smoothstep',
     SMOOTHERSTEP: 'smootherstep',
     EASE_IN: 'ease_in',
     EASE_OUT: 'ease_out',
     EASE_INOUT: 'ease_inout'
-}
-Object.freeze(EasingFunc);
+});
 
 /**
  * Linearly maps a value in between min1 and max1 to a value between min2 and max2
@@ -17,7 +16,7 @@ Object.freeze(EasingFunc);
  * @param {number} value the value to map from the start range to the mapped range
  * @returns the mapped value
  */
-function mapRange(min1, max1, min2, max2, value) {
+export function mapRange(min1, max1, min2, max2, value) {
     return min2 + ((value - min1) / (min2 - min1)) * (max2 - max1);
 }
 
@@ -28,7 +27,7 @@ function mapRange(min1, max1, min2, max2, value) {
  * @param {number} max the maximum clamping value
  * @returns the clamped value
  */
-function clamp(value, min, max) {
+export function clamp(value, min, max) {
     return Math.max(min, Math.min(value, max));
 }
 
@@ -40,7 +39,7 @@ function clamp(value, min, max) {
  * @param {EasingFunc} easingFunc the easing function to apply
  * @returns {number} the interpolated value
  */
-function interpolate(a, b, t, easingFunc = EasingFunc.LINEAR) {
+export function interpolate(a, b, t, easingFunc = EasingFunc.LINEAR) {
     if (typeof a !== 'number' || typeof b !== 'number' || typeof a !== 'number') {
         console.error(`TypeError: Expected 'a', 'b' and 't' to be numbers, but one isn't. Cannot interpolate.`);
         return 0;
@@ -71,7 +70,7 @@ function interpolate(a, b, t, easingFunc = EasingFunc.LINEAR) {
 /**
  * Linearly interpolate between two numbers a and b with parameter t (Clamps t to be between 0 and 1)
  */
-function lerp(a, b, t) {
+export function lerp(a, b, t) {
     if (typeof a !== 'number' || typeof b !== 'number' || typeof t !== 'number') {
         console.error(`TypeError: Either value ${a}, ${b}, or ${t} is not a number. Cannot interpolate.`);
         return 0;
@@ -83,7 +82,7 @@ function lerp(a, b, t) {
 /**
  * Apply smoothstep function to value x. (Clamps x to be between 0 and 1)
  */
-function smoothstep(x) {
+export function smoothstep(x) {
     if (typeof x !== 'number') {
         console.error(`TypeError: Value ${x} is not a number. Cannot interpolate.`);
         return 0;
@@ -95,7 +94,7 @@ function smoothstep(x) {
 /**
  * Apply smootherstep function to value x. (Clamps x to be between 0 and 1)
  */
-function smootherstep(x) {
+export function smootherstep(x) {
     if (typeof x !== 'number') {
         console.error(`TypeError: Value ${x} is not a number. Cannot interpolate.`);
         return 0;
@@ -107,7 +106,7 @@ function smootherstep(x) {
 /**
  * Apply ease-in function to value x. (Clamps x to be between 0 and 1)
  */
-function ease_in(x) {
+export function ease_in(x) {
     if (typeof x !== 'number') {
         console.error(`TypeError: Value ${x} is not a number. Cannot interpolate.`);
         return 0;
@@ -119,7 +118,7 @@ function ease_in(x) {
 /**
  * Apply ease-out function to value x. (Clamps x to be between 0 and 1)
  */
-function ease_out(x) {
+export function ease_out(x) {
     if (typeof x !== 'number') {
         console.error(`TypeError: Value ${x} is not a number. Cannot interpolate.`);
         return 0;
@@ -131,7 +130,7 @@ function ease_out(x) {
 /**
  * Apply ease-inout function to value x. (Clamps x to be between 0 and 1)
  */
-function ease_inout(x) {
+export function ease_inout(x) {
     if (typeof x !== 'number') {
         console.error(`TypeError: Value ${x} is not a number. Cannot interpolate.`);
         return 0;

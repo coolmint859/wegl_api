@@ -1,8 +1,13 @@
+import Graphics3D from '../rendering/renderer.js';
+import { Vector2, Vector3, Vector4 } from '../../utilities/vector.js';
+import { Matrix2, Matrix3, Matrix4 } from '../../utilities/matrix.js';
+import Color from '../../utilities/color.js';
+import AssetRegistry from '../../utilities/registry.js';
 
 /**
  * Represents a generic shader program. Handling creation, linking, and setting uniforms.
  */
-class Shader {
+export default class Shader {
     static #gl;
 
     #shaderName;
@@ -269,8 +274,8 @@ class Shader {
         try {
             const gl = Shader.#gl;
 
-            const vertexShaderSource = await AssetRegistry.load(this.#vertexPath, loadFileFromServer);
-            const fragmentShaderSource = await AssetRegistry.load(this.#fragmentPath, loadFileFromServer);
+            const vertexShaderSource = await AssetRegistry.load(this.#vertexPath, AssetRegistry.loadFile);
+            const fragmentShaderSource = await AssetRegistry.load(this.#fragmentPath, AssetRegistry.loadFile);
 
             const vertexShader = this.#compileShader(shaderName, vertexShaderSource, gl.VERTEX_SHADER);
             const fragmentShader = this.#compileShader(shaderName, fragmentShaderSource, gl.FRAGMENT_SHADER);

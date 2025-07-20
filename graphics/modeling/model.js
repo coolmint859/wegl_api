@@ -1,3 +1,7 @@
+import AssetRegistry from "../../utilities/registry.js";
+import { Vector2, Vector3 } from "../../utilities/vector.js";
+
+
 /**
  * Parses the header of a PLY file to extract essential information.
  * @param {string} modelFileString The entire content of the PLY file.
@@ -298,8 +302,8 @@ function generateModel(vertices, normals, faces, textureCoords) {
  * @param {string} modelFilePath The path to the PLY file.
  * @returns {Promise<object>} A promise that resolves to an object containing WebGL-ready buffers.
  */
-async function createModel(modelFilePath) {
-    let modelFileString = await loadFileFromServer(modelFilePath);
+export async function createModel(modelFilePath) {
+    let modelFileString = await AssetRegistry.loadFile(modelFilePath);
 
     if (!modelFileString.startsWith("ply") || modelFilePath.split(".").pop() !== "ply") {
         throw new Error("File type is not ply or file does not start with 'ply'.");
@@ -322,7 +326,7 @@ async function createModel(modelFilePath) {
  * @param numBands a band is a set of polygons from north to south pole
  * @param numRings a ring is lateral set of polygons
  */
-function gernerateSphere(numRings, numBands) {
+export function gernerateSphere(numRings, numBands) {
     if (numBands < 3 || numRings < 2)
         throw Error("Degenerate shape, not enough vertices.");
 
@@ -403,7 +407,7 @@ function gernerateSphere(numRings, numBands) {
 }
 
 
-function generateRectPrism() {
+export function generateRectPrism() {
     let vertices = new Float32Array([
         1, -1, -1,// back face
         1, 1, -1,

@@ -1,7 +1,11 @@
+import { Vector3 } from './vector.js';
+import Quaternion from './quaternion.js';
+import { Matrix4 } from './matrix.js';
+
 /**
  * Encapsulates local to world space transformations.
  */
-class Transform {
+export default class Transform {
     // local orientation vectors, these are always constant
     static localRight   = new Vector3(1, 0, 0);
     static localUp      = new Vector3(0, 1, 0);

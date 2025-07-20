@@ -1,4 +1,11 @@
-class Mesh {
+import Graphics3D from "../rendering/renderer.js";
+import AssetRegistry from "../../utilities/registry.js";
+import Transform from "../../utilities/transform.js";
+import Material from "./material.js";
+import ShaderManager from "../shading/shader_manager.js";
+import AssetRegistry from "../../utilities/registry.js";
+
+export default class Mesh {
     static #ID_COUNTER = 0;
     static #gl;
 

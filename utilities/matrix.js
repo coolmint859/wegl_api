@@ -1,7 +1,10 @@
+import { Vector2, Vector3, Vector4 } from './vector.js';
+import Quaternion from './quaternion.js';
+
 /**
  * Represents a 4x4 mathematical matrix, row-major order
  */
-class Matrix4 {
+export class Matrix4 {
     #values;
     #size;
 
@@ -348,7 +351,7 @@ class Matrix4 {
 /**
  * Represents a 3x3 mathematical matrix, row-major order
  */
-class Matrix3 {
+export class Matrix3 {
     #values;
     #size;
 
@@ -591,7 +594,7 @@ class Matrix3 {
 /**
  * Represents a 2x2 mathematical matrix
  */
-class Matrix2 {
+export class Matrix2 {
     #values;
     #size;
 

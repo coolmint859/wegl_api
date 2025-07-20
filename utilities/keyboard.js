@@ -1,7 +1,7 @@
 /**
  * Processes basic input from the keyboard. 
  * */
-class KeyBoardInput {
+export default class KeyBoardInput {
     #currentPressedKeys = new Set();
     #previousPressedKeys = new Set();
 

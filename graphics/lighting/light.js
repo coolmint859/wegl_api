@@ -1,8 +1,11 @@
-class Light {
-    // class member variables
-    static POINTLIGHT = 'point';
-    static SPOTLIGHT = 'spot';
-    static DIRECTIONAL = 'directional';
+import Color from "../../utilities/color.js";
+
+export default class Light {
+    static Type = Object.freeze({
+        POINTLIGHT: 'point',
+        SPOTLIGHT: 'spot',
+        DIRECTIONAL: 'directional'
+    })
     static #ID_COUNTER = 0;
 
     // general light properties
@@ -44,15 +47,12 @@ class Light {
      * @param {string} typeString the value to test against.
      * @returns true if the value is a valid light type, false otherwise
      */
-    static isValidLightType(typeString) {
-        if (typeof typeString !== 'string' || typeString.trim() === '') {
-            return false;
-        }
-
-        const isPoint = typeString === Light.POINTLIGHT;
-        const isSpot = typeString === Light.SPOTLIGHT;
-        const isDirec = typeString === Light.DIRECTIONAL;
-        return isPoint || isSpot || isDirec;
+    static isValidType(typeString) {
+        let validType = false;
+        Object.values(Light.Type).forEach(lightType => {
+            if (lightType === typeString) validType = true;
+        });
+        return validType;
     }
 
     /**

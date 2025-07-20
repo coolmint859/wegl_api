@@ -5,7 +5,7 @@
  * 
  * Instances of this class are used implicitly by the Renderer, Scene, Model, Material, and Texture classes.
  */
-class Collection {
+export default class Collection {
     static #BASE_TAG = 'base'; // this is put on entries with no given tag so they can still be retrieved by tag
 
     #entriesByName = new Map();

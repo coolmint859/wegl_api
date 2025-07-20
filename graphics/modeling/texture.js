@@ -1,14 +1,17 @@
+import Graphics3D from '../rendering/renderer.js';
+import AssetRegistry from '../../utilities/registry.js';
+
 /**
  * Represents a WebGL texture in the given WebGL context, with the specified path with the given options. Also holds a static registry of the contexts mapped to their glTexture instances. 
  * This allows for multiple Texture instances created with the same WebGL context and texture path to refer to the same underlying glTexture in memory.
  */
-class Texture {
-    static Type = {
+export default class Texture {
+    static Type = Object.freeze({
         'DIFFUSE': 'diffuse',
         'SPECULAR': 'specular',
         'NORMAL': 'normal',
         'PARALLAX': 'parallax'
-    };
+    });
     
     static #TEXTURE_ID = 0;
     static #gl;
@@ -167,7 +170,7 @@ class Texture {
 
     /** Called when a new texture should be loaded into memory for the first time */
     async #loadTexture(texturePath) {
-        const imageData = await loadTextureFromServer(texturePath);
+        const imageData = await AssetRegistry.loadImage(texturePath);
         return {
             glTexture: Texture.#defineTexture(imageData, this.#texOptions),
             width: imageData.width,

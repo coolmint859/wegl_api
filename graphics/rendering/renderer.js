@@ -1,7 +1,12 @@
+import FPSCamera from "../cameras/FPSCamera.js";
+import Shader from "../shading/shader.js";
+import Color from "../../utilities/color.js";
+import { Matrix4 } from "../../utilities/matrix.js";
+
 /**
  * Core real-time 3D application renderer. 
  */
-class Graphics3D {
+export default class Graphics3D {
     static #canvas = document.getElementById("canvas-main");
     static #gl =  Graphics3D.#canvas.getContext('webgl2', { alpha: true, antialias: true, preserveDrawingBuffer: false });
 
@@ -29,19 +34,17 @@ class Graphics3D {
         this.pointLights = [];
         this.shaders = new Map();
 
-        this.RenderType = {
+        this.RenderType = Object.freeze({
             'PHONG': 'phong',
             'BASIC': 'basic',
             'LIGHT': 'light',
             'TEXTURE': 'texture'
-        }
-        this.MeshType = {
+        });
+        this.MeshType = Object.freeze({
             'STRIP': gl.TRIANGLE_STRIP,
             'FAN': gl.TRIANGLE_FAN,
             'TRIANGLES': gl.TRIANGLES
-        }
-        Object.freeze(this.RenderType);
-        Object.freeze(this.MeshType);
+        });
         
         this.scenes = new Map();
 

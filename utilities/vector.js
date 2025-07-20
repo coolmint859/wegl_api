@@ -1,7 +1,9 @@
+import { EasingFunc, interpolate } from './blend.js'; 
+
 /**
  * Represents a 2D mathematical vector.
  */
-class Vector2 {
+export class Vector2 {
     /**
      * create a new Vector2 instance
      * @param {number} x the x coordinate
@@ -213,7 +215,7 @@ class Vector2 {
 /**
  * Represents a 3D mathematical vector.
  */
-class Vector3 {
+export class Vector3 {
     /**
      * create a new Vector3 instance
      * @param {number} x the x coordinate
@@ -475,7 +477,7 @@ class Vector3 {
 /**
  * Represents a 4D mathematical vector.
  */
-class Vector4 {
+export class Vector4 {
     /**
      * create a new Vector4 instance
      * @param {number} x the x coordinate

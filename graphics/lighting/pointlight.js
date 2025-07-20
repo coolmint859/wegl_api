@@ -1,4 +1,8 @@
-class PointLight extends Light {
+import { Vector3 } from "../../utilities/vector.js";
+import Color from "../../utilities/color.js";
+import Light from "./light";
+
+export default class PointLight extends Light {
     #attenConstant = 1;
     #attenLinear = 0;
     #attenQuadratic = 0;
@@ -26,7 +30,7 @@ class PointLight extends Light {
         this.#position = positionVector;
         this._debugModel = Model.generateSphere(20, 20); // returns an instance of Model
         this.#debugModelDimensions = new Vector3(0.1, 0.1, 0.1);
-        this._lightType = Light.POINTLIGHT;
+        this._lightType = Light.Type.POINTLIGHT;
     }
     
     /**

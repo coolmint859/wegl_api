@@ -1,4 +1,10 @@
-class Material {
+import { Vector2, Vector3, Vector4 } from "../../utilities/vector.js";
+import { Matrix2, Matrix3, Matrix4 } from "../../utilities/matrix.js";
+import Texture from "./texture.js";
+import Shader from "../shading/shader.js";
+import Color from "../../utilities/color.js";
+
+export default class Material {
     static #ID_COUNTER = 0;
     static #defaultColor = Color.WHITE;
     static #defaultColorName = 'diffuseColor';
