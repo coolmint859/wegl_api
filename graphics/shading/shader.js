@@ -2,7 +2,7 @@ import Graphics3D from '../rendering/renderer.js';
 import { Vector2, Vector3, Vector4 } from '../../utilities/vector.js';
 import { Matrix2, Matrix3, Matrix4 } from '../../utilities/matrix.js';
 import Color from '../../utilities/color.js';
-import AssetRegistry from '../../utilities/registry.js';
+import ResourceCollector from '../../utilities/collector.js';
 
 /**
  * Represents a generic shader program. Handling creation, linking, and setting uniforms.
@@ -27,7 +27,7 @@ export default class Shader {
         this.#vertexPath = vertex_path;
         this.#fragmentPath = fragment_path;
 
-        AssetRegistry.load(shaderName, this.#buildProgram.bind(this), this.#disposeProgram.bind(this))
+        ResourceCollector.load(shaderName, this.#buildProgram.bind(this), this.#disposeProgram.bind(this))
         .then(programData => {
             console.log(`[Shader @${shaderName}] Compiled and linked Shader successfully.`);
         }).catch(error => {
@@ -35,12 +35,20 @@ export default class Shader {
         });
     }
 
+    /**
+     * retreive the name of this shader
+     * @returns {string} the name of the shader
+     */
     getName() {
         return this.#shaderName;
     }
 
+    /**
+     * Get the shader ID associated with this program
+     * @returns {WebGLShader} an object representing the program ID of this shader
+     */
     getProgramID() {
-        const shaderData = AssetRegistry.getAssetData(this.#shaderName);
+        const shaderData = ResourceCollector.get(this.#shaderName);
         return shaderData.programID;
     }
 
@@ -50,7 +58,7 @@ export default class Shader {
      */
     getCapabilities() {
         if (this.isLoaded()) {
-            const shaderData = AssetRegistry.getAssetData(this.#shaderName);
+            const shaderData = ResourceCollector.get(this.#shaderName);
             return shaderData.variableNames.sort();
         } else {
             console.warn(`[Shader @${this.#shaderName}] Cannot retreive shader variables as this shader is not yet loaded.`);
@@ -74,7 +82,22 @@ export default class Shader {
      * @returns {boolean} true if the shader is ready, false otherwise
      */
     isLoaded() {
-        return AssetRegistry.isLoaded(this.#shaderName);
+        return ResourceCollector.loadSuccess(this.#shaderName);
+    }
+
+    /**
+     * Reload the shader files of this Shader Program
+     * @returns {Promise} a promise indicating success or failure on reloading the shader files.
+     */
+    async reload() {
+        try {
+            reloadedData = await ResourceCollector.reload(this.#shaderName);
+            console.log(`[Shader @${this.#shaderName}]: Successfully reloaded '${this.#shaderName}'.`);
+            return reloadedData;
+        } catch (error) {
+            console.log(`[Shader @${this.#shaderName}]: Failed to reload '${this.#shaderName}'.`);
+            throw error;
+        }
     }
 
     /**
@@ -102,7 +125,7 @@ export default class Shader {
         const currentProgram = gl.getParameter(gl.CURRENT_PROGRAM);
         if (!currentProgram) return false;
 
-        const shaderData = AssetRegistry.getAssetData(this.#shaderName);
+        const shaderData = ResourceCollector.get(this.#shaderName);
         if (!shaderData) return false;
 
         return shaderData.programID === currentProgram;
@@ -252,9 +275,17 @@ export default class Shader {
         }
     }
 
+    /**
+     * Release this shader from memory.
+     * @returns {boolean} true if the texture was successfully released, false otherwise
+     */
+    release() {
+        return ResourceCollector.release(this.#shaderName);
+    }
+
     /** Retrieve uniform location names from map */
     #getUniformLocation(name) {
-        const programData = AssetRegistry.getAssetData(this.#shaderName);
+        const programData = ResourceCollector.get(this.#shaderName);
         if (programData.uniformMap.has(name)) {
             return programData.uniformMap.get(name);
         }
@@ -274,16 +305,12 @@ export default class Shader {
         try {
             const gl = Shader.#gl;
 
-            const vertexShaderSource = await AssetRegistry.load(this.#vertexPath, AssetRegistry.loadFile);
-            const fragmentShaderSource = await AssetRegistry.load(this.#fragmentPath, AssetRegistry.loadFile);
+            const vertexShaderSource = await ResourceCollector.load(this.#vertexPath, ResourceCollector.loadFile);
+            const fragmentShaderSource = await ResourceCollector.load(this.#fragmentPath, ResourceCollector.loadFile);
 
             const vertexShader = this.#compileShader(shaderName, vertexShaderSource, gl.VERTEX_SHADER);
             const fragmentShader = this.#compileShader(shaderName, fragmentShaderSource, gl.FRAGMENT_SHADER);
             const shaderProgram = this.#linkShaders(shaderName, vertexShader, fragmentShader);
-
-            // once program is linked, we don't need the individual shaders anymore
-            gl.deleteShader(vertexShader);
-            gl.deleteShader(fragmentShader);
 
             // get shader variable names
             const shaderUniforms = this.#getUniqueUniforms(shaderProgram);
@@ -333,6 +360,11 @@ export default class Shader {
             const infoLog = gl.getProgramInfoLog(programID);
             console.error(`[Shader @${shaderName}] Failed to link shader program: ${infoLog}`);
         }
+
+        // once program is linked, we don't need the individual shaders anymore
+        gl.deleteShader(vertexShader);
+        gl.deleteShader(fragmentShader);
+
         return programID;
     }
 

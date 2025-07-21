@@ -155,6 +155,7 @@ export default class Material {
             console.error(`[Material ID#${this.#materialID}] ValueError: This material already has texture type ${type} attached. Cannot add texture to this material.`);
             return false;
         }
+        // TODO: once Texture is updated with new load/acquire/dispose logic, material needs to call Texture.acquire()
         // all checks pass, attach texture to material
         this.#textures.set(type, texture);
         return true;
@@ -201,6 +202,7 @@ export default class Material {
             console.error(`[Material ID#${this.#materialID}] ValueError: This material doesn't have texture type '${type}' attached. Cannot detach texture from this material.`);
             return false;
         }
+        // TODO: once Texture is updated with new load/acquire/dispose logic, material needs to call Texture.dispose()
         return this.#textures.delete(type);
     }
 
@@ -288,7 +290,7 @@ export default class Material {
             for (const [texType, texture] of this.#textures.entries()) {
                 // only set texture if the shader program supports it and the texture is valid.
                 // these two things should be either both true or both false, but we need to be sure
-                if (shaderProgram.supports(texType) && texture.loadSuccess()) {
+                if (shaderProgram.supports(texType) && texture.isLoaded()) {
                     const texUniformName = `material.${texType}Map`; // uniform name formatted like 'material.diffuseMap'
                     texture.bind(textureIndex);
 
@@ -312,7 +314,7 @@ export default class Material {
         // unbind supported textures
         let textureIndex = 0;
         for (const [texType, texture] of this.#textures.entries()) {
-            if (shaderProgram.supports(texType) && texture.loadSuccess()) {
+            if (shaderProgram.supports(texType) && texture.isLoaded()) {
                 texture.unbind(textureIndex);
                 textureIndex++;
             }

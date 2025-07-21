@@ -1,9 +1,9 @@
 import Graphics3D from "../rendering/renderer.js";
-import AssetRegistry from "../../utilities/registry.js";
-import Transform from "../../utilities/transform.js";
+import ResourceCollector from "../../utilities/collector.js";
+import Transform from "../../utilities/transform.js";;
+import MeshLoader from "../../utilities/meshloader.js";
+import ShaderManager from "../shading/shader_manager.js"
 import Material from "./material.js";
-import ShaderManager from "../shading/shader_manager.js";
-import AssetRegistry from "../../utilities/registry.js";
 
 export default class Mesh {
     static #ID_COUNTER = 0;
@@ -61,7 +61,7 @@ export default class Mesh {
         this.#currentMaterialCapabilities = { 'properties': [], 'textures': [] };
         
         if (typeof meshPath === 'string' && meshPath.trim() !== '') {
-            AssetRegistry.load(meshPath, this.#loadMesh.bind(this), this.#disposeMesh.bind(this))
+            ResourceCollector.load(meshPath, this.#loadMesh.bind(this), this.#disposeMesh.bind(this))
             .then(meshData => {
                 this.refreshShaderEvaluation(); 
                 console.log(`[Mesh ID#${this.#meshID}] Created new mesh '${meshPath}'.`);
@@ -99,7 +99,22 @@ export default class Mesh {
      * @returns {boolean} true if successfully loaded, false otherwise
      * */
     isLoaded() {
-        return AssetRegistry.isLoaded(this.#meshPath);
+        return ResourceCollector.loadSuccess(this.#meshPath);
+    }
+
+    /**
+     * Reload the mesh data this mesh represents.
+     * @returns {Promise} a promise indicating success or failure on reloading the mesh.
+     */
+    async reload() {
+        try {
+            reloadedData = await ResourceCollector.reload(this.#meshPath);
+            console.log(`[Mesh ID#${this.#meshID}]: Successfully reloaded '${this.#meshPath}'.`);
+            return reloadedData;
+        } catch (error) {
+            console.log(`[Mesh ID#${this.#meshID}]: Failed to reload '${this.#meshPath}'.`);
+            throw error;
+        }
     }
 
     /** 
@@ -108,7 +123,7 @@ export default class Mesh {
      * */
     bind() {
         if (this.isValid()) {
-            const meshData = AssetRegistry.getAssetData(this.#meshPath);
+            const meshData = ResourceCollector.get(this.#meshPath);
             Mesh.#gl.bindVertexArray(meshData.VAO);
             return true;
         } else {
@@ -167,7 +182,7 @@ export default class Mesh {
         shaderProgram.setMatrix4('model', this.transform.getWorldMatrix());
 
         // apply material uniforms, skip textures if texture coords are not present
-        const meshData = AssetRegistry.getAssetData(this.#meshPath);
+        const meshData = ResourceCollector.get(this.#meshPath);
         this.#material.applyToShader(shaderProgram, meshData.hasTexCoords);
     }
 
@@ -234,7 +249,7 @@ export default class Mesh {
         if (this.#currentShaderName !== null) {
             shaderReleased = ShaderManager.release(this.#currentShaderName);
         }
-        let meshReleased = AssetRegistry.release(this.#meshPath);
+        let meshReleased = ResourceCollector.release(this.#meshPath);
 
         let materialDisposed = this.#material.dispose();
         this.#material = null;

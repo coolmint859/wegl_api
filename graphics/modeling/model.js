@@ -1,4 +1,4 @@
-import AssetRegistry from "../../utilities/registry.js";
+import ResourceCollector from "../../utilities/collector.js";
 import { Vector2, Vector3 } from "../../utilities/vector.js";
 
 
@@ -303,7 +303,7 @@ function generateModel(vertices, normals, faces, textureCoords) {
  * @returns {Promise<object>} A promise that resolves to an object containing WebGL-ready buffers.
  */
 export async function createModel(modelFilePath) {
-    let modelFileString = await AssetRegistry.loadFile(modelFilePath);
+    let modelFileString = await ResourceCollector.loadFile(modelFilePath);
 
     if (!modelFileString.startsWith("ply") || modelFilePath.split(".").pop() !== "ply") {
         throw new Error("File type is not ply or file does not start with 'ply'.");

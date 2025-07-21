@@ -1,5 +1,5 @@
 import Graphics3D from '../rendering/renderer.js';
-import AssetRegistry from '../../utilities/registry.js';
+import ResourceCollector from '../../utilities/collector.js';
 
 /**
  * Represents a WebGL texture in the given WebGL context, with the specified path with the given options. Also holds a static registry of the contexts mapped to their glTexture instances. 
@@ -19,6 +19,7 @@ export default class Texture {
     #texturePath;
     #textureID;
     #texOptions;
+    #textureLoadPromise;
 
     /**
      * Create a new Texture instance
@@ -27,21 +28,16 @@ export default class Texture {
      * @param {object} options optional parameters to customize this texture. See docs for possible options (unknown ones are ignored)
      */
     constructor(texturePath, options={}) {
-        this.#texturePath = texturePath;
-        this.#texOptions = options;
         this.#textureID = Texture.#TEXTURE_ID++;
-        Texture.#gl = Graphics3D.getGLContext();
-
-        if (typeof texturePath === 'string' && texturePath.trim() !== '') {
-            AssetRegistry.load(texturePath, this.#loadTexture.bind(this), this.#disposeTexture.bind(this))
-            .then(assetData => {
-                console.log(`[Texture ID#${this.#textureID}] Created new texture '${texturePath}'.`);
-            }).catch(error => {
-                console.error(`[Texture ID#${this.#textureID}] Failed to create texture '${texturePath}': ${error}`)
-            });
+        if (typeof texturePath !== 'string' || texturePath.trim() === '') {
+            console.error(`[Texture ID#${this.#textureID}] TypeError: Expected 'texturePath' to be a non-empty string. Applying default Texture.`);
+            this.#texturePath = "./assets/images/default.png";
         } else {
-            console.error(`[Texture ID#${this.#textureID}] TypeError: Expected 'texturePath' to be a non-empty string. Cannot load texture into memory.`)
+            this.#texturePath = texturePath;
         }
+        this.#texOptions = options;
+        this.#textureLoadPromise = null;
+        Texture.#gl = Graphics3D.getGLContext();
     }
 
     /**
@@ -64,21 +60,25 @@ export default class Texture {
      * Checks if this texture was successfully loaded into memory.
      * @returns {boolean} true if successfully loaded, false otherwise
      * */
-    loadSuccess() {
-        return AssetRegistry.isLoaded(this.#texturePath);
+    isLoaded() {
+        return ResourceCollector.loadSuccess(this.#texturePath);
     }
 
     /** 
      * Checks if this texture failed to load successfully into memory.
      * @returns {boolean} true if failed to load, false otherwise
      * */
-    loadFailure() {
-        return AssetRegistry.isFailed(this.#texturePath);
+    isLoadFailed() {
+        return ResourceCollector.loadFailure(this.#texturePath);
     }
 
+    /**
+     * Reload the image data this texture represents.
+     * @returns {Promise} a promise indicating success or failure on reloading the texture.
+     */
     async reload() {
         try {
-            reloadedData = await AssetRegistry.reload(this.#texturePath);
+            reloadedData = await ResourceCollector.reload(this.#texturePath);
             console.log(`[Texture ID#${this.#textureID}]: Successfully reloaded '${this.#texturePath}'.`);
             return reloadedData;
         } catch (error) {
@@ -93,10 +93,10 @@ export default class Texture {
      * @returns {boolean} true if this texture was successfully bound, false otherwise
      * */
     bind(locationIndex) {
-        if (AssetRegistry.isLoaded(this.#texturePath)) {
+        if (ResourceCollector.loadSuccess(this.#texturePath)) {
             const gl = Texture.#gl;
 
-            const textureData = AssetRegistry.getAssetData(this.#texturePath);
+            const textureData = ResourceCollector.get(this.#texturePath);
             gl.activeTexture(gl.TEXTURE0 + locationIndex);
             gl.bindTexture(gl.TEXTURE_2D, textureData.glTexture);
             return true;
@@ -112,7 +112,7 @@ export default class Texture {
      * @returns {boolean} true if this texture was successfully unbound, false otherwise
      * */
     unbind(locationIndex) {
-        if (AssetRegistry.isLoaded(this.#texturePath)) {
+        if (ResourceCollector.loadSuccess(this.#texturePath)) {
             const gl = Texture.#gl;
 
             gl.activeTexture(gl.TEXTURE0 + locationIndex);
@@ -129,7 +129,7 @@ export default class Texture {
      * @returns {Texture | null } a copy of this Texture - if not a valid texture, returns null
      */
     clone() {
-        if (!AssetRegistry.isLoaded(this.#texturePath)) {
+        if (!ResourceCollector.loadSuccess(this.#texturePath)) {
             console.error(`[Texture ID#${this.#textureID}] Error: Texture '${this.#texturePath}' is not yet loaded or is invalid. Cannot create a copy of this Texture.`);
             return null;
         }
@@ -137,11 +137,47 @@ export default class Texture {
     }
 
     /**
-     * Release this texture from memory.
+     * Acquire this texture for use. If this was the first time is was acquired, it loads the image data into memory.
+     * @returns {Promise} a promise indicating success or failure on acquiring the texture.
+     */
+    async acquireTexture() {
+        if (this.#textureLoadPromise === null) {
+            try {
+                this.#textureLoadPromise = ResourceCollector.load(
+                    this.#texturePath, 
+                    this.#loadTexture.bind(this), 
+                    this.#disposeTexture.bind(this)
+                )
+                await this.#textureLoadPromise;
+                return Promise.resolve(this);
+            } catch (error) {
+                console.error(`[Texture ID#${this.#textureID}] Attempt to acquire texture '${this.#texturePath}' failed: ${error}`);
+                throw error;
+            }
+        } else {
+            if (ResourceCollector.acquire(this.#texturePath)) {
+                return this.#textureLoadPromise.then(() => this);  
+            } else {
+                console.error(`[Texture ID#${this.#textureID}] Failed to acquire additional reference for texture '${this.#texturePath}'. Asset not found or failed in AssetLoader.`);
+                // If the previous promise was rejected, re-throw that rejection
+                if (this.#textureLoadPromise && this.#textureLoadPromise.then) {
+                    await this.#textureLoadPromise; 
+                }
+                throw new Error(`[Texture ID#${this.#textureID}] Attempt to acquire texture '${this.#texturePath}' failed.`);
+            }
+        }
+    }
+
+    /**
+     * Release this texture from use if it was previously acquired.
      * @returns {boolean} true if the texture was successfully released, false otherwise
      */
     release() {
-        return AssetRegistry.release(this.#texturePath);
+        if (this.#textureLoadPromise !== null) {
+            return ResourceCollector.release(this.#texturePath);
+        }
+        console.warn(`[Texture ID#${this.#textureID}] Cannot release texture '${this.#texturePath}' that had not yet been acquired.`);
+        return false;
     }
 
     /**
@@ -151,7 +187,7 @@ export default class Texture {
      */
     getTextureData() {
         // check if the collection has this specific texture defined
-        const textureData = AssetRegistry.getAssetData(this.#texturePath);
+        const textureData = ResourceCollector.get(this.#texturePath);
         if (!textureData) {
             console.warn(`Warning: Texture '${this.#texturePath}' was not found. Cannot get texture data.`);
             return null;
@@ -170,7 +206,7 @@ export default class Texture {
 
     /** Called when a new texture should be loaded into memory for the first time */
     async #loadTexture(texturePath) {
-        const imageData = await AssetRegistry.loadImage(texturePath);
+        const imageData = await ResourceCollector.loadImage(texturePath);
         return {
             glTexture: Texture.#defineTexture(imageData, this.#texOptions),
             width: imageData.width,
