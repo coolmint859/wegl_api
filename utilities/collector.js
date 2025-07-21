@@ -49,6 +49,7 @@ export default class ResourceCollector {
         const resourceInfo = {
             refCount: 1,
             loadState: ResourceCollector.States.LOADING,
+            priorState: null,
             data: null,
             _disposeCallback: options.disposalCallback,
             _disposeDelay: options.disposalDelay ? options.disposalDelay : 1,
@@ -197,6 +198,7 @@ export default class ResourceCollector {
             const resourceInfo = {
                 refCount: 1,
                 loadState: ResourceCollector.States.LOADED,
+                priorState: null,
                 data: resourceData,
                 _loadFunc: options.loadFunction,
                 _disposeCallback: options.disposalCallback,
@@ -235,6 +237,19 @@ export default class ResourceCollector {
     }
 
     /**
+     * Checks if a resource is currently pending disposal
+     * @param {string} resourcePath the path/url to the resource
+     * @returns {boolean} true if the resource is pending disposal, false otherwise
+     */
+    static pendingDisposal(resourcePath) {
+        if (ResourceCollector.#cache.has(resourcePath)) {
+            const resourceInfo = ResourceCollector.#cache.get(resourcePath);
+            return resourceInfo.loadState === ResourceCollector.States.PENDING_DISPOSAL;
+        }
+        return false;
+    }
+
+    /**
      * Retrieve the resource data, if it exists and has successfully loaded.
      * @param {string} resourcePath the path/url to the resource
      * @returns {object | null} the resource data. If the resource has not finished loading, failed loading, or doesn't exist, null is returned.
@@ -265,23 +280,24 @@ export default class ResourceCollector {
             console.error(`[ResourceCollector] TypeError: Expected 'resourcePath' to be a non-empty string. Cannot acquire resource.`);
             return false;
         }
-        if (ResourceCollector.#cache.has(resourcePath)) {
-            const resourceInfo = ResourceCollector.#cache.get(resourcePath);
-            if (!ResourceCollector.loadFailure(resourcePath)) {
-                // if the resource was previously scheduled for disposal, cancel that.
-                if (ResourceDisposer.isScheduled(resourcePath)) {
-                    ResourceDisposer.cancel(resourcePath);
-                }
-                resourceInfo.refCount++;
-                return true;
-            } else {
-                console.warn(`[ResourceCollector] Resource '${resourcePath}' was found but previously failed to load. Cannot acquire resource. Try reloading it prior to acquisition.`);
-                return false;
-            }
-        } else {
+        if (!ResourceCollector.#cache.has(resourcePath)) {
             console.warn(`[ResourceCollector] Resource '${resourcePath}' was not found in the cache. Cannot acquire resource. If was previously in a failed state, try loading it again.`);
             return false;
         }
+
+        const resourceInfo = ResourceCollector.#cache.get(resourcePath);
+        if (ResourceCollector.loadFailure(resourcePath)) {
+            console.warn(`[ResourceCollector] Resource '${resourcePath}' was found but previously failed to load. Cannot acquire resource. Try reloading it prior to acquisition.`);
+            return false;
+        }
+        // if the resource was previously scheduled for disposal, cancel that.
+        if (ResourceDisposer.isScheduled(resourcePath)) {
+            resourceInfo.loadState = resourceInfo.priorState; // reset load state to state prior to scheduled disposal
+            resourceInfo.priorState = null; // reset prior state;
+            ResourceDisposer.cancel(resourcePath);
+        }
+        resourceInfo.refCount++;
+        return true;
     }
 
     /**
@@ -399,6 +415,8 @@ export default class ResourceCollector {
 
     /** called when a resource should be scheduled for deletion */
     static #scheduleForDisposal(resourcePath, resourceInfo) {
+        resourceInfo.priorState = resourceInfo.loadState; // save in case disposal is canceled
+        resourceInfo.loadState = ResourceCollector.States.PENDING_DISPOSAL;
         const delay = resourceInfo._disposeDelay;
         const disposalInfo = {
             data: resourceInfo.data,
