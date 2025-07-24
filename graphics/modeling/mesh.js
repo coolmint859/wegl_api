@@ -99,7 +99,7 @@ export default class Mesh {
      * @returns {boolean} true if successfully loaded, false otherwise
      * */
     isLoaded() {
-        return ResourceCollector.loadSuccess(this.#meshPath);
+        return ResourceCollector.isLoaded(this.#meshPath);
     }
 
     /**

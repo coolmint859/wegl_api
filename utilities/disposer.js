@@ -199,7 +199,7 @@ class ResourceDisposer {
             console.error(`[ResourceDisposer] Resource '${alias}' was not scheduled for disposal. Cannot dispose resource.`);
             return false;
         }
-        ResourceDisposer.#disposeResource(alias, ResourceDisposer.#resourceMap.get(alias));
+        ResourceDisposer.#deleteResource(alias, ResourceDisposer.#resourceMap.get(alias));
         return true;
     }
 
@@ -289,7 +289,7 @@ class ResourceDisposer {
         for (const alias of aliases) {
             const resourceInfo = ResourceDisposer.#resourceMap.get(alias);
             if (resourceInfo.timeSinceScheduled > resourceInfo.delay) {
-                ResourceDisposer.#disposeResource(alias, resourceInfo);
+                ResourceDisposer.#deleteResource(alias, resourceInfo);
             } else if (resourceInfo.shouldUpdate) {
                 resourceInfo.timeSinceScheduled += dt;
             }
@@ -371,7 +371,7 @@ class ResourceDisposer {
     }
 
     /** Disposes a resource. Interally called by update() and dispose() */
-    static #disposeResource(alias, resourceInfo) {
+    static #deleteResource(alias, resourceInfo) {
         try {
             if (resourceInfo.disposalCallback) {
                 resourceInfo.disposalCallback(alias, resourceInfo.resourceData);

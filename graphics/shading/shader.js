@@ -27,12 +27,19 @@ export default class Shader {
         this.#vertexPath = vertex_path;
         this.#fragmentPath = fragment_path;
 
-        ResourceCollector.load(shaderName, this.#buildProgram.bind(this), this.#disposeProgram.bind(this))
-        .then(programData => {
-            console.log(`[Shader @${shaderName}] Compiled and linked Shader successfully.`);
-        }).catch(error => {
-            console.error(`[Shader @${shaderName}] Failed to compile and link Shader. Error: ${error}`);
-        });
+        // only true
+        if (!ResourceCollector.contains(shaderName)) {
+            ResourceCollector.load(shaderName, this.#buildProgram.bind(this), this.#disposeProgram.bind(this), { category: "shader" })
+            .then(programData => {
+                console.log(`[Shader @${shaderName}] Compiled and linked Shader successfully.`);
+            }).catch(error => {
+                console.error(`[Shader @${shaderName}] Failed to compile and link Shader: ${error}`);
+            });
+        } else if (ResourceCollector.isLoaded(shaderName) || ResourceCollector.isLoading(shaderName)) {
+            ResourceCollector.acquire(shaderName);
+        } else {
+            console.error(`[Shader ID#${shaderName}] Cannot create shader program as the shader previously failed to load.`)
+        }
     }
 
     /**
@@ -48,8 +55,13 @@ export default class Shader {
      * @returns {WebGLShader} an object representing the program ID of this shader
      */
     getProgramID() {
-        const shaderData = ResourceCollector.get(this.#shaderName);
-        return shaderData.programID;
+        if (this.isLoaded()) {
+            const shaderData = ResourceCollector.get(this.#shaderName);
+            return shaderData.programID;
+        } else {
+            console.error(`[Shader @${this.#shaderName}] Cannot retreive program ID as this shader is not yet loaded.`);
+            return null;
+        }
     }
 
     /**
@@ -61,7 +73,7 @@ export default class Shader {
             const shaderData = ResourceCollector.get(this.#shaderName);
             return shaderData.variableNames.sort();
         } else {
-            console.warn(`[Shader @${this.#shaderName}] Cannot retreive shader variables as this shader is not yet loaded.`);
+            console.error(`[Shader @${this.#shaderName}] Cannot retreive shader variables as this shader is not yet loaded.`);
             return [];
         }
     }
@@ -72,7 +84,7 @@ export default class Shader {
      * @returns {boolean} returns true if the shader supports the variable, false otherwise.
      */
     supports(variableName) {
-        // const shaderData = AssetLoader.getAssetData(this.#shaderName);
+        // const shaderData = ResourceCollector.get(this.#shaderName);
         // return shaderData.variableNames.includes(variableName);
         return true;
     }
@@ -82,7 +94,7 @@ export default class Shader {
      * @returns {boolean} true if the shader is ready, false otherwise
      */
     isLoaded() {
-        return ResourceCollector.loadSuccess(this.#shaderName);
+        return ResourceCollector.isLoaded(this.#shaderName);
     }
 
     /**
@@ -96,7 +108,7 @@ export default class Shader {
             return reloadedData;
         } catch (error) {
             console.log(`[Shader @${this.#shaderName}]: Failed to reload '${this.#shaderName}'.`);
-            throw error;
+            return null;
         }
     }
 
@@ -301,12 +313,34 @@ export default class Shader {
     }
 
     /** create a new shader program with the given vertex and fragment shader paths */
-    async #buildProgram(shaderName) {
+    async #buildProgram(shaderName, loadOptions) {
         try {
             const gl = Shader.#gl;
 
-            const vertexShaderSource = await ResourceCollector.load(this.#vertexPath, ResourceCollector.loadFile);
-            const fragmentShaderSource = await ResourceCollector.load(this.#fragmentPath, ResourceCollector.loadFile);
+            const innerController = new AbortController();
+            const innerSignal = innerController.signal;
+
+            const outerSignal = loadOptions.signal;
+            if (!loadOptions.signal instanceof AbortSignal) {
+                throw new Error('Loading shader program files require an abort signal object.')
+            }
+            outerSignal.addEventListener('abort', () => {
+                innerController.abort(outerSignal.reason)
+            }, {once: true});
+
+            const vertexShaderPromise = ResourceCollector.load(
+                this.#vertexPath, 
+                ResourceCollector.loadTextFile, 
+                { category: 'shaderSource', signal: innerSignal, loadTimeout: 5 }
+            );
+            const fragmentShaderPromise = ResourceCollector.load(
+                this.#fragmentPath, 
+                ResourceCollector.loadTextFile, 
+                { category: 'shaderSource', signal: innerSignal, loadTimeout: 5 }
+            );
+
+            let vertexShaderSource, fragmentShaderSource;
+            [vertexShaderSource, fragmentShaderSource] = await Promise.all([vertexShaderPromise, fragmentShaderPromise]);
 
             const vertexShader = this.#compileShader(shaderName, vertexShaderSource, gl.VERTEX_SHADER);
             const fragmentShader = this.#compileShader(shaderName, fragmentShaderSource, gl.FRAGMENT_SHADER);
@@ -317,7 +351,7 @@ export default class Shader {
             const shaderAttributes = this.#getUniqueAttributes(shaderProgram);
             const shaderVariableNames = shaderUniforms.concat(shaderAttributes).sort();
 
-            // this is stored in the AssetLoader cache
+            // this is stored in the ResourceCollector cache
             return {
                 shaderName: shaderName,
                 programID: shaderProgram,

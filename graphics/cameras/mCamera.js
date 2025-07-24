@@ -71,12 +71,12 @@ export default class MoveableCamera extends Camera {
     #onPointerLockChange() {
         const pointerLockEnabled = document.pointerLockElement === this._canvasElement;
         const pointerLockMessage = pointerLockEnabled ? "Enabled" : "Disabled";
-        console.log(`Pointer Lock ${pointerLockMessage}`);
+        console.log(`[MoveableCamera] Pointer Lock ${pointerLockMessage}`);
     }
 
     /** if the pointer lock had an error */
     #onPointerLockError(error) {
-        console.error('Pointer Lock Error:', error);
+        console.error('[MoveableCamera] Pointer Lock Error:', error);
     }
 
     /**
@@ -85,7 +85,7 @@ export default class MoveableCamera extends Camera {
      * @returns true if the mouse sensitivity was successfully set, false otherwise.
      */
     setMouseSensitivity(sensitivity) {
-        if (typeof sensitivity !== 'number' && sensitivity > 0) {
+        if (typeof sensitivity !== 'number' || sensitivity <= 0) {
             console.error("Expected 'sensitivity' to be number greater than 0. Cannot set mouse sensitivity for this camera.");
             return false;
         }
@@ -152,11 +152,9 @@ export default class MoveableCamera extends Camera {
         const currentZoomFactor = 1.0/this._orthoZoom;
         const posOffset = this._orthoFocalDistance * (currentZoomFactor - prevZoomFactor);
         const deltaMovement = Transform.localForward.mult(posOffset);
-        console.log('deltaMove: ' + deltaMovement.str());
 
         // move the camera along world forward direction by the offset distance
         this._localMovementVector = this._localMovementVector.add(deltaMovement);
-        console.log('localMove: ' + this._localMovementVector.str());
 
         // update previous zoom
         this._prevOrthoZoom = this._orthoZoom;
@@ -214,7 +212,6 @@ export default class MoveableCamera extends Camera {
     moveUp(distance) {
         const deltaMovement = Transform.localUp.mult(distance);
         this._localMovementVector = this._localMovementVector.add(deltaMovement);
-        console.log(deltaMovement);
         
         this._isViewDirty = true;
     }
@@ -225,7 +222,6 @@ export default class MoveableCamera extends Camera {
     moveDown(distance) {
         const deltaMovement = Transform.localUp.mult(-distance);
         this._localMovementVector = this._localMovementVector.add(deltaMovement);
-        console.log(deltaMovement);
         
         this._isViewDirty = true;
     }

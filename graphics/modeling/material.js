@@ -4,10 +4,20 @@ import Texture from "./texture.js";
 import Shader from "../shading/shader.js";
 import Color from "../../utilities/color.js";
 
+/**
+ * Used to give renderable objects a 'look', with optional textures. Capable of being used by multiple consumers.
+ * 
+ * @interface Proxy - classes that implement this are proxies to underlying resources, typically managed by ResourceCollector
+ * @method acquire - acquire the underlying resource for use - returns a promise
+ * @method release - release the underlying resource from use
+ * @method reload - reload the underlying resource - returns a promise
+ * @method snapshot - get a snapshot of the metadata associated with the underlying resource
+ */
 export default class Material {
     static #ID_COUNTER = 0;
     static #defaultColor = Color.WHITE;
     static #defaultColorName = 'diffuseColor';
+    #refCount // materials can be shared, so we need to track how many
 
     // static registry of common properties. This allows for loose type checking
     static #propertyRegistry = new Map([
@@ -33,6 +43,7 @@ export default class Material {
      */
     constructor(properties={}) {
         this.#materialID = Material.#ID_COUNTER++;
+        this.#refCount = 0; // a material is only 'used' when it attached to a renderable object (like a mesh)
 
         this.#properties = new Map();
         Object.keys(properties).forEach(propName => {
@@ -53,6 +64,17 @@ export default class Material {
      */
     getID() {
         return this.#materialID;
+    }
+
+    acquire() {
+        this.#refCount++;
+        for (const texture of this.#textures.values()) {
+            texture.acquire();
+        }
+    }
+
+    release() {
+        this.#refCount--;
     }
 
     /**
@@ -155,10 +177,15 @@ export default class Material {
             console.error(`[Material ID#${this.#materialID}] ValueError: This material already has texture type ${type} attached. Cannot add texture to this material.`);
             return false;
         }
-        // TODO: once Texture is updated with new load/acquire/dispose logic, material needs to call Texture.acquire()
         // all checks pass, attach texture to material
-        this.#textures.set(type, texture);
-        return true;
+        try {
+            texture.acquire();
+            this.#textures.set(type, texture);
+            return true;
+        } catch (error) {
+            console.error(`[Material ID#${this.#materialID}] An error occured while attempting to attach material: ${error}`);
+            return false;
+        }
     }
 
     /**
@@ -202,7 +229,7 @@ export default class Material {
             console.error(`[Material ID#${this.#materialID}] ValueError: This material doesn't have texture type '${type}' attached. Cannot detach texture from this material.`);
             return false;
         }
-        // TODO: once Texture is updated with new load/acquire/dispose logic, material needs to call Texture.dispose()
+        this.#textures.get(type).release();
         return this.#textures.delete(type);
     }
 

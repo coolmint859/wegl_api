@@ -302,8 +302,18 @@ function generateModel(vertices, normals, faces, textureCoords) {
  * @param {string} modelFilePath The path to the PLY file.
  * @returns {Promise<object>} A promise that resolves to an object containing WebGL-ready buffers.
  */
-export async function createModel(modelFilePath) {
-    let modelFileString = await ResourceCollector.loadFile(modelFilePath);
+export async function createModel(modelFilePath, loadTimeout = 5000) {
+    const controller = new AbortController;
+    const signal = controller.signal;
+
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => {
+        controller.abort();
+        reject(new Error(`[ModelLoader] Failed to load model file due to timeout.`));
+    }, loadTimeout))
+
+    const modelFilePromise = ResourceCollector.loadTextFile(modelFilePath, { signal: signal });
+
+    const modelFileString = await Promise.race([modelFilePromise, timeoutPromise]);
 
     if (!modelFileString.startsWith("ply") || modelFilePath.split(".").pop() !== "ply") {
         throw new Error("File type is not ply or file does not start with 'ply'.");
