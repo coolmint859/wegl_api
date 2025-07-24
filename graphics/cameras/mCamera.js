@@ -22,7 +22,11 @@ export default class MoveableCamera extends Camera {
      */
     initMouseControls(canvas, mouseSensitivity = 0.002) {
         if (!(canvas instanceof HTMLElement) || canvas.tagName !== 'CANVAS') {
-            console.error("Provided element is not a valid HTMLCanvasElement.");
+            console.error("[MoveableCamera] Provided element is not a valid HTMLCanvasElement. Cannot initialize mouse controls.");
+            return;
+        }
+        if (typeof mouseSensitivity !== 'number' || mouseSensitivity <= 0) {
+            console.error("[MoveableCamera] Expected 'sensitivity' to be number greater than 0. Cannot initialize mouse controls.");
             return;
         }
         this._canvasElement = canvas;
@@ -36,7 +40,7 @@ export default class MoveableCamera extends Camera {
         document.addEventListener('pointerlockchange', () => this.#onPointerLockChange(), false);
         document.addEventListener('pointerlockerror', (error) => this.#onPointerLockError(error), false);
 
-        console.log("Initialized mouse controls");
+        console.log("[MoveableCamera] Initialized mouse controls");
     }
 
     /** Tells the canvas to request a pointer lock when the mouse button pressed is the left one. */
@@ -86,7 +90,7 @@ export default class MoveableCamera extends Camera {
      */
     setMouseSensitivity(sensitivity) {
         if (typeof sensitivity !== 'number' || sensitivity <= 0) {
-            console.error("Expected 'sensitivity' to be number greater than 0. Cannot set mouse sensitivity for this camera.");
+            console.error("[MoveableCamera] Expected 'sensitivity' to be number greater than 0. Cannot set mouse sensitivity for this camera.");
             return false;
         }
         this._mouseSensitivity = sensitivity;
@@ -107,6 +111,10 @@ export default class MoveableCamera extends Camera {
      * @param {number} amount the amount to zoom in by.
      */
     zoomIn(amount) {
+        if (typeof amount !== 'number') {
+            console.error("[MoveableCamera] Expected 'amount' to be number. Cannot zoom in with this camera.");
+            return;
+        }
         if (this._isPerspective && this._fov - amount * Camera.FOV_SCALE_FACTOR > Camera.MIN_FOV ) {
             this._fov -= amount * Camera.FOV_SCALE_FACTOR;
             this._isProjectionDirty = true;
@@ -129,6 +137,10 @@ export default class MoveableCamera extends Camera {
      * @param {number} amount the amount to zoom out by.
      */
     zoomOut(amount) {
+        if (typeof amount !== 'number') {
+            console.error("[MoveableCamera] Expected 'amount' to be number. Cannot zoom out with this camera.");
+            return;
+        }
         if (this._isPerspective && this._fov + amount * Camera.FOV_SCALE_FACTOR < Camera.MAX_FOV) {
             this._fov += amount * Camera.FOV_SCALE_FACTOR;
             this._isProjectionDirty = true;
@@ -164,6 +176,10 @@ export default class MoveableCamera extends Camera {
      * Move the camera foward (-z) the given distance.
      */
     moveForward(distance) {
+        if (typeof distance !== 'number') {
+            console.error("[MoveableCamera] Expected 'distance' to be number. Cannot move forward with this camera.");
+            return;
+        }
         // only allow moving forward if projection is perspective. This prevents near clipping issues
         if (this._isPerspective) {
             const deltaMovement = Transform.localForward.mult(-distance);
@@ -177,6 +193,10 @@ export default class MoveableCamera extends Camera {
      * Move the camera backard (+z) the given distance.
      */
     moveBackward(distance) {
+        if (typeof distance !== 'number') {
+            console.error("[MoveableCamera] Expected 'distance' to be number. Cannot move backward with this camera.");
+            return;
+        }
         // only allow moving backward if projection is perspective. This prevents near clipping issues
         if (this._isPerspective) {
             const deltaMovement = Transform.localForward.mult(distance);
@@ -190,6 +210,10 @@ export default class MoveableCamera extends Camera {
      * Move the camera to the right (+x) the given distance.
      */
     strafeRight(distance) {
+        if (typeof distance !== 'number') {
+            console.error("[MoveableCamera] Expected 'distance' to be number. Cannot strafe right with this camera.");
+            return;
+        }
         const deltaMovement = Transform.localRight.mult(distance);
         this._localMovementVector = this._localMovementVector.add(deltaMovement);
 
@@ -200,6 +224,10 @@ export default class MoveableCamera extends Camera {
      * Move the camera left (-x) the given distance.
      */
     strafeLeft(distance) {
+        if (typeof distance !== 'number') {
+            console.error("[MoveableCamera] Expected 'distance' to be number. Cannot strafe left with this camera.");
+            return;
+        }
         const deltaMovement = Transform.localRight.mult(-distance);
         this._localMovementVector = this._localMovementVector.add(deltaMovement);
 
@@ -210,6 +238,10 @@ export default class MoveableCamera extends Camera {
      * Move the camera upward (+y) the given distance.
      */
     moveUp(distance) {
+        if (typeof distance !== 'number') {
+            console.error("[MoveableCamera] Expected 'distance' to be number. Cannot move up with this camera.");
+            return;
+        }
         const deltaMovement = Transform.localUp.mult(distance);
         this._localMovementVector = this._localMovementVector.add(deltaMovement);
         
@@ -220,6 +252,10 @@ export default class MoveableCamera extends Camera {
      * Move the camera downward (-y) the given distance.
      */
     moveDown(distance) {
+        if (typeof distance !== 'number') {
+            console.error("[MoveableCamera] Expected 'distance' to be number. Cannot move down with this camera.");
+            return;
+        }
         const deltaMovement = Transform.localUp.mult(-distance);
         this._localMovementVector = this._localMovementVector.add(deltaMovement);
         
@@ -231,6 +267,10 @@ export default class MoveableCamera extends Camera {
      * @param {number} deltaAngle the change in roll angle in radians
      */
     rollLeft(deltaAngle) {
+        if (typeof deltaAngle !== 'number') {
+            console.error("[MoveableCamera] Expected 'deltaAngle' to be number. Cannot roll left with this camera.");
+            return;
+        }
         this._currentRollAngle += deltaAngle;
         this._isViewDirty = true;
     }
@@ -240,6 +280,10 @@ export default class MoveableCamera extends Camera {
      * @param {number} deltaAngle the change in roll angle in radians
      */
     rollRight(deltaAngle) {
+        if (typeof deltaAngle !== 'number') {
+            console.error("[MoveableCamera] Expected 'deltaAngle' to be number. Cannot roll right with this camera.");
+            return;
+        }
         this._currentRollAngle -= deltaAngle;
         this._isViewDirty = true;
     }

@@ -363,7 +363,7 @@ export default class ResourceCollector {
             return false;
         }
         if (ResourceCollector.isLoading(resourcePath)) {
-            console.warn(`[ResourceCollector] '${resourcePath}' is still loading and may not load successfully. Use with caution. Proceeding to acquire resource.`);
+            console.warn(`[ResourceCollector] Acquiring resource '${resourcePath}' while still loading, the load may fail. Use with caution.`);
         }
         // if the resource was previously scheduled for disposal and it's prior state wasn't failed, cancel the disposal.
         const resourceInfo = ResourceCollector.#cache.get(resourcePath);
@@ -377,7 +377,7 @@ export default class ResourceCollector {
             ResourceDisposer.cancel(resourcePath);
         }
         resourceInfo.refCount++;
-        console.log(`[ResourceCollector] Successfully acquired resource '${resourcePath}. Current Reference count: ${resourceInfo.refCount}'`)
+        console.log(`[ResourceCollector] Acquired resource '${resourcePath}'. Current Reference count: ${resourceInfo.refCount}.`)
         return true;
     }
 
@@ -426,7 +426,7 @@ export default class ResourceCollector {
         }
         const resourceInfo = ResourceCollector.#cache.get(resourcePath);
         resourceInfo.refCount--;
-        console.log(`[ResourceCollector] Successfully released resource '${resourcePath}. Current Reference count: ${resourceInfo.refCount}'`)
+        console.log(`[ResourceCollector] Successfully released resource '${resourcePath}'. Current Reference count: ${resourceInfo.refCount}'`)
         if (resourceInfo.refCount <= 0 ) {
             console.log(`[ResourceCollector] No more consumers are using resource '${resourcePath}'. Scheduling for disposal.`);
             ResourceCollector.#scheduleForDisposal(resourcePath, resourceInfo);
@@ -533,7 +533,7 @@ export default class ResourceCollector {
     }
 
     /** 
-     * Loads a resource, handling max retries and errors. 
+     * Loads a resource, handling max retries, timeouts and errors. 
      * @returns {Promise} if the resource loads, the promise resolves with the loaded data
     */
     static async #loadResource(resourcePath, loadFunction, options) {
@@ -543,8 +543,21 @@ export default class ResourceCollector {
         let loadError;
         for (let loadAttempt = 0; loadAttempt <= maxRetries; loadAttempt++) {
             try {
-                const controller = new AbortController();
-                const signal = options.signal ? options.signal : controller.signal;
+                // combine inner and outer abort signals
+                const timeoutController = new AbortController();
+                const compositeController = new AbortController();
+
+                timeoutController.signal.addEventListener('abort', () => {
+                    compositeController.abort(timeoutController.signal.reason);
+                }, { once: true });
+
+                if (options.signal && options.signal instanceof AbortSignal) {
+                    options.signal.addEventListener('abort', () => {
+                        compositeController.abort(options.signal.reason);
+                    }, { once : true });
+                }
+
+                // create timeout and load promise
                 const timeoutPromise = new Promise((_, reject) => setTimeout(() => {
                     loadError = new Error(`[ResourceCollector] Failed to load resource due to timeout. (Attempt # ${loadAttempt+1}; Retries left: ${maxRetries-loadAttempt})`);
                     if (options.onLoadTimeout && typeof options.onLoadTimeout === 'function') {
@@ -552,19 +565,24 @@ export default class ResourceCollector {
                     } else if (options.onLoadTimeout) {
                         console.error(`${loadError.message}. Invalid onLoadTimeout function given.`)
                     }
-                    controller.abort();
+                    timeoutController.abort(loadError.message);
                     reject(loadError);
                 }, loadTimeout));
-                const loadPromise = loadFunction(resourcePath, { signal: signal });
+                const loadPromise = loadFunction(resourcePath, { signal: compositeController.signal });
 
-                const loadedData = Promise.race([loadPromise, timeoutPromise]);
-                if (!loadedData) {
-                    // reject immediately if the load function resolves but gave unusable data
+                // race the promises to see who wins!
+                const loadedData = await Promise.race([loadPromise, timeoutPromise]);
+                if (loadedData === null || loadedData === undefined) {
+                    // reject immediately if the load function resolved but gave unusable data
                     return Promise.reject(new Error("[ResourceCollector] Load function resolved but didn't return usable data. Cannot store data in cache."));
                 }
-                return loadedData; // load succeeded, we're done
+                return loadedData; // load succeeded with valid data, we're done
             } catch (error) {
                 loadError = error;
+                // immediately break out of the loop if the error was caused by an abort signal.
+                if (error instanceof DOMException && error.name === 'AbortError') {
+                    throw error;
+                }
             }
         }
         // max retry attempts reached, resource failed to load
@@ -639,14 +657,14 @@ export default class ResourceCollector {
     }
 
     /**
-     * Load an image file from the server. Aborts loading if timeout is expired (in load() or reload())
+     * Fetch an image file from the server. Aborts loading if the provided signal fires.
      * 
-     * Note: the loaded image is NOT stored in the cache. Use this function in conjunction with ResourceCollector.load()
+     * Note: This function is intented to be a potential load function for ResourceCollector.load() - it does not store the data it loads in the cache.
      * @param {string} imagePath the path to the image
-     * @param {Signal} options.signal a signal used to determine if the client should abort the fetch request. 
+     * @param {AbortSignal} loadOptions.signal a signal used to determine if the client should abort the fetch request. 
      * @returns {Promise} a promise that resolves to a decoded image object
      */
-    static async loadImageFile(imagePath, loadOptions) {
+    static async fetchImageFile(imagePath, loadOptions) {
         // fetch image binary from server
         const response = await fetch(imagePath, { signal: loadOptions.signal });
         if (!response.ok) {
@@ -658,14 +676,14 @@ export default class ResourceCollector {
     }
 
     /**
-     * Load a text file from the server. Aborts loading if timeout is expired (in load() or reload())
+     * Fetch a text file from the server. Aborts loading if the provided signal fires.
      * 
-     * Note: the loaded text is NOT stored in the registry. Use this function in conjunction with ResourceCollector.load()
+     * Note: This function is intented to be a potential load function for ResourceCollector.load() - it does not store the data it loads in the cache.
      * @param {string} imagePath the path to the image
-     * @param {Signal} options.signal a signal used to determine if the client should abort the fetch request. 
+     * @param {AbortSignal} loadOptions.signal a signal used to determine if the client should abort the fetch request. 
      * @returns {Promise} a promise resolving with the loaded text
      */
-    static async loadTextFile(filePath, loadOptions) {
+    static async fetchTextFile(filePath, loadOptions) {
         const response = await fetch(filePath, { signal: loadOptions.signal });
         if (!response.ok) {
             return Promise.reject(new Error(`[Server] Error loading text file '${filePath}'. Status:${response.status}.`))

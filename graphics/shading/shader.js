@@ -330,12 +330,12 @@ export default class Shader {
 
             const vertexShaderPromise = ResourceCollector.load(
                 this.#vertexPath, 
-                ResourceCollector.loadTextFile, 
+                ResourceCollector.fetchTextFile, 
                 { category: 'shaderSource', signal: innerSignal, loadTimeout: 5 }
             );
             const fragmentShaderPromise = ResourceCollector.load(
                 this.#fragmentPath, 
-                ResourceCollector.loadTextFile, 
+                ResourceCollector.fetchTextFile, 
                 { category: 'shaderSource', signal: innerSignal, loadTimeout: 5 }
             );
 

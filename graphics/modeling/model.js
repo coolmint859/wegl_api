@@ -1,7 +1,6 @@
 import ResourceCollector from "../../utilities/collector.js";
 import { Vector2, Vector3 } from "../../utilities/vector.js";
 
-
 /**
  * Parses the header of a PLY file to extract essential information.
  * @param {string} modelFileString The entire content of the PLY file.
@@ -310,13 +309,11 @@ export async function createModel(modelFilePath, loadTimeout = 5000) {
         controller.abort();
         reject(new Error(`[ModelLoader] Failed to load model file due to timeout.`));
     }, loadTimeout))
-
-    const modelFilePromise = ResourceCollector.loadTextFile(modelFilePath, { signal: signal });
+    const modelFilePromise = ResourceCollector.fetchTextFile(modelFilePath, { signal: signal });
 
     const modelFileString = await Promise.race([modelFilePromise, timeoutPromise]);
-
     if (!modelFileString.startsWith("ply") || modelFilePath.split(".").pop() !== "ply") {
-        throw new Error("File type is not ply or file does not start with 'ply'.");
+        throw new Error("[ModelLoader] File type is not ply or file does not start with 'ply'.");
     }
 
     // Get the header info
@@ -419,27 +416,27 @@ export function gernerateSphere(numRings, numBands) {
 
 export function generateRectPrism() {
     let vertices = new Float32Array([
-        1, -1, -1,// back face
+        1, -1, -1,          // back face
         1, 1, -1,
         -1, -1, -1,
         -1, 1, -1,
-        -1, -1, 1,       // front face
+        -1, -1, 1,          // front face
         1, -1, 1,
         -1, 1, 1,
         1, 1, 1,
-        1, -1, 1,         // right face
+        1, -1, 1,           // right face
         1, 1, 1,
         1, -1, -1,
         1, 1, -1,
-        -1, -1, -1,       // left face
+        -1, -1, -1,         // left face
         -1, 1, -1,
         -1, -1, 1,
         -1, 1, 1,
-        -1, 1, 1,         // top face
+        -1, 1, 1,           // top face
         -1, 1, -1,
         1, 1, 1,
         1, 1, -1,
-        -1, -1, -1,       // bottom face
+        -1, -1, -1,         // bottom face
         -1, -1, 1,
         1, -1, -1,
         1, -1, 1,
