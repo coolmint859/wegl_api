@@ -2,6 +2,7 @@ import FPSCamera from "../cameras/FPSCamera.js";
 import Shader from "../shading/shader.js";
 import Color from "../../utilities/color.js";
 import { Matrix4 } from "../../utilities/matrix.js";
+import EventScheduler from "../../utilities/scheduler.js";
 
 /**
  * Core real-time 3D application renderer. 
@@ -202,7 +203,7 @@ export default class Graphics3D {
     }
 
     /** renders objects and lights to the screen. */
-    end() {
+    end(dt) {
         const gl = Graphics3D.#gl;
         for (let i = 0; i < this.sceneObjects.length; i++) {
             let object = this.sceneObjects[i];
@@ -233,12 +234,13 @@ export default class Graphics3D {
 
             // unbind material textures (if exist)
             if (object.mesh.material) {
-                object.mesh.material.unbindTextures(shader);
+                object.mesh.material.unbindTextures();
             }
             
             // unbind vertex array
             gl.bindVertexArray(null);
         }
+        EventScheduler.update(dt);
     }
 
     #setBasicShaderUniforms(baseShader, object) {

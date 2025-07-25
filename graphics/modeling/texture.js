@@ -20,65 +20,76 @@ export default class Texture {
     });
     
     static #TEXTURE_ID = 0;
-    static #defaultTextureName = "defaultTexture"
+    static #defaultTexture = null;
+    static #defaultTextureName = 'default-texture';
+    static #defaultCategory = 'texture';
     static #gl;
 
     #textureID;
+    #refCount;
     #texturePath;
     #activeTexture;
     #texOptions;
-    #textureLoadPromise;
     #textureCategory;
     #disposalDelay;
 
     /**
      * Create a new Texture instance
      * @param {string} texturePath the path to the texture on disk
-     * @param {string} type the type of texture (e.g. Texture.Type.DIFFUSE)
      * @param {string} options.category an optional category for the texture, allowing for aggregate texture operations through ResourceCollector/ResourceDisposer.
-     * @param {number} options.disposalDelay the delay time in seconds before the texture is disposed of if no materials use it. Default is 0.5 seconds
+     * @param {number} options.disposalDelay the delay time in seconds before the texture is disposed of if no consumers use it. Default is 0.5 seconds
      * 
      * See docs for other optional parameters9
      */
     constructor(texturePath, options={}) {
         this.#textureID = Texture.#TEXTURE_ID++;
         if (typeof texturePath !== 'string' || texturePath.trim() === '') {
-            console.error(`[Texture ID#${this.#textureID}] TypeError: Expected 'texturePath' to be a non-empty string. Applying default Texture.`);
-            this.#texturePath = Texture.#defaultTextureName;
+            console.error(`[Texture ID#${this.#textureID}] TypeError: Expected 'texturePath' to be a non-empty string. Applying default texture.`);
+            this.#texturePath = null;
         } else {
             this.#texturePath = texturePath;
         }
         this.#activeTexture = Texture.#defaultTextureName; // set to default until image is loaded
         this.#texOptions = options;
-        this.#textureLoadPromise = null;
-        this.#textureCategory = options.category ? options.category : 'texture';
+        this.#textureCategory = options.category ? options.category : Texture.#defaultCategory;
         this.#disposalDelay = options.disposalDelay ? options.disposalDelay : 0.5;
+        this.#refCount = 0;
 
         if (!Texture.#gl) Texture.#gl = Graphics3D.getGLContext();
-        this.#createDefaultTexture();
+        Texture.#createDefaultTexture();
     }
 
     /**
      * Get the ID of this texture.
      * @returns {number} this texture's id
      */
-    getID() {
+    get id() {
         return this.#textureID;
     }
 
     /**
-     * Get the currently active texture path
+     * Get the currently active texture image (the image that will be used when bind() is called)
      * @returns {string} This texture's path
      */
-    getActiveTexture() {
+    get activeImage() {
         return this.#activeTexture;
+    }
+
+    /**
+     * Get the assigned texture image (the image that was given at initialization)
+     * @returns {string} This texture's path
+     */
+    get assignedImage() {
+        if (this.#texturePath === null) return '';
+        return this.#texturePath;
     }
 
     /** 
      * Checks if this texture was successfully loaded into memory.
      * @returns {boolean} true if successfully loaded, false otherwise
      * */
-    isLoaded() {
+    get isLoaded() {
+        if (this.#texturePath === null) return true;
         return ResourceCollector.isLoaded(this.#texturePath);
     }
 
@@ -86,7 +97,8 @@ export default class Texture {
      * Checks if this texture failed to load successfully into memory.
      * @returns {boolean} true if failed to load, false otherwise
      * */
-    loadFailed() {
+    get loadFailed() {
+        if (this.#texturePath === null) return false;
         return ResourceCollector.isFailed(this.#texturePath);
     }
 
@@ -96,51 +108,39 @@ export default class Texture {
      * @returns {Promise} a promise indicating success or failure on acquiring the texture.
      */
     async acquire(maxRetries = 3) {
-        // first time acquisition, load texture into memory and set as active
-        if (this.#textureLoadPromise === null) {
-            try {
-                this.#textureLoadPromise = ResourceCollector.load(
-                    this.#texturePath, 
-                    this.#loadTexture.bind(this), 
-                    {
-                        maxRetries,
-                        disposalDelay: this.#disposalDelay, 
-                        disposeCallback: this.#deleteTexture.bind(this),
-                        category: this.#textureCategory
-                    }
-                )
-                await this.#textureLoadPromise;
-                this.#activeTexture = this.#texturePath;
-                return Promise.resolve(this);
-            } catch (error) {
-                console.error(`[Texture ID#${this.#textureID}] Attempt to acquire texture '${this.#texturePath}' failed: ${error}`);
-                throw error;
-            }
-        // subsequent acquisitions
-        } else {
-            if (ResourceCollector.acquire(this.#activeTexture)) {
-                return this.#textureLoadPromise.then(() => this);  
-            } else {
-                console.error(`[Texture ID#${this.#textureID}] Failed to acquire additional reference for texture '${this.#activeTexture}'. Resource not found in cache.`);
-                // If the previous promise was rejected, re-throw that rejection
-                if (this.#textureLoadPromise && this.#textureLoadPromise.then) {
-                    await this.#textureLoadPromise; 
-                }
-                throw new Error(`[Texture ID#${this.#textureID}] Attempt to acquire texture '${this.#activeTexture}' failed.`);
+        // if the texture image doesn't exist in the cache, then it must be loaded in
+        if (this.#texturePath !== null) {
+            if (!ResourceCollector.contains(this.#texturePath)) {
+                console.log(`[Texture ID#${this.#textureID}] First time load of texture ${this.#texturePath}!`)
+                return this.#loadTextureResource(maxRetries);
+            // if ref count is 0 and texture exists, simply acquire it
+            } else if (this.#refCount === 0) {
+                console.log(`[Texture ID#${this.#textureID}] Using existing texture ${this.#texturePath}.`)
+                ResourceCollector.acquire(this.#texturePath);
             }
         }
+        // always increase texture reference count on acquire.
+        this.#refCount++;
     }
 
     /**
-     * Release this texture from use if it was previously acquired.
+     * Release this texture from use if it was previously acquired. If there is no more consumers using this texture, then the image data is scheduled for disposal.
      * @returns {boolean} true if the texture was successfully released, false otherwise
      */
     release() {
-        if (this.#textureLoadPromise !== null) {
-            return ResourceCollector.release(this.#activeTexture);
+        if (this.#refCount === 0) {
+            console.error(`[Texture ID#${this.#textureID}] Cannot release texture '${this.#activeTexture}' as it has no active consumers.`);
+            return false;
         }
-        console.warn(`[Texture ID#${this.#textureID}] Cannot release texture '${this.#activeTexture}' that has not yet been acquired.`);
-        return false;
+        this.#refCount--;
+        // release the image if no more references on this texture (the given image, as the active one might be the default)
+        if (this.#refCount === 0) {
+            if (this.#texturePath !== null) {
+                ResourceCollector.release(this.#texturePath);
+            }
+            this.#activeTexture = Texture.#defaultTextureName;
+        }
+        return true;
     }
 
     /**
@@ -149,13 +149,22 @@ export default class Texture {
      * @returns {Promise} a promise indicating success or failure on reloading the texture.
      */
     async reload(maxRetries = 3) {
-        try {
-            reloadedData = await ResourceCollector.reload(this.#texturePath, { maxRetries });
-            console.log(`[Texture ID#${this.#textureID}]: Successfully reloaded '${this.#texturePath}'.`);
-            return reloadedData;
-        } catch (error) {
-            console.log(`[Texture ID#${this.#textureID}]: Failed to reload '${this.#texturePath}'.`);
-            throw error;
+        if (this.#texturePath === null) {
+            console.error(`[Texture ID#${this.#textureID}]: Cannot Attempt reload of invalid texture path.`);
+            return Promise.reject("Cannot reload invalid texture.");
+        }
+        if (ResourceCollector.isLoaded(this.#texturePath) || ResourceCollector.isFailed(this.#texturePath)) {
+            try {
+                reloadedData = await ResourceCollector.reload(this.#texturePath, { maxRetries });
+                console.log(`[Texture ID#${this.#textureID}]: Successfully reloaded '${this.#texturePath}'.`);
+                return reloadedData;
+            } catch (error) {
+                console.log(`[Texture ID#${this.#textureID}]: Failed to reload '${this.#texturePath}'.`);
+                throw error;
+            }
+        } else {
+            console.error(`[Texture ID#${this.#textureID}]: Cannot reload '${this.#texturePath}' because it has not yet been acquired or is currently loading.`);
+            return Promise.reject("Cannot reload unacquired/currently loading texture.");
         }
     }
 
@@ -165,9 +174,12 @@ export default class Texture {
      * @returns {boolean} true if this texture was successfully bound, false otherwise
      * */
     bind(locationIndex) {
-        if (ResourceCollector.isLoaded(this.#activeTexture)) {
-            const gl = Texture.#gl;
-
+        const gl = Texture.#gl;
+        if (this.#activeTexture === Texture.#defaultTextureName) {
+            gl.activeTexture(gl.TEXTURE0 + locationIndex);
+            gl.bindTexture(gl.TEXTURE_2D, Texture.#defaultTexture);
+            return true;
+        } else if (ResourceCollector.isLoaded(this.#activeTexture)) {
             const textureData = ResourceCollector.get(this.#activeTexture);
             gl.activeTexture(gl.TEXTURE0 + locationIndex);
             gl.bindTexture(gl.TEXTURE_2D, textureData.glTexture);
@@ -184,7 +196,7 @@ export default class Texture {
      * @returns {boolean} true if this texture was successfully unbound, false otherwise
      * */
     unbind(locationIndex) {
-        if (ResourceCollector.isLoaded(this.#activeTexture)) {
+        if (this.#activeTexture === Texture.#defaultTextureName || ResourceCollector.isLoaded(this.#activeTexture)) {
             const gl = Texture.#gl;
 
             gl.activeTexture(gl.TEXTURE0 + locationIndex);
@@ -198,7 +210,7 @@ export default class Texture {
 
     /**
      * Create an exact replica of this Texture instance, including all preset options.
-     * @returns {Texture | null } a copy of this Texture - if not a valid texture, returns null
+     * @returns {Texture | null } a copy of this Texture - if the texture image hasn't loaded yet, this returns null
      */
     clone() {
         if (!ResourceCollector.isLoaded(this.#activeTexture)) {
@@ -210,19 +222,19 @@ export default class Texture {
 
     /**
      * Retreive a snapshot of the texture metadata associated with this texture. If the texture is not loaded or is invalid, null is returned.
-     * @param {string} texturePath the path to the texture
-     * @returns {object} a copy of the metadata associated with this texture, including the path.
+     * @returns {object} a copy of the metadata associated with this texture, including the active and assigned paths.
      */
     snapshot() {
         // check if the collection has this specific texture defined
         const textureData = ResourceCollector.get(this.#activeTexture);
         if (!textureData) {
-            console.warn(`Warning: Texture '${this.#activeTexture}' was not found. Cannot get texture data.`);
+            console.warn(`Warning: Texture '${this.#activeTexture}' has not yet loaded or has not been acquired. Cannot get texture data.`);
             return null;
         }
         
         const texDataCopy = { 
-            texturePath: this.#activeTexture,
+            assignedPath: this.#texturePath,
+            activePath: this.#activeTexture,
             width: textureData.width,
             height: textureData.height,
             options: { ...this.#texOptions}
@@ -232,20 +244,39 @@ export default class Texture {
         return Object.freeze(texDataCopy);
     }
 
+    /** called if a texture was newly acquired and the texture image hasn't been loaded yet */
+    async #loadTextureResource(maxRetries) {
+        try {
+            await ResourceCollector.load(
+                this.#texturePath, 
+                this.#loadTexture.bind(this), 
+                {
+                    maxRetries,
+                    disposalDelay: this.#disposalDelay, 
+                    disposalCallback: this.#deleteTexture.bind(this),
+                    category: this.#textureCategory
+                }
+            )
+            this.#activeTexture = this.#texturePath;
+            console.log(`[Texture ID#${this.#textureID}] Successfully loaded texture ${this.#activeTexture}.`)
+            return Promise.resolve(this);
+        } catch (error) {
+            console.error(`[Texture ID#${this.#textureID}] Attempt to load and acquire texture '${this.#texturePath}' failed: ${error}`);
+            throw error;
+        }
+    }
+
     /** Called when a new texture should be loaded into memory for the first time */
     async #loadTexture(texturePath, loadOptions) {
         try {
             const imageData = await ResourceCollector.fetchImageFile(texturePath, loadOptions);
             return {
-                glTexture: this.#defineTexture(imageData, this.#texOptions),
+                glTexture: Texture.#defineTexture(texturePath, imageData, this.#texOptions),
                 width: imageData.width,
                 height: imageData.height,
-                crossOrigin: imageData.crossOrigin,
             }
         } catch (error) {
             console.error(`[Texture ID${this.#textureID}] An error occurred attempting to load texture data: ${error}`);
-            this.#textureLoadPromise = null;
-            this.#activeTexture = Texture.#defaultTextureName;
             throw error;
         }
     }
@@ -253,41 +284,88 @@ export default class Texture {
     /** called when a texture should be removed from memory */
     #deleteTexture(textureData) {
         Texture.#gl.deleteTexture(textureData.glTexture);
-        this.#textureLoadPromise = null;
-        this.#activeTexture = Texture.#defaultTextureName;
     }
 
-    #createDefaultTexture() {
-        // create default here
+    static #createDefaultTexture() {
+        if (Texture.#defaultTexture !== null) {
+            return; // default texture already created
+        }
+
+        const gl = Texture.#gl;
+
+        const width = 64;
+        const height = 64;
+        const imageData = new Uint8Array(width * height * 4)
+
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const index = (y * width + x) * 4;
+                
+                const topLeft = x < width / 2 && y < height / 2;
+                const bottomRight = x > width / 2 - 1 && y > height / 2 - 1;
+                let r, g, b;
+                if (topLeft || bottomRight) {
+                    r = 255, g = 0, b = 255;
+                } else {
+                    r = 0, g = 0, b = 0;
+                }
+
+                imageData[index] = r;
+                imageData[index + 1] = g;
+                imageData[index + 2] = b;
+                imageData[index + 3] = 255;
+            }
+        }
+        const imageOptions = { 
+            wrapT: gl.CLAMP_TO_EDGE, 
+            wrapS: gl.CLAMP_TO_EDGE,
+            magFilter: gl.NEAREST,
+            minFilter: gl.NEAREST,
+            generateMipmaps: true,
+            width: width,
+            height: height
+        }
+        Texture.#defaultTexture = Texture.#defineTexture(Texture.#defaultTextureName, imageData, imageOptions);
     }
 
     /** create a webgl texture from the given image */
-    #defineTexture(image, options) {
+    static #defineTexture(path, image, options) {
         const gl = Texture.#gl;
         let glTexture = null;
         try {
             glTexture = gl.createTexture();
-            if (!glTexture) throw new Error('Creation of new WebGL texture instance failed.')
+            if (!glTexture) throw new Error(`[Texture @${path}] Creation of new WebGL texture failed.`)
 
             gl.bindTexture(gl.TEXTURE_2D, glTexture);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+
+            if (image instanceof ImageBitmap) {
+                // this is for server loaded images 
+                gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); 
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image)
+            } else {
+                // this is for the default image, it's represented as a Uint8Array
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, options.width, options.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, image)
+            }
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
 
             // Apply texture parameters - if the options object doesn't have it, apply a default.
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, options.wrapS || gl.REPEAT);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, options.wrapT || gl.REPEAT);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, options.minFilter || gl.LINEAR_MIPMAP_LINEAR);
+            // generate mipmap if requested
+            if (options.generateMipmaps) {
+                gl.generateMipmap(gl.TEXTURE_2D);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, options.minFilter || gl.LINEAR_MIPMAP_LINEAR);
+            } else {
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, options.minFilter || gl.LINEAR);
+            }
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, options.magFilter || gl.LINEAR);
 
-            // generate mipmap if requested
-            if (options.generateMipmaps !== false) {
-                gl.generateMipmap(gl.TEXTURE_2D);
-            }
-
             gl.bindTexture(gl.TEXTURE_2D, null);
-
+            
+            console.log(`[Texture @${path}] Successfully created WebGL texture for image '${path}'.`);
             return glTexture;
         } catch (error) {
-            console.error(`[Texture ID${this.#textureID}] An error occurred when attempting to create WebGL texture from image: ${error}`);
+            console.error(`[Texture @${path}] An error occurred when attempting to create WebGL texture from image '${path}': ${error}`);
 
             if (gl.isTexture(glTexture)) {
                 gl.deleteTexture(glTexture);

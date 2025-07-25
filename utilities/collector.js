@@ -1,3 +1,5 @@
+import EventScheduler from "./scheduler.js";
+
 /**
  * Utility class for loading and caching shared resources and disposing of them when they no longer referenced.
  * Uses reference counting as the lifetime management paradigm. Supports multiple retries, timeouts, and abort controlling when timeout reached.
@@ -106,7 +108,7 @@ export default class ResourceCollector {
      * Reload the resource from the given path to memory, if it exists. Uses the loadFunction and disposalFunction provided at first load.
      * If the reload attempt fails, this will fall back to the last known state of the resource.
      * 
-     * Allowed resource states: LOADED, FAILED, PENDING_DISPOSAL
+     * Allowed resource states: LOADED, FAILED
      * @param {string} resourcePath the path/url to the resource
      * @param {number | null} options.maxRetries the maximum number of times that the resource will attempt to load if the prior attempts fail.
      * @param {number | null} options.loadTimeout the amount of time in seconds before a load function is told to abort. Default is 3 seconds.
@@ -212,6 +214,7 @@ export default class ResourceCollector {
             }
             // cache the resource once before attempting to load with retries
             ResourceCollector.#cache.set(alias, resourceInfo);
+            console.log(`[ResourceCollector] Successfully stored preloaded resource '${alias}'.`)
             return true;
         }
     }
@@ -374,7 +377,7 @@ export default class ResourceCollector {
             }
             resourceInfo.currentState = resourceInfo.priorState; // reset state to state prior to scheduled disposal
             resourceInfo.priorState = null; // reset prior state;
-            ResourceDisposer.cancel(resourcePath);
+            EventScheduler.cancel(resourcePath);
         }
         resourceInfo.refCount++;
         console.log(`[ResourceCollector] Acquired resource '${resourcePath}'. Current Reference count: ${resourceInfo.refCount}.`)
@@ -478,7 +481,7 @@ export default class ResourceCollector {
         }
         // cancel deletion from resource disposer as deletion already handled
         if (ResourceCollector.isPendingDisposal(resourcePath)) {
-            ResourceDisposer.cancel(resourcePath);
+            EventScheduler.cancel(resourcePath);
         }
 
         const disposalInfo = {
@@ -548,12 +551,12 @@ export default class ResourceCollector {
                 const compositeController = new AbortController();
 
                 timeoutController.signal.addEventListener('abort', () => {
-                    compositeController.abort(timeoutController.signal.reason);
+                    compositeController.abort('timeout');
                 }, { once: true });
 
                 if (options.signal && options.signal instanceof AbortSignal) {
                     options.signal.addEventListener('abort', () => {
-                        compositeController.abort(options.signal.reason);
+                        compositeController.abort(options.signal.reason || 'aborted');
                     }, { once : true });
                 }
 
@@ -579,9 +582,11 @@ export default class ResourceCollector {
                 return loadedData; // load succeeded with valid data, we're done
             } catch (error) {
                 loadError = error;
-                // immediately break out of the loop if the error was caused by an abort signal.
+                // break out of the loop if the error was caused by an external abort signal (not a timeout)
                 if (error instanceof DOMException && error.name === 'AbortError') {
-                    throw error;
+                    if (error.reason !== 'timeout') {
+                        throw error;
+                    }
                 }
             }
         }
@@ -631,12 +636,11 @@ export default class ResourceCollector {
         resourceInfo.currentState = ResourceCollector.States.PENDING_DISPOSAL;
         const delay = resourceInfo.disposalDelay;
         const disposalInfo = {
-            alias: resourcePath,
             category: resourceInfo.category ? resourceInfo.category : null,
             data: resourceInfo.data,
             disposalCallback: resourceInfo.disposalCallback
         }
-        ResourceDisposer.schedule(resourcePath, disposalInfo, delay, { disposalCallback: ResourceCollector.#dispose });
+        EventScheduler.schedule(resourcePath, delay, ResourceCollector.#dispose, { eventData: disposalInfo});
     }
 
     /** callback function for ResourceDisposer, invoked when disposal delay time is expired */
@@ -672,7 +676,7 @@ export default class ResourceCollector {
         }
 
         const imageBinary = await response.blob();
-        return createImageBitmap(imageBinary);
+        return await createImageBitmap(imageBinary);
     }
 
     /**

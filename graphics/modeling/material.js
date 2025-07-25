@@ -3,6 +3,7 @@ import { Matrix2, Matrix3, Matrix4 } from "../../utilities/matrix.js";
 import Texture from "./texture.js";
 import Shader from "../shading/shader.js";
 import Color from "../../utilities/color.js";
+import EventScheduler from "../../utilities/scheduler.js";
 
 /**
  * Used to give renderable objects a 'look', with optional textures. Capable of being used by multiple consumers.
@@ -62,19 +63,26 @@ export default class Material {
      * Get the ID of this material
      * @returns {number} this material's id
      */
-    getID() {
+    get id() {
         return this.#materialID;
     }
 
     acquire() {
-        this.#refCount++;
-        for (const texture of this.#textures.values()) {
-            texture.acquire();
+        // cancel releases of textures if the ref count was 0
+        if (this.#refCount === 0 && this.#textures.size !== 0) {
+            for (const texType of this.#textures.keys()) {
+                EventScheduler.cancel(texType);
+            }
         }
+        this.#refCount++;
     }
 
     release() {
         this.#refCount--;
+        if (this.#refCount === 0) {
+            console.log(`[Material ID#${this.#materialID}] No more consumers using this material, scheduling textures for release.`)
+            EventScheduler.schedule('texRelease', 1, this.#releaseTextures.bind(this));
+        }
     }
 
     /**
@@ -181,6 +189,7 @@ export default class Material {
         try {
             texture.acquire();
             this.#textures.set(type, texture);
+            console.log(`[Material ID#${this.#materialID}] Attached texture '${texture.assignedImage}' as ${type}.`);
             return true;
         } catch (error) {
             console.error(`[Material ID#${this.#materialID}] An error occured while attempting to attach material: ${error}`);
@@ -211,7 +220,6 @@ export default class Material {
      * @returns {boolean} true if this material has a texture of the given type, false otherwise
      */
     hasTexture(type) {
-        if (!(Object.values(Texture.Type).includes(type))) return false;
         return this.#textures.has(type);
     }
 
@@ -292,7 +300,7 @@ export default class Material {
      * Apply this Material's properties and textures to the given Shader instance. 
      * 
      * NOTE: The shader program given must ALREADY be active. 
-     * @param {Shader} shaderProgram the shader program istance to set the uniforms for
+     * @param {Shader} shaderProgram the shader program instance to set the uniforms for
      * @param {boolean} renderTextures if the a mesh doesn't support textures, the material shouldn't attempt to pass them
      */
     applyToShader(shaderProgram, renderTextures) {
@@ -317,7 +325,8 @@ export default class Material {
             for (const [texType, texture] of this.#textures.entries()) {
                 // only set texture if the shader program supports it and the texture is valid.
                 // these two things should be either both true or both false, but we need to be sure
-                if (shaderProgram.supports(texType) && texture.isLoaded()) {
+                if (shaderProgram.supports(texType) && texture.isLoaded) {
+                    // console.log(`[Material ID#${this.#materialID}] Applying texture ${texture.getActiveTexture()} as ${texType}`);
                     const texUniformName = `material.${texType}Map`; // uniform name formatted like 'material.diffuseMap'
                     texture.bind(textureIndex);
 
@@ -330,21 +339,12 @@ export default class Material {
 
     /**
      * Goes through this material's textures and unbinds them from GPU memory
-     * @param {Shader} shaderProgram the shader program currently in use.
      */
-    unbindTextures(shaderProgram) {
-        if (!(shaderProgram instanceof Shader && shaderProgram.isActive())) {
-            console.error(`[Material ID#${this.#materialID}] TypeError: Expected 'shaderProgram' to be an active instance of Shader. Cannot set material uniforms.`);
-            return;
-        }
-
-        // unbind supported textures
+    unbindTextures() {
         let textureIndex = 0;
-        for (const [texType, texture] of this.#textures.entries()) {
-            if (shaderProgram.supports(texType) && texture.isLoaded()) {
-                texture.unbind(textureIndex);
-                textureIndex++;
-            }
+        for (const texture of this.#textures.values()) {
+            texture.unbind(textureIndex);
+            textureIndex++;
         }
     }
 
@@ -373,6 +373,12 @@ export default class Material {
         } else {
             // property is some weird type! Theoretically this shouldn't happen if we check if the shader program supports it, but gotta be sure
             console.warn(`[Material ID#${this.#materialID}]: Skipping uniform for property '${uniformName}'. Value type '${typeof uniformValue}' not supported for automatic uniform setting.`);
+        }
+    }
+
+    #releaseTextures() {
+        for (const texture of this.#textures) {
+            texture.release();
         }
     }
 
