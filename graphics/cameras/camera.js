@@ -44,21 +44,21 @@ export default class Camera {
     /**
      * Get this camera's current view matrix.
      */
-    getViewMatrix() {
+    get viewMatrix() {
         return this._viewMatrix.clone();
     }
 
     /**
      * Get this camera's current projection matrix.
      */
-    getProjectionMatrix() {
+    get projectionMatrix() {
         return this._projectionMatrix.clone();
     }
 
     /**
      * Returns true if the camera current projection is perspective, false otherwise.
      */
-    isPerspectiveProj() {
+    get isPerspective() {
         return this._isPerspective;
     }
 

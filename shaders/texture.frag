@@ -6,7 +6,6 @@ precision highp sampler2D;
 struct Material {
     sampler2D diffuseMap;
     sampler2D specularMap;
-    vec3 diffuseColor;
     float shininess;
 };
 
@@ -90,8 +89,8 @@ void main()
     }
     fragColor += diffMapColor * ambientColor;
 
-    float depth = linearizeDepth(gl_FragCoord.z) / far;
-    outColor = vec4(vec3(1.0-depth), 1.0);
+    // float depth = linearizeDepth(gl_FragCoord.z) / far;
+    // outColor = vec4(vec3(1.0-depth), 1.0);
 
     outColor = vec4(pow(fragColor, vec3(1.0/gamma)), 1.0);
 }

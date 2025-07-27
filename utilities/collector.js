@@ -1,8 +1,8 @@
 import EventScheduler from "./scheduler.js";
 
 /**
- * Utility class for loading and caching shared resources and disposing of them when they no longer referenced.
- * Uses reference counting as the lifetime management paradigm. Supports multiple retries, timeouts, and abort controlling when timeout reached.
+ * Utility class for loading and caching shared resources and disposing of them when they no longer needed.
+ * Uses reference counting for resource lifetime management. Supports multiple retries and timeouts.
  * 
  * Possible resource states:
  * @LOADING a resource is currently loading using a given loading function
@@ -26,6 +26,7 @@ export default class ResourceCollector {
      * Note: it as assumed that the resource has at least 1 reference when this function is called. Do not call acquire() if you intend for the resource to have only one consumer.
      * @param {string} resourcePath the path/url to the resource
      * @param {Function} loadFunction the primary loading function for the resource. Must be asyncronous, should accept the resourcePath and a AbortSignal object as parameters, and should return the data to be stored.
+     * @param {object} [options={}] Options for loading the resource
      * @param {string | null} options.category an string representing a group of resources, allowing for aggregate operations
      * @param {number | null} options.maxRetries the maximum number of times that the resource will attempt to load if prior attempts fail. Default is 0.
      * @param {number | null} options.loadTimeout the amount of time in seconds before a load function is told to abort. Default is 3 seconds.
@@ -33,8 +34,8 @@ export default class ResourceCollector {
      * @param {AbortSignal | null} options.signal an abort signal used to propogate signals up to nested load calls. Useful for loading interdependent files.
      * @param {Function | null} options.onLoadFailure function called if the resource failed to load after all load attempts are exhausted. Should accept the resourcePath and an error object as parameters.
      * @param {Function | null} options.disposalCallback a function which is called when this resource is deleted from the cache if it loaded successfully beforehand. Should accept the stored data as a parameter.
-     * @param {number | null} options.disposalDelay the amount of time in seconds before the resource is disposed when all consumers have released it
-     * @returns {Promise} a promise indicating success or failure of loading the resource
+     * @param {number | null} options.disposalDelay the amount of time in seconds before the resource is disposed after all consumers have released it
+     * @returns {Promise<any>} a promise that resolves with the loaded resource data on success
      */
     static async load(resourcePath, loadFunction, options={}) {
         if (typeof resourcePath !== 'string' || resourcePath.trim() === '') {
@@ -110,12 +111,13 @@ export default class ResourceCollector {
      * 
      * Allowed resource states: LOADED, FAILED
      * @param {string} resourcePath the path/url to the resource
+     * @param {object} [options={}] Options for reloading
      * @param {number | null} options.maxRetries the maximum number of times that the resource will attempt to load if the prior attempts fail.
      * @param {number | null} options.loadTimeout the amount of time in seconds before a load function is told to abort. Default is 3 seconds.
      * @param {Function | null} options.onLoadTimeout function called each time a timeout is made on the load function.
      * @param {Function | null} options.onLoadFailure function called if the resource failed to load after all load attempts are exhausted. Should accept the resourcePath and an error object as parameters.
      * @param {AbortSignal | null} options.signal an abort signal used to propogate signals up to nested load calls. Useful for loading interdependent files.
-     * @returns {Promise} a promise inidicating success or failure on reloading
+     * @returns {Promise<any>} a promise that resolves with the reloaded resource data on success
      */
     static async reload(resourcePath, options={}) {
         if (typeof resourcePath !== 'string' || resourcePath.trim() === '') {
@@ -174,6 +176,7 @@ export default class ResourceCollector {
      * Store an already loaded resource into the cache. Useful for programatically created resources that are stored in places that the Javascript GC can't access (like GPU memory)
      * @param {string} alias a unique identifier to use when operating on the resource in the cache.
      * @param {any} resourceData the preloaded resource to store in the cache.
+     * @param {object} [options={}] Options for storing the loaded data
      * @param {Function} options.loadFunction an optional loading function for the resource. Must be asyncronous and should return the data to be stored. Note, if this is not provided, the stored resource cannot be reloaded with ResourceCollector.reload()
      * @param {Function | null} options.disposalCallback called when this resource is deleted from memory (i.e no has no references). Should accept the stored data as a parameter.
      * @param {number | null} options.disposalDelay the amount of time in seconds before the resource is disposed when all consumers have released it.
@@ -324,6 +327,53 @@ export default class ResourceCollector {
             }
         }
         return resourcesInCategory;
+    }
+
+    /**
+     * Periodically checks the status of a resource until either it loads, or a timeout is reached. Returns the resource data on the first successful poll.
+     * @param {string} resourcePath the path to the resource.
+     * @param {object} [options={}] Options for poll timing and resolution.
+     * @param {number} options.pollTimeout the amount of time in seconds before polling ends. Default is 3 seconds.
+     * @param {number} options.pollInterval the amount of time between polling attempts. Default is 1 second.
+     * 
+     * The number of polls is pollTimeout / pollInterval. For example if the timeout is 3 seconds and the interval is 0.5 seconds, then the number of polls is 3/0.5 = 6.
+     * 
+     * Note: If pollInterval is a number that doesn't evenly divide the pollTimeout, there's no guarentee that the last poll will occur.
+     * @returns {Promise<any | null>} a promise that resolves with the loaded data if found before the timeout.
+     */
+    static async getWhenLoaded(resourcePath, options = {}) {
+        if (!ResourceCollector.contains(resourcePath)) {
+            console.warn(`[ResourceCollector] Cannot get resource that doesn't exist.`);
+            return null;
+        }
+        // random integer between 0 and 1,000,000 (bigger range reduces chance of id collisions)
+        const pollID = Math.trunc(Math.random() * 1000000);
+
+        const timeout = options.pollTimeout ?? 3;
+        const interval = options.pollInterval ?? 1;
+        // console.log(timeout);
+        // console.log(interval);
+        // console.log(timeout/interval);
+
+        return new Promise((resolve) => {
+            let isResolved = false;
+            let onTimeout = function() {
+                if (isResolved) return;
+                console.log(`[ResourceCollector] Last poll occurred for resource '${resourcePath}', failed to get resource.`);
+                resolve(null);
+            }
+            let checkStatus = function() {
+                if (isResolved) return;
+                // console.log(`[ResourceCollector] Polling resource '${resourcePath}' for load status...`);
+                if (ResourceCollector.isLoaded(resourcePath)) {
+                    isResolved = true;
+                    EventScheduler.cancel(`load-poll-${pollID}`);
+                    resolve(ResourceCollector.get(resourcePath));
+                }
+            }
+            EventScheduler.schedule(`load-poll-${pollID}`, timeout, onTimeout, { interval: interval, onInterval: checkStatus });
+            checkStatus() // call immediately after sheduling to resolve early if possible.
+        });
     }
 
     /**
@@ -640,7 +690,7 @@ export default class ResourceCollector {
             data: resourceInfo.data,
             disposalCallback: resourceInfo.disposalCallback
         }
-        EventScheduler.schedule(resourcePath, delay, ResourceCollector.#dispose, { eventData: disposalInfo});
+        EventScheduler.schedule(resourcePath, delay, ResourceCollector.#dispose, { eventData: disposalInfo });
     }
 
     /** callback function for ResourceDisposer, invoked when disposal delay time is expired */

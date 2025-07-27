@@ -301,17 +301,20 @@ function generateModel(vertices, normals, faces, textureCoords) {
  * @param {string} modelFilePath The path to the PLY file.
  * @returns {Promise<object>} A promise that resolves to an object containing WebGL-ready buffers.
  */
-export async function createModel(modelFilePath, loadTimeout = 5000) {
-    const controller = new AbortController;
-    const signal = controller.signal;
-
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => {
-        controller.abort();
-        reject(new Error(`[ModelLoader] Failed to load model file due to timeout.`));
-    }, loadTimeout))
-    const modelFilePromise = ResourceCollector.fetchTextFile(modelFilePath, { signal: signal });
-
-    const modelFileString = await Promise.race([modelFilePromise, timeoutPromise]);
+export async function createModel(modelFilePath) {
+    if (modelFilePath.split(".").pop() !== "ply") {
+        throw new Error("[ModelLoader] File type is not PLY.");
+    }
+    let modelFileString;
+    if (!ResourceCollector.contains(modelFilePath)) {
+        modelFileString = await ResourceCollector.load(modelFilePath, ResourceCollector.fetchTextFile);
+    } else {
+        modelFileString = await ResourceCollector.getWhenLoaded(modelFilePath, { pollTimeout: 1.5, pollInterval: 0.1});
+    }
+    if (modelFileString === null) {
+        console.error(`[modelLoader] Could not load file '${modelFilePath}' before timeout. Using default.`);
+        return generateRectPrism();
+    }
     if (!modelFileString.startsWith("ply") || modelFilePath.split(".").pop() !== "ply") {
         throw new Error("[ModelLoader] File type is not ply or file does not start with 'ply'.");
     }
@@ -416,75 +419,37 @@ export function gernerateSphere(numRings, numBands) {
 
 export function generateRectPrism() {
     let vertices = new Float32Array([
-        1, -1, -1,          // back face
-        1, 1, -1,
-        -1, -1, -1,
-        -1, 1, -1,
-        -1, -1, 1,          // front face
-        1, -1, 1,
-        -1, 1, 1,
-        1, 1, 1,
-        1, -1, 1,           // right face
-        1, 1, 1,
-        1, -1, -1,
-        1, 1, -1,
-        -1, -1, -1,         // left face
-        -1, 1, -1,
-        -1, -1, 1,
-        -1, 1, 1,
-        -1, 1, 1,           // top face
-        -1, 1, -1,
-        1, 1, 1,
-        1, 1, -1,
-        -1, -1, -1,         // bottom face
-        -1, -1, 1,
-        1, -1, -1,
-        1, -1, 1,
+        1, -1, -1, 1, 1, -1, -1, -1, -1, -1, 1, -1,
+        -1, -1, 1, 1, -1, 1, -1, 1, 1, 1, 1, 1,
+        1, -1, 1, 1, 1, 1, 1, -1, -1, 1, 1, -1,
+        -1, -1, -1, -1, 1, -1, -1, -1, 1, -1, 1, 1,
+        -1, 1, 1, -1, 1, -1, 1, 1, 1, 1, 1, -1,
+        -1, -1, -1, -1, -1, 1, 1, -1, -1, 1, -1, 1,
     ]);
 
     let normals = new Float32Array([
-        0, 0, -1,        // back face
-        0, 0, -1,
-        0, 0, -1,
-        0, 0, -1,
-        0, 0, 1,       // front face
-        0, 0, 1,
-        0, 0, 1,
-        0, 0, 1,
-        1, 0, 0,         // right face
-        1, 0, 0,
-        1, 0, 0,
-        1, 0, 0,
-        -1, 0, 0,       // left face
-        -1, 0, 0,
-        -1, 0, 0,
-        -1, 0, 0,
-        0, 1, 0,         // top face
-        0, 1, 0,
-        0, 1, 0,
-        0, 1, 0,
-        0, -1, 0,       // bottom face
-        0, -1, 0,
-        0, -1, 0,
-        0, -1, 0,
+        0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1,
+        0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1,
+        1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,
+        -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0,
+        0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0,
+        0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0,
     ]);
 
     let indices = new Int16Array([
-        0, 2, 1, 1, 2, 3,
-        4, 5, 6, 5, 7, 6,
-        9, 8, 10, 9, 10, 11,
-        1, 12, 14, 15, 13, 12,
-        17, 16, 18, 17, 18, 19,
-        20, 23, 21, 20, 22, 23,
+        0, 2, 1, 1, 2, 3, 4, 5, 6,
+        5, 7, 6, 9, 8, 10, 9, 10, 11,
+        15, 12, 14, 15, 13, 12, 17, 16, 18,
+        17, 18, 19, 20, 23, 21, 20, 22, 23,
     ]);
 
     let textureCoords = new Float32Array([
-        0, 0, 0, 1, 1, 0, 1, 1,
-        0, 0, 1, 0, 0, 1, 1, 1,
-        0, 0, 0, 1, 1, 0, 1, 1,
-        0, 0, 0, 1, 1, 0, 1, 1,
-        0, 0, 0, 1, 1, 0, 1, 1,
-        0, 0, 0, 1, 1, 0, 1, 1,
+        0, 1, 0, 0, 1, 1, 1, 0,
+        0, 1, 1, 1, 0, 0, 1, 0,
+        0, 1, 0, 0, 1, 1, 1, 0,
+        0, 1, 0, 0, 1, 1, 1, 0,
+        0, 1, 0, 0, 1, 1, 1, 0,
+        0, 1, 0, 0, 1, 1, 1, 0,
     ]);
 
     return {

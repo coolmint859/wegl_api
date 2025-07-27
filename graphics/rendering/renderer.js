@@ -255,16 +255,16 @@ export default class Graphics3D {
             
         const modelMatrix = Matrix4.TRS4(object.mesh.center, object.mesh.rotation, object.mesh.dimensions);
         baseShader.setMatrix4("model", modelMatrix);
-        baseShader.setMatrix4('view', this.currentCamera.getViewMatrix());
-        baseShader.setMatrix4('projection', this.currentCamera.getProjectionMatrix());
+        baseShader.setMatrix4('view', this.currentCamera.viewMatrix);
+        baseShader.setMatrix4('projection', this.currentCamera.projectionMatrix);
         baseShader.setColor('baseColor', baseColor);
     }
 
     #setPhongShaderUniforms(phongShader, object) {
         const modelMatrix = Matrix4.TRS4(object.mesh.center, object.mesh.rotation, object.mesh.dimensions);
         phongShader.setMatrix4("model", modelMatrix);
-        phongShader.setMatrix4('view', this.currentCamera.getViewMatrix());
-        phongShader.setMatrix4('projection', this.currentCamera.getProjectionMatrix());
+        phongShader.setMatrix4('view', this.currentCamera.viewMatrix);
+        phongShader.setMatrix4('projection', this.currentCamera.projectionMatrix);
         phongShader.setColor('ambientColor', this.ambientColor);
         object.mesh.material.applyToShader(phongShader, false);
     }
@@ -273,8 +273,8 @@ export default class Graphics3D {
         const gl = Graphics3D.#gl;
         const modelMatrix = Matrix4.TRS4(object.mesh.center, object.mesh.rotation, object.mesh.dimensions);
         textureShader.setMatrix4("model", modelMatrix);
-        textureShader.setMatrix4('view', this.currentCamera.getViewMatrix());
-        textureShader.setMatrix4('projection', this.currentCamera.getProjectionMatrix());
+        textureShader.setMatrix4('view', this.currentCamera.viewMatrix);
+        textureShader.setMatrix4('projection', this.currentCamera.projectionMatrix);
         textureShader.setColor('ambientColor', this.ambientColor);
         object.mesh.material.applyToShader(textureShader, true);
     }

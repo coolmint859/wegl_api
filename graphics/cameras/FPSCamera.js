@@ -23,16 +23,16 @@ export default class FPSCamera extends MoveableCamera {
 
         // update camera orientation
         const totalRotation = yawQuat.mult(pitchQuat).mult(rollQuat).normal()
-        this.transform.setRotation(totalRotation);
+        this.transform.rotation = totalRotation;
 
         // update camera position based on current camera orientation
         const worldMoveVector = totalRotation.rotateVector(this._localMovementVector);
         this.transform.translate(worldMoveVector);
 
         // update view matrix
-        const eye = this.transform.getPosition();
-        const target = eye.add(this.transform.getForwardVector());
-        this._viewMatrix = Matrix4.lookAt(eye, target, this.transform.getUpVector());
+        const eye = this.transform.position;
+        const target = eye.add(this.transform.forwardVector);
+        this._viewMatrix = Matrix4.lookAt(eye, target, this.transform.upVector);
         this._isViewDirty = false;
 
         // reset local movement vector to prevent accumulation

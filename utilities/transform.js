@@ -51,7 +51,7 @@ export default class Transform {
      * Retrieve the position vector of this transform
      * @returns {Vector3} the position vector
      */
-    getPosition() {
+    get position() {
         return this.#position.clone();
     }
 
@@ -59,7 +59,7 @@ export default class Transform {
      * Retrieve the rotation quaternion of this transform
      * @returns {Quaternion} the rotation quaternion
      */
-    getRotation() {
+    get rotation() {
         return this.#rotation.clone();
     }
 
@@ -67,7 +67,7 @@ export default class Transform {
      * Retrieve the scale vector of this transform
      * @returns {Vector3} the scale vector
      */
-    getScale() {
+    get scale() {
         return this.#scale.clone();
     }
     
@@ -76,7 +76,7 @@ export default class Transform {
      * @param {Vector3} position the new position
      * @returns {boolean} true if the position was successfully set, false otherwise
      */
-    setPosition(position) {
+    set position(position) {
         if (!(position instanceof Vector3)) {
             console.error("TypeError: Expected 'position' to be instance of Vector3. Unable to set position vector.")
             return false
@@ -91,7 +91,7 @@ export default class Transform {
      * @param {Quaternion} rotation the new rotation
      * @returns {boolean} true if the rotation was successfully set, false otherwise
      */
-    setRotation(rotation) {
+    set rotation(rotation) {
         if (!(rotation instanceof Quaternion)) {
             console.error("TypeError: Expected 'rotation' to be instance of Quaternion. Unable to set rotation quaternion.")
             return false
@@ -106,7 +106,7 @@ export default class Transform {
      * @param {Vector3} scale the new scale
      * @returns {boolean} true if the scale was successfully set, false otherwise
      */
-    setScale(scale) {
+    set scale(scale) {
         if (!(scale instanceof Vector3)) {
             console.error("TypeError: Expected 'scale' to be instance of Vector3. Unable to set scale vector.")
             return false;
@@ -120,7 +120,7 @@ export default class Transform {
      * Retreive the world space forward vector of this transform.
      * @returns {Vector3} the forward vector
      */
-    getForwardVector() {
+    get forwardVector() {
         return this.#rotation.rotateVector(Transform.localForward);
     }
 
@@ -128,7 +128,7 @@ export default class Transform {
      * Retreive the world space up vector of this transform.
      * @returns {Vector3} the up vector
      */
-    getUpVector() {
+    get upVector() {
         return this.#rotation.rotateVector(Transform.localUp);
     }
 
@@ -136,7 +136,7 @@ export default class Transform {
      * Retreive the world space right vector of this transform.
      * @returns {Vector3} the right vector
      */
-    getRightVector() {
+    get rightVector() {
         return this.#rotation.rotateVector(Transform.localRight);
     }
 
@@ -208,7 +208,7 @@ export default class Transform {
      * Computes the transformation matrix as determined by the current position, rotation, and scale.
      * @returns {Matrix4} the computed transformation matrix
      */
-    getWorldMatrix() {
+    get worldMatrix() {
         if (this.#isDirty) {
             this.#worldMatrix = Matrix4.TRS4(this.#position, this.#rotation, this.#scale);
             this.#isDirty = false;

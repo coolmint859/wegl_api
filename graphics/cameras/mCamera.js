@@ -88,7 +88,7 @@ export default class MoveableCamera extends Camera {
      * @param {number} sensitivity the new sensitivity. Must be greater than 0.
      * @returns true if the mouse sensitivity was successfully set, false otherwise.
      */
-    setMouseSensitivity(sensitivity) {
+    set mouseSensitivity(sensitivity) {
         if (typeof sensitivity !== 'number' || sensitivity <= 0) {
             console.error("[MoveableCamera] Expected 'sensitivity' to be number greater than 0. Cannot set mouse sensitivity for this camera.");
             return false;
@@ -101,7 +101,7 @@ export default class MoveableCamera extends Camera {
      * Retrieve the mouse sensitivity for this camera.
      * @returns the current mouse sensitivity
      */
-    getMouseSensitivity() {
+    get mouseSensitivity() {
         return this._mouseSensitivity;
     }
 

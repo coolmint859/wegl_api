@@ -103,7 +103,7 @@ export default class Texture {
     }
 
     /**
-     * Acquire this texture for use. If this was the first time is was acquired, it loads the image data into memory.
+     * Acquire this texture for use. If this was the first time it was acquired, this loads the image data into memory.
      * @param {number | null} maxRetries the maximum number of retry attempts for loading if the first load fails - ignored if texture already loaded
      * @returns {Promise} a promise indicating success or failure on acquiring the texture.
      */
@@ -168,6 +168,30 @@ export default class Texture {
         }
     }
 
+    /**
+     * Retreive a snapshot of the texture metadata associated with this texture. If the texture is not loaded or is invalid, null is returned.
+     * @returns {object} a copy of the metadata associated with this texture, including the active and assigned paths.
+     */
+    get snapshot() {
+        // check if the collection has this specific texture defined
+        const textureData = ResourceCollector.get(this.#activeTexture);
+        if (!textureData) {
+            console.warn(`Warning: Texture '${this.#activeTexture}' has not yet loaded or has not been acquired. Cannot get texture data.`);
+            return null;
+        }
+        
+        const texDataCopy = { 
+            assignedPath: this.#texturePath,
+            activePath: this.#activeTexture,
+            width: textureData.width,
+            height: textureData.height,
+            options: { ...this.#texOptions}
+        };
+
+        // provide read only object
+        return Object.freeze(texDataCopy);
+    }
+
     /** 
      * Binds this texture to it's WebGL context.
      * @param {number} locationIndex the GPU memory index location to bind the texture to.
@@ -218,30 +242,6 @@ export default class Texture {
             return null;
         }
         return new Texture(this.#texturePath, this.#texOptions);
-    }
-
-    /**
-     * Retreive a snapshot of the texture metadata associated with this texture. If the texture is not loaded or is invalid, null is returned.
-     * @returns {object} a copy of the metadata associated with this texture, including the active and assigned paths.
-     */
-    snapshot() {
-        // check if the collection has this specific texture defined
-        const textureData = ResourceCollector.get(this.#activeTexture);
-        if (!textureData) {
-            console.warn(`Warning: Texture '${this.#activeTexture}' has not yet loaded or has not been acquired. Cannot get texture data.`);
-            return null;
-        }
-        
-        const texDataCopy = { 
-            assignedPath: this.#texturePath,
-            activePath: this.#activeTexture,
-            width: textureData.width,
-            height: textureData.height,
-            options: { ...this.#texOptions}
-        };
-
-        // provide read only object
-        return Object.freeze(texDataCopy);
     }
 
     /** called if a texture was newly acquired and the texture image hasn't been loaded yet */
