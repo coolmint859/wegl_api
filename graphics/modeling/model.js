@@ -1,5 +1,5 @@
-import ResourceCollector from "../../utilities/collector.js";
-import { Vector2, Vector3 } from "../../utilities/vector.js";
+import ResourceCollector from "../../utilities/containers/collector.js";
+import { Vector2, Vector3 } from "../../utilities/math/vector.js";
 
 /**
  * Parses the header of a PLY file to extract essential information.
@@ -311,10 +311,10 @@ export async function createModel(modelFilePath) {
     } else {
         modelFileString = await ResourceCollector.getWhenLoaded(modelFilePath, { pollTimeout: 1.5, pollInterval: 0.1});
     }
-    if (modelFileString === null) {
-        console.error(`[modelLoader] Could not load file '${modelFilePath}' before timeout. Using default.`);
-        return generateRectPrism();
-    }
+    // if (modelFileString === null) {
+    //     console.error(`[modelLoader] Could not load file '${modelFilePath}' before timeout. Using default.`);
+    //     return generateRectPrism();
+    // }
     if (!modelFileString.startsWith("ply") || modelFilePath.split(".").pop() !== "ply") {
         throw new Error("[ModelLoader] File type is not ply or file does not start with 'ply'.");
     }

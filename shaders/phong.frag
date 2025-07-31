@@ -52,11 +52,15 @@ vec3 calculatePointLight(PointLight light, float light_dist, vec3 N, vec3 L, vec
     vec3 diffuse = material.diffuseColor * light.diffuseColor * diffuse_impact;
 
     // I use blinn-phong for specular instead, I think it looks nicer
-    vec3 H = normalize(L + V);
-    float specular_impact = max(dot(N, H), 0.0);
-    vec3 specular = material.specularColor * light.specularColor * pow(specular_impact, material.shininess * 64.0);
+    if (material.shininess >= 0.175) {
+        vec3 H = normalize(L + V);
+        float specular_impact = max(dot(N, H), 0.0);
+        vec3 specular = material.specularColor * light.specularColor * pow(specular_impact, material.shininess * 64.0);
 
-    return (diffuse + specular) * atten;
+        return (diffuse + specular) * atten;
+    } else {
+        return diffuse * atten;
+    }
 }
 
 void main()

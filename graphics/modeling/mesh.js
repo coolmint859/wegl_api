@@ -1,6 +1,6 @@
 import Graphics3D from "../rendering/renderer.js";
-import ResourceCollector from "../../utilities/collector.js";
-import Transform from "../../utilities/transform.js";;
+import ResourceCollector from "../../utilities/containers/collector.js";
+import Transform from "../../utilities/containers/transform.js";
 import MeshLoader from "../../utilities/meshloader.js";
 import ShaderManager from "../shading/shader_manager.js"
 import Material from "./material.js";
@@ -31,7 +31,7 @@ export default class Mesh {
      * @param {object} options options for mesh and buffer definitions (e.g initialTransform, drawMode, etc...)
      */
     constructor(meshPath, material, options={}) {
-        Mesh.#gl = Graphics3D.getGLContext();
+        if (!Mesh.#gl) Mesh.#gl = Graphics3D.getGLContext();
         this.#meshPath = meshPath;
         this.#meshID = Mesh.#ID_COUNTER++;
         this.#meshOptions = options;

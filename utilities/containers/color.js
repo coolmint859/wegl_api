@@ -1,4 +1,4 @@
-import { interpolate } from "./blend.js";
+import { interpolate } from "../math/blend.js";
 /**
  * Holds color information in the format (r, g, b, a). Also provides common colors.
  */
@@ -18,6 +18,7 @@ export default class Color {
     static BLUE = new Color(0, 0, 1);
     static VIOLET = new Color(0.5, 0, 1);
     static MAGENTA = new Color(1, 0, 1);
+    static PINK = Color.fromInt(255, 105, 180);
 
     constructor(r, g, b, a = 1.0) {
         this.r = r;

@@ -1,5 +1,5 @@
 import Camera from "./camera.js";
-import Transform from "../../utilities/transform.js";
+import Transform from "../../utilities/containers/transform.js";
 
 /** An abstract class defining a camera movable by the user, providing methods for such. */
 export default class MoveableCamera extends Camera {

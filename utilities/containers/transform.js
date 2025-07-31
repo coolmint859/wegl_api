@@ -1,6 +1,6 @@
-import { Vector3 } from './vector.js';
-import Quaternion from './quaternion.js';
-import { Matrix4 } from './matrix.js';
+import { Vector3 } from '../math/vector.js';
+import Quaternion from '../math/quaternion.js';
+import { Matrix4 } from '../math/matrix.js';
 
 /**
  * Encapsulates local to world space transformations.
