@@ -25,7 +25,7 @@ export default class ResourceCollector {
      * 
      * Note: it as assumed that the resource has at least 1 reference when this function is called. Do not call acquire() if you intend for the resource to have only one consumer.
      * @param {string} resourcePath the path/url to the resource
-     * @param {Function} loadFunction the primary loading function for the resource. Must be asyncronous, should accept the resourcePath and a AbortSignal object as parameters, and should return the data to be stored.
+     * @param {Function} loadFunction the primary loading function for the resource. Must be asyncronous, should accept the resourcePath and a js object with an AbortSignal object as parameters, and should return the data to be stored.
      * @param {object} [options={}] Options for loading the resource
      * @param {string | null} options.category an string representing a group of resources, allowing for aggregate operations
      * @param {number | null} options.maxRetries the maximum number of times that the resource will attempt to load if prior attempts fail. Default is 0.
@@ -351,9 +351,6 @@ export default class ResourceCollector {
 
         const timeout = options.pollTimeout ?? 3;
         const interval = options.pollInterval ?? 1;
-        // console.log(timeout);
-        // console.log(interval);
-        // console.log(timeout/interval);
 
         return new Promise((resolve) => {
             let isResolved = false;

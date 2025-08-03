@@ -1,9 +1,9 @@
 import Graphics3D from "../rendering/renderer.js";
 import ResourceCollector from "../../utilities/containers/collector.js";
 import Transform from "../../utilities/containers/transform.js";
-import MeshLoader from "../../utilities/meshloader.js";
 import ShaderManager from "../shading/shader_manager.js"
 import Material from "./material.js";
+import StreamProcessor from "../../utilities/file_parsing/stream.js";
 
 export default class Mesh {
     static #ID_COUNTER = 0;
@@ -61,7 +61,7 @@ export default class Mesh {
         this.#currentMaterialCapabilities = { 'properties': [], 'textures': [] };
         
         if (typeof meshPath === 'string' && meshPath.trim() !== '') {
-            ResourceCollector.load(meshPath, this.#loadMesh.bind(this), this.#disposeMesh.bind(this))
+            ResourceCollector.load(meshPath, this.#generateMesh.bind(this), this.#disposeMesh.bind(this))
             .then(meshData => {
                 this.refreshShaderEvaluation(); 
                 console.log(`[Mesh ID#${this.#meshID}] Created new mesh '${meshPath}'.`);
@@ -258,62 +258,50 @@ export default class Mesh {
         return shaderReleased && meshReleased && materialDisposed;
     }
 
-    async #loadMesh() {
-        const rawMeshData = await MeshLoader.load(this.#meshPath);
-        const meshData = {
-            drawMode: rawMeshData.drawMode,
-            vertexCount: Math.floor(rawMeshData.vertexArray.length / 3),
-            hasTexCoords: !rawMeshData.texCoordsArray ? false : true
-        }
-        Mesh.#defineVAO(rawMeshData, meshData, this.#meshOptions);
-        this.#updateMeshCapabilities(meshData);
-        return meshData;
-    }
-
-    /** Creates a new Vertex Array Object (VAO) for this mesh. Should only be called once. */
-    static #defineVAO(rawMeshData, meshDataObj, meshOptions) {
+    async #generateMesh(meshPath, options) {
         // get context and draw type
         const gl = Mesh.#gl;
         const drawType = meshOptions.drawType ? meshOptions.drawType : gl.STATIC_DRAW;
 
-        // create and bind VAO
-        const meshVAO = gl.createVertexArray();
-        gl.bindVertexArray(meshVAO);
+        // load data arrays, create and bind VAO
+        const meshArrays = await StreamProcessor.load(meshPath, options);
+        const meshData = { VAO: gl.createVertexArray() };
+        gl.bindVertexArray(meshData.VAO);
 
         // create and bind vertex buffer
         const vertexLocation = ShaderManager.ATTRIB_LOCATION_VERTEX;
-        const vertexArray = rawMeshData.vertexArray;
-        meshDataObj.vertexBuffer = Mesh.#createBuffer(vertexLocation, vertexArray, 3, drawType);
+        meshData.vertexBuffer = Mesh.#createArrayBuffer(vertexLocation, meshArrays.vertexArray, 3, drawType);
 
         // create and bind normal buffer
         const normalLocation = ShaderManager.ATTRIB_LOCATION_NORMAL;
-        const normalArray = rawMeshData.normalArray;
-        meshDataObj.normalBuffer = Mesh.#createBuffer(normalLocation, normalArray, 3, drawType);
+        meshData.normalBuffer = Mesh.#createArrayBuffer(normalLocation, meshArrays.NormalArray, 3, drawType);
 
-        // if texture coordinates present, bind coordinates
-        if (rawMeshData.texCoordsArray) {
+        // if texture coordinates present, bind uv buffer
+        if (meshArrays.uvArray !== null) {
             const uvLocation = ShaderManager.ATTRIB_LOCATION_UV;
-            const uvArray = rawMeshData.texCoordsArray;
-            meshDataObj.uvBuffer = Mesh.#createBuffer(uvLocation, uvArray, 2, drawType);
+            meshData.uvBuffer = Mesh.#createArrayBuffer(uvLocation, meshArrays.uvArray, 2, drawType);
         }
 
         // bind index buffer
         const indexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, rawMeshData.indexArray, drawType);
-        meshDataObj.indexBuffer = indexBuffer;
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, meshArrays.indexArray, drawType);
+        meshData.indexBuffer = indexBuffer;
 
         // unbind buffers
         gl.bindVertexArray(null);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
-        // finally attach VAO to mesh
-        meshDataObj.VAO = meshVAO;
+        // update capabilities
+        this.#updateMeshCapabilities(meshData);
+
+        // return mesh object (which now contains the VAO and buffers)
+        return meshData;
     }
 
     /** creates a new buffer object at the given location with the given data */
-    static #createBuffer(location, data, elementSize, drawType) {
+    static #createArrayBuffer(location, data, elementSize, drawType) {
         const gl = Mesh.#gl;
 
         const buffer = gl.createBuffer();
@@ -324,14 +312,14 @@ export default class Mesh {
         return buffer;
     }
 
-    /** update this meshes capabilities using the provided data object */
-    #updateMeshCapabilities(meshDataObj) {
+    /** update this meshes capabilities using the provided mesh data */
+    #updateMeshCapabilities(meshData) {
         // reset capability array
         this.#meshCapabilities = ['model'];
 
-        if (meshDataObj.vertexBuffer) this.#meshCapabilities.push('position');
-        if (meshDataObj.normalBuffer) this.#meshCapabilities.push('normal');
-        if (meshDataObj.uvBuffer) this.#meshCapabilities.push('uv');
+        if (meshData.vertexBuffer) this.#meshCapabilities.push('position');
+        if (meshData.normalBuffer) this.#meshCapabilities.push('normal');
+        if (meshData.uvBuffer) this.#meshCapabilities.push('uv');
         // add more checks as mesh data becomes more sophisticated
 
         this.#meshCapabilities.sort();

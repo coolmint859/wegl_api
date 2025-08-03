@@ -13,7 +13,7 @@ function getHeaderInfo(modelFileString) {
     let faceCount = 0;
     let dataStartIndex = 0;
     let hasTextureCoords = false;
-    let hasExplicitNormals = false; // New flag for explicit normals in PLY
+    let hasExplicitNormals = false;
 
     let lines = modelFileString.split("\n");
     for (let i = 0; i < lines.length; i++) {
@@ -49,7 +49,7 @@ function getHeaderInfo(modelFileString) {
         "face_count": faceCount,
         "start_index": dataStartIndex,
         "hasTextureCoords": hasTextureCoords,
-        "hasExplicitNormals": hasExplicitNormals // Return new flag
+        "hasExplicitNormals": hasExplicitNormals
     };
 }
 
@@ -166,8 +166,8 @@ function getModelInfo(headerInfo, modelFileString) {
             continue;
         }
         if (faceInfo.length < 4) { // 3 (for count) + 3 (for indices)
-             console.warn(`Line ${i+1}: Malformed face line. Skipping.`);
-             continue;
+            console.warn(`Line ${i+1}: Malformed face line. Skipping.`);
+            continue;
         }
 
         // Store face indices
@@ -192,7 +192,7 @@ function getModelInfo(headerInfo, modelFileString) {
 
             let vector1 = vert2.sub(vert1);
             let vector2 = vert2.sub(vert3);
-            let face_normal = vector1.cross(vector2).normalize();
+            let face_normal = vector1.cross(vector2).normal();
 
             // Add face normal to the sets for each vertex
             vertex_normal_sets[v1_idx].add(JSON.stringify(face_normal));
