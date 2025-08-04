@@ -1,5 +1,5 @@
 /**
- * An interface for file parsers.
+ * A base class for file parsers.
  */
 export default class Parser {
     /**
@@ -25,5 +25,32 @@ export default class Parser {
      */
     getParsedData() {
         throw Error(`[Parser] A parser class derived from this one must implement the getParsedData method.`);
+    }
+
+    /**
+     * Utility method for finding the index of a string of bytes in a Uint8Array
+     * @param {Uint8Array} binData the array of data to search in
+     * @param {Uint8Array} bytes the set of bytes to search for in the binary data
+     * @param {number} start an index into the binary array for which to begin searching.
+     * @param {number} end an index into the binary array for which to stop searching.
+     * @returns {number} the index for which the bytes starts in the binary array. If the bytes are not in the array, -1 is returned.
+     */
+    static findByteIndex(binData, bytes, start, end) {
+        if (bytes.length === 0) return start;
+        if (bytes.length > end - start) return -1;
+
+        for (let i = start; i <= end - bytes.length; i++) {
+            let found = true;
+            for (let j = 0; j < bytes.length; j++) {
+                if (binData[i + j] !== bytes[j]) {
+                    found = false;
+                    break;
+                }
+            }
+            if (found) {
+                return i;
+            }
+        }
+        return -1;
     }
 }

@@ -618,7 +618,7 @@ export default class ResourceCollector {
                     timeoutController.abort(loadError.message);
                     reject(loadError);
                 }, loadTimeout));
-                const loadPromise = loadFunction(resourcePath, { signal: compositeController.signal });
+                const loadPromise = loadFunction(resourcePath, compositeController.signal);
 
                 // race the promises to see who wins!
                 const loadedData = await Promise.race([loadPromise, timeoutPromise]);
@@ -712,12 +712,12 @@ export default class ResourceCollector {
      * 
      * Note: This function is intented to be a potential load function for ResourceCollector.load() - it does not store the data it loads in the cache.
      * @param {string} imagePath the path to the image
-     * @param {AbortSignal} loadOptions.signal a signal used to determine if the client should abort the fetch request. 
+     * @param {AbortSignal} abortSignal a signal used to determine if the client should abort the fetch request. 
      * @returns {Promise} a promise that resolves to a decoded image object
      */
-    static async fetchImageFile(imagePath, loadOptions) {
+    static async fetchImageFile(imagePath, abortSignal) {
         // fetch image binary from server
-        const response = await fetch(imagePath, { signal: loadOptions.signal });
+        const response = await fetch(imagePath, { signal: abortSignal });
         if (!response.ok) {
             return Promise.reject(new Error(`[Server] Error loading image file '${imagePath}'. Status:${response.status}.`))
         }
@@ -731,11 +731,11 @@ export default class ResourceCollector {
      * 
      * Note: This function is intented to be a potential load function for ResourceCollector.load() - it does not store the data it loads in the cache.
      * @param {string} imagePath the path to the image
-     * @param {AbortSignal} loadOptions.signal a signal used to determine if the client should abort the fetch request. 
+     * @param {AbortSignal} abortSignal a signal used to determine if the client should abort the fetch request. 
      * @returns {Promise} a promise resolving with the loaded text
      */
-    static async fetchTextFile(filePath, loadOptions) {
-        const response = await fetch(filePath, { signal: loadOptions.signal });
+    static async fetchTextFile(filePath, abortSignal) {
+        const response = await fetch(filePath, { signal: abortSignal });
         if (!response.ok) {
             return Promise.reject(new Error(`[Server] Error loading text file '${filePath}'. Status:${response.status}.`))
         }

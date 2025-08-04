@@ -267,9 +267,9 @@ export default class Texture {
     }
 
     /** Called when a new texture should be loaded into memory for the first time */
-    async #loadTexture(texturePath, loadOptions) {
+    async #loadTexture(texturePath, abortSignal) {
         try {
-            const imageData = await ResourceCollector.fetchImageFile(texturePath, loadOptions);
+            const imageData = await ResourceCollector.fetchImageFile(texturePath, abortSignal);
             return {
                 glTexture: Texture.#defineTexture(texturePath, imageData, this.#texOptions),
                 width: imageData.width,

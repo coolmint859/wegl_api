@@ -313,19 +313,18 @@ export default class Shader {
     }
 
     /** create a new shader program with the given vertex and fragment shader paths */
-    async #buildProgram(shaderName, loadOptions) {
+    async #buildProgram(shaderName, abortSignal) {
         try {
             const gl = Shader.#gl;
 
             const innerController = new AbortController();
             const innerSignal = innerController.signal;
 
-            const outerSignal = loadOptions.signal;
-            if (!loadOptions.signal instanceof AbortSignal) {
+            if (!abortSignal instanceof AbortSignal) {
                 throw new Error('Loading shader program files require an abort signal object.')
             }
-            outerSignal.addEventListener('abort', () => {
-                innerController.abort(outerSignal.reason)
+            abortSignal.addEventListener('abort', () => {
+                innerController.abort(abortSignal.reason)
             }, {once: true});
 
             const vertexShaderPromise = ResourceCollector.load(

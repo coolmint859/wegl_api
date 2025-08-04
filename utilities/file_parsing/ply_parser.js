@@ -16,11 +16,14 @@ export default class PLYParser extends Parser {
     #meshData;
     #header;
 
+    /**
+     * Create a new PLYParser instance.
+     */
     constructor() {
         super();
         this.#state = PLYParser.State.HEADER;
-        this.#resetHeader();
-        this.#resetMeshData();
+        this.#header = { elements: [], format: {}, hasNormals: false };
+        this.#meshData = { vertexArray: null, normalArray: null, indexArray: null }
     }
 
     /**
@@ -28,8 +31,8 @@ export default class PLYParser extends Parser {
      */
     reset() {
         this.#state = PLYParser.State.HEADER;
-        this.#resetHeader();
-        this.#resetMeshData();
+        this.#header = { elements: [], format: {}, hasNormals: false };
+        this.#meshData = { vertexArray: null, normalArray: null, indexArray: null }
     }
 
     /**
@@ -51,10 +54,11 @@ export default class PLYParser extends Parser {
     parse(currDataChunk, isStreamDone) {
         let currData = currDataChunk;
         if (currData.length > 0) { // only call parsing functions if there is data to parse
+            // parse header
             if (this.#state === PLYParser.State.HEADER) {
                 currData = this.#parseHeader(currData);
             }
-            // separate if clause to allow for parsing data that's in the same chunk as the header
+            // parse body/data
             if (this.#state === PLYParser.State.DATA) {
                 if (this.#header.format.type === 'ascii') {
                     currData = this.#parseBodyAscii(currData);
@@ -84,7 +88,7 @@ export default class PLYParser extends Parser {
 
         // split header from data if possible
         const endHeaderBinary = (new TextEncoder).encode('end_header\n');
-        const endHeaderIndex = StreamProcessor.findByteIndex(currDataChunk, endHeaderBinary, 0, currDataChunk.length);
+        const endHeaderIndex = Parser.findByteIndex(currDataChunk, endHeaderBinary, 0, currDataChunk.length);
         let headerString;
         if (endHeaderIndex !== -1) {
             const dataStartIndex = endHeaderIndex + 'end_header\n'.length;
@@ -154,15 +158,5 @@ export default class PLYParser extends Parser {
     #parseBodyBinary(currDataChunk) {
         console.log("Parsing data binary!")
         return new Uint8Array();
-    }
-
-    /** reset the header object */
-    #resetHeader() {
-        this.#header = { elements: [], format: {}, hasNormals: false };
-    }
-
-    /** reset the header object */
-    #resetMeshData() {
-        this.#meshData = { vertexArray: null, normalArray: null, indexArray: null }
     }
 }

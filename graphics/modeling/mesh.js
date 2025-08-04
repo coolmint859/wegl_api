@@ -258,13 +258,13 @@ export default class Mesh {
         return shaderReleased && meshReleased && materialDisposed;
     }
 
-    async #generateMesh(meshPath, options) {
+    async #generateMesh(meshPath, abortSignal) {
         // get context and draw type
         const gl = Mesh.#gl;
         const drawType = meshOptions.drawType ? meshOptions.drawType : gl.STATIC_DRAW;
 
         // load data arrays, create and bind VAO
-        const meshArrays = await StreamProcessor.load(meshPath, options);
+        const meshArrays = await StreamProcessor.load(meshPath, { signal : abortSignal });
         const meshData = { VAO: gl.createVertexArray() };
         gl.bindVertexArray(meshData.VAO);
 
