@@ -89,12 +89,13 @@ export default class StreamProcessor {
                     return Promise.reject(new Error(`[StreamProcessor] External abort signal was set before parsing could complete.`))
                 }
 
-                // get next chunk and combine with leftover data
+                // get next chunk and combine with leftover data, convert to dataview instance
                 const dataChunk = result.value || new Uint8Array(0);
                 const nextData = StreamProcessor.#combineBuffers(streamState.buffer, dataChunk);
+                const dataView = new DataView(nextData.buffer);
 
                 // get next parse state from parser
-                const parseState = parser.parse(nextData, result.done);
+                const parseState = parser.parse(dataView, result.done);
                 if (typeof parseState !== 'object' || !('remainingData' in parseState) || !('isDone' in parseState)) {
                     return Promise.reject(new Error(`[StreamProcessor] Expected parser.parse() to return an object with properties 'remainingData' and 'isDone', but either a property was missing or the return value was null.`))
                 }

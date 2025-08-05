@@ -11,11 +11,11 @@ export default class Parser {
 
     /**
      * The core parsing logic. This method must be overridden.
-     * @param {Uint8Array} currDataChunk The current buffer state.
-     * @param {boolean} isStreamDone A flag indicating if the stream has ended.
-     * @returns {object} A state object. Should hold any remaining unprocessed data and and isDone flag.
+     * @param {Uint8Array} currentBuffer The current buffer state. Is prepended with unprocessed data from the last call.
+     * @param {boolean} isStreamDone A flag indicating if there are no more incoming buffer data.
+     * @returns {object} A state object. Should hold any 'remainingData' and an 'isDone' flag - the flag signals to the stream processor that parsing is complete, and thus should terminate.
      */
-    parse(currDataChunk, isStreamDone) {
+    parse(currentBuffer, isStreamDone) {
         throw Error(`[Parser] A parser class derived from this one must implement the parse method.`);
     }
 
