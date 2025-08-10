@@ -1,57 +1,37 @@
 export default class ParserTester {
-    static #plyBinary = (new TextEncoder).encode(
-    `ply
-    format ascii 1.0
-    element vertex 4
-    property float x
-    property float y
-    property float z
-    property float u
-    property float v
-    property float nx
-    property float ny
-    property float nz
-    element color 4
-    property int r
-    property int g
-    property int b
-    property int a
-    element face 2
-    property list uchar uint vertex_indices
-    end_header
-    -1 1 1 0 1 0 0 -1
-    1 1 1 1 1 0 0 -1
-    -1 -1 1 0 0 0 0 -1
-    1 -1 1 0 1 0 0 -1
-    255 0 0 255
-    0 255 0 255
-    0 0 255 255
-    255 0 0 255
-    3 0 1 2
-    3 2 1 3
-    `.split('\n').map(line => line.trim()).join('\n')
-    );
 
-    static test(parser) {
-        ParserTester.testParser(100, parser);
-        ParserTester.testParser(250, parser);
-        ParserTester.testParser(500, parser);
+    static testMultiple(chunkSizes, parser, testFileString) {
+        for (const chunkSize of chunkSizes) {
+            ParserTester.testParser(chunkSize, parser, testFileString);
+            parser.reset({ includeOptions: false });
+        }
     }
 
-    static testParser(chunkSize, parser) {
-        parser.reset();
+    static testParser(chunkSize, parser, testFileString) {
         const streamState = { 
             buffer: new Uint8Array(0), 
             isParsingDone: false
         }
-        
+        const testBinary = (new TextEncoder).encode(
+            testFileString.split('\n')
+            .map(line => line.trim())
+            .join('\n')
+        )
+
+        let doneCount = 0;
         let chunkIndex = 0;
-        let nextChunk = ParserTester.#plyBinary.subarray(0, chunkSize);
+        let nextChunk = testBinary.subarray(0, chunkSize);
         while (!streamState.isParsingDone) {
             // get next chunk and combine with leftover data
-            nextChunk = ParserTester.#plyBinary.subarray(chunkIndex, chunkIndex+chunkSize);
+            nextChunk = testBinary.subarray(chunkIndex, chunkIndex+chunkSize);
+            if (nextChunk.length === 0) {
+                doneCount++;
+                if (doneCount > 3) {
+                    console.error("Max done count reached");
+                    break;
+                }
+            }
 
-            // console.log(nextChunk);
             const nextData = ParserTester.#combineBuffers(streamState.buffer, nextChunk);
             console.log((new TextDecoder()).decode(nextData));
 

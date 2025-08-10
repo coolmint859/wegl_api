@@ -3,7 +3,7 @@ import ResourceCollector from "../../utilities/containers/collector.js";
 import Transform from "../../utilities/containers/transform.js";
 import ShaderManager from "../shading/shader_manager.js"
 import Material from "./material.js";
-import StreamProcessor from "../../utilities/file_parsing/stream.js";
+import StreamReader from "../../utilities/file_parsing/stream.js";
 
 export default class Mesh {
     static #ID_COUNTER = 0;
@@ -264,7 +264,7 @@ export default class Mesh {
         const drawType = meshOptions.drawType ? meshOptions.drawType : gl.STATIC_DRAW;
 
         // load data arrays, create and bind VAO
-        const meshArrays = await StreamProcessor.load(meshPath, { signal : abortSignal });
+        const meshArrays = await StreamReader.read(meshPath, { signal : abortSignal });
         const meshData = { VAO: gl.createVertexArray() };
         gl.bindVertexArray(meshData.VAO);
 
