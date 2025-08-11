@@ -38,7 +38,8 @@ export default class StreamReader {
      * @param {object} options file loading/parsing options
      * @param {AbortSignal} options.signal signal determining whether to abort the streaming process
      * @param {Parser} options.parser a parser instance to use to parse the data in the file. If one is not given, the parser is inferred from the file's extension and a default parser is chosen.
-     * @returns {any} data that is created by the parser instance used with the file.
+     * @param {any} options._ any additional options specific to the parser instance used. This is meant for default parsers, and will not be applied to any provided parsers.
+     * @returns {any} the data that is created by the parser instance used with the file.
      */
     static async read(filePath, options={}) {
         if (typeof filePath !== 'string') {
@@ -77,7 +78,7 @@ export default class StreamReader {
             }
 
             // return the data the parser generated
-            return stream.parser.getParsedData();
+            return stream.parser.getData();
         // } catch (error) {
         //     return Promise.reject(new Error(`[StreamProcessor] An error occured while attempting to fetch/read stream data: ${error}`));
         // }

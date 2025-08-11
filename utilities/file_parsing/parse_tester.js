@@ -1,5 +1,13 @@
+/**
+ * A helper class to test parsers on string respresentations of files.
+ */
 export default class ParserTester {
-
+    /**
+     * Test a parser with multiple chunk sizes
+     * @param {Array<number>} chunkSizes an array of chunk sizes. Sizes are in terms of characters (so a value of 100 means a chunk size of 100 characters)
+     * @param {Parser} parser the parser instance to test with. Must be a derived instance of Parser.
+     * @param {string} testFileString the string of test data to parse.
+     */
     static testMultiple(chunkSizes, parser, testFileString) {
         for (const chunkSize of chunkSizes) {
             ParserTester.testParser(chunkSize, parser, testFileString);
@@ -43,7 +51,7 @@ export default class ParserTester {
 
             chunkIndex += chunkSize;
         }
-        console.log(parser.getParsedData());
+        console.log(parser.getData());
     }
 
     /** prepends buffer1 onto buffer2 and returns the result. Assumes they are both Uint8Arrays */

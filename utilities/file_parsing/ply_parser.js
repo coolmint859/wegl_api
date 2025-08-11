@@ -3,8 +3,8 @@ import Parser from "./base_parser.js";
 /**
  * Parses PLY files via a data stream, converting the data into a mesh object.
  * 
- * It always will parse the data into an interleaved array object. If the user requested
- * it to not be interleaved, then it is further separated into invididual arrays.
+ * It first will parse the data into an interleaved ArrayBuffer object. If requested
+ * to not be interleaved, then this array is further separated into invividual typed arrays.
  * 
  */
 export default class PLYParser extends Parser {
@@ -15,7 +15,7 @@ export default class PLYParser extends Parser {
         FAILED: 'failed',
     })
 
-    // this is used when the user specfies to not interleave data arrays
+    // common property to array names for non-iterleaved data
     static #propToArrayName = new Map([
         ['x', 'vertex'], ['y', 'vertex'], ['z', 'vertex'],
         ['vx', 'vertex'], ['vy', 'vertex'], ['vz', 'vertex'],
@@ -47,7 +47,12 @@ export default class PLYParser extends Parser {
     #interleaved;
 
     /**
-     * Create a new PLYParser instance.
+     * Create a new PLYParser.
+     * @param {object} options options for data parsing and output format
+     * @param {boolean} options.generateNormals if true, after parsing it will generate vertex normals if not already present. A face element must be in the file data for this to work. 
+     * @param {boolean} options.interleaveArrays if true, each element will have their data interleaved according to the properties in the header, 
+     * otherwise each element will be separated into logically similar groups (vertices, normals, etc). List properties will be interleaved or in separate arrays accordingly.
+     * @returns {PLYParser} a reference to this parser instance
      */
     constructor(options={}) {
         super();
@@ -58,12 +63,17 @@ export default class PLYParser extends Parser {
 
     /**
      * Reset this PLYParser.
+     * @param {object} options options for data parsing and output format
+     * @param {boolean} options.includeOptions if true, will also reset the options given at constuction.
+     * @param {boolean} options.generateNormals if true, after parsing it will generate vertex normals if not already present. A face element must be in the array for this to work. 
+     * @param {boolean} options.interleaveArrays if true, each element will have their data interleaved according to the properties in the header, 
+     * otherwise each element will be separated into logically similar groups (vertices, normals, etc). List properties will be interleaved or in separate arrays accordingly.
      * @returns {PLYParser} a reference to this parser instance
      */
     reset(options={}) {
         if (options.includeOptions) {
             this.#genNormals = options.generateNormals ?? true;
-            this.#interleaved = options.vertexInterleaved ?? false;
+            this.#interleaved = options.interleaveArrays ?? false;
         }
 
         this.#currentState = PLYParser.State.HEADER;
@@ -80,19 +90,17 @@ export default class PLYParser extends Parser {
     }
 
     /**
-     * get the mesh data after parsing is complete
-     * @returns {any} a object containing mesh data converted into typed arrays
+     * Process and return the parsed data in a format compatible with webgl.
+     * 
+     * Individual arrays are always named in the format "elementNameArray". For interleaved arrays, the format is 'elementNameElementArray'. 
+     * Interleaved arrays will also have an accompanying key in the format 'elementNameElementKey'. The only exception is face data, which is named 'indexArray'.
+     * @returns {object} a object containing the parsed data converted into typed arrays
      */
-    getParsedData() {
-        // return this.#processMeshData();
-        const meshData = this.#processMeshData();
-        return { 
-            state: this.#currentState, 
-            header: { format: this.#plyFormat, elementSpecs: this.#elementSpecs, hasNormals: this.#hasNormals }, 
-            meshState: { elementSpecIndex: this.#elementSpecIndex, elementIndex: this.#elementIndex }, 
-            parsedData: { dataViews: this.#elementData, listPropData: this.#listProperties },
-            processedMeshData: meshData
-        };
+    getDataWebGL() {
+        if (!this.#hasNormals && this.#genNormals) {
+            this.#generateNormals();
+        }
+        return this.#processParsedData();
     }
 
     /**
@@ -107,20 +115,20 @@ export default class PLYParser extends Parser {
             return { remainingData: new Uint8Array(0), isDone: isLastStream }
         }
 
-        let byteOffset = 0;
+        let remainingByteOffset = 0;
         if (this.#currentState === PLYParser.State.HEADER) {
-            byteOffset = this.#parseHeader(dataView);
+            remainingByteOffset = this.#parseHeader(dataView);
         }
         if (this.#currentState === PLYParser.State.DATA) {
             if (this.#plyFormat.type === 'ascii') {
-                byteOffset = this.#parseDataAscii(dataView, byteOffset);
+                remainingByteOffset = this.#parseDataAscii(dataView, remainingByteOffset);
             } else {
                 throw new Error('[PLYParser] PLY files in binary format are unsupported at this time.');
             }
         }
 
         // // parse post-check
-        const remainingData = new Uint8Array(dataView.buffer).subarray(byteOffset);
+        const remainingData = new Uint8Array(dataView.buffer).subarray(remainingByteOffset);
         if (isLastStream) {
             if (remainingData.length !== 0) {
                 throw Error(`[PLYParser] Malformed or incomplete data at end-of-file.`);
@@ -129,7 +137,6 @@ export default class PLYParser extends Parser {
         }
 
         return { remainingData, isDone: this.#currentState === PLYParser.State.DONE }
-        // return { remainingData, isDone: true }
     }
 
     /** Parses the header of a PLY file */
@@ -156,7 +163,7 @@ export default class PLYParser extends Parser {
         if (endHeaderFound) {
             remainingDataIndex = lineEnd+1;
             this.#currentState = PLYParser.State.DATA;
-            this.#prepareBuffers();
+            this.#prepareElementBuffers();
         }
 
         return remainingDataIndex;
@@ -179,7 +186,6 @@ export default class PLYParser extends Parser {
             });
         } else if (tokens[0] === 'property') {
             const currentElement = this.#elementSpecs[this.#elementSpecs.length-1];
-            const elementName = currentElement.name;
             const propName = tokens[tokens.length - 1];
             if (['nx', 'ny', 'nz'].includes(propName)) {
                 this.#hasNormals = true;
@@ -191,17 +197,17 @@ export default class PLYParser extends Parser {
             if (tokens[1] === 'list') {
                 writePlan.countType = tokens[2];
                 writePlan.valueType = tokens[3];
-                if (!(elementName in this.#listProperties)) {
-                    this.#listProperties[elementName] = {};
+                if (!(currentElement.name in this.#listProperties)) {
+                    this.#listProperties[currentElement.name] = {};
                 }
-                this.#listProperties[elementName][propName] = { 
-                    byteSize: Parser._typeByteSize.get(tokens[3]),
+                this.#listProperties[currentElement.name][propName] = { 
+                    byteSize: Parser.typeByteSize.get(tokens[3]),
                     valueType: tokens[3],
                     arrayName: arrayName,
                     data: []
                 };
             } else {
-                const byteSize = Parser._typeByteSize.get(tokens[1]);
+                const byteSize = Parser.typeByteSize.get(tokens[1]);
                 currentElement.primitiveBytes += byteSize;
                 currentElement.numPrimitives++;
                 writePlan.byteSize = byteSize;
@@ -230,17 +236,21 @@ export default class PLYParser extends Parser {
     }
 
      /** creates the array buffers for each element after the header's been fully parsed. */
-    #prepareBuffers() {
+    #prepareElementBuffers() {
         for (const elementSpec of this.#elementSpecs) {
+            // skip elements with only list properties
             if (elementSpec.primitiveBytes <= 0) continue;
-            let elementBlockSize = elementSpec.primitiveBytes;
 
-            // make space for normals (4 bytes + 3 values = 12 bytes)
+            // make space for normals (1 float -> 4 bytes * 3 values = 12 bytes)
             // only applied to vertex element
             if (elementSpec.name === 'vertex' && this.#genNormals && !this.#hasNormals) {
-                elementBlockSize += 12;
+                elementSpec.writePlans.push({ name: 'nx', arrayName: 'normal', dataType: 'float', byteSize: 4});
+                elementSpec.writePlans.push({ name: 'ny', arrayName: 'normal', dataType: 'float', byteSize: 4});
+                elementSpec.writePlans.push({ name: 'nz', arrayName: 'normal', dataType: 'float', byteSize: 4});
+                elementSpec.primitiveBytes += 12;
+                elementSpec.numPrimitives += 3
             }
-            const buffer = new ArrayBuffer(elementSpec.count * elementBlockSize);
+            const buffer = new ArrayBuffer(elementSpec.count * elementSpec.primitiveBytes);
             this.#elementData[elementSpec.name] = new DataView(buffer);
         }
     }
@@ -271,12 +281,12 @@ export default class PLYParser extends Parser {
 
     #parseDataLine(dataLine) {
         const currentElementSpec = this.#elementSpecs[this.#elementSpecIndex];
-        const elementName = currentElementSpec.name;
 
         const lineValues = dataLine.split(" ").map(token => Number(token));
         let planIndex = 0, valueIndex = 0, byteOffset = 0;
         while (valueIndex < lineValues.length) {
             const currentPlan = currentElementSpec.writePlans[planIndex];
+            const elementName = currentElementSpec.name;
             if (currentPlan.dataType === 'list') {
                 const numListValues = lineValues[valueIndex];
                 const listData = lineValues.slice(valueIndex+1, valueIndex+numListValues+1);
@@ -291,7 +301,7 @@ export default class PLYParser extends Parser {
                 }
             } else {
                 const bufferOffset = currentElementSpec.primitiveBytes * this.#elementIndex + byteOffset;
-                Parser.writeToDataView(lineValues[valueIndex], currentPlan.dataType, this.#elementData[elementName], bufferOffset);
+                Parser.writeToDataView(this.#elementData[elementName], bufferOffset, lineValues[valueIndex], currentPlan.dataType);
                 byteOffset += currentPlan.byteSize;
                 valueIndex++;
             }
@@ -305,54 +315,46 @@ export default class PLYParser extends Parser {
         }
     }
 
-    #processMeshData() {
-        let meshObj = {};
-        Object.keys(this.#listProperties).forEach(elementName => {
-            const elementListProps = this.#listProperties[elementName];
-            Object.keys(elementListProps).forEach(listPropName => {
-                const listInfo = elementListProps[listPropName];
+    #processParsedData() {
+        let processedData = {};
+        for (const elementSpec of this.#elementSpecs) {
+            // in the case that the only property was a list, no interleaving/deinterleaving needed.
+            if (!(elementSpec.name in this.#elementData)) {
+                const writePlan = elementSpec.writePlans[0];
+
                 let arraySize = 0;
-                for (const dataList of listInfo.data) {
-                    arraySize += dataList.length;
-                }
-                const TypedArray = Parser._typeToArray.get(listInfo.valueType);
+                const listInfo = this.#listProperties[elementSpec.name][writePlan.name];
+                listInfo.data.forEach(list => arraySize += list.length);
+
+                const TypedArray = Parser.typeToArray.get(writePlan.valueType);
                 const array = new TypedArray(arraySize);
 
                 let arrayIndex = 0;
-                for (let i = 0; i < listInfo.data.length; i++) {
-                    for (let j = 0; j < listInfo.data[i].length; j++) {
-                        array[arrayIndex++] = listInfo.data[i][j];
-                    }
+                for (const list of listInfo.data) {
+                    list.forEach(value => array[arrayIndex++] = value);
                 }
 
-                meshObj[`${listInfo.arrayName}Array`] = array;
-            })
-        })
-
-        for (const elementSpec of this.#elementSpecs) {
-            // skip the element if it has no dataview (only had a list property)
-            if (!(elementSpec.name in this.#elementData)) {
-                continue;
-            }
-            if (!this.#interleaved) {
+                processedData[`${listInfo.arrayName}Array`] = array;
+            } else if (!this.#interleaved) {
                 const dataView = this.#elementData[elementSpec.name];
                 const individualArrays = this.#deinterleaveData(dataView, elementSpec);
                 for (const { name, array } of individualArrays) {
-                    meshObj[`${name}Array`] = array;
+                    processedData[`${name}Array`] = array;
                 }
             } else {
                 const dataView = this.#elementData[elementSpec.name];
                 const elementArray = this.#convertToArray(dataView, elementSpec);
-                meshObj[`${elementSpec.name}ElementArray`] = elementArray;
+                processedData[`${elementSpec.name}ElementArray`] = elementArray;
+                processedData[`${elementSpec.name}ElementKey`] = this.#createElementKey(elementSpec);
             }
         }
-        return meshObj;
+        return processedData;
     }
 
     #deinterleaveData(dataView, elementSpec) {
         const arrayInfo = {};
         for (const plan of elementSpec.writePlans) {
-            if (plan.dataType === 'list') continue;
+            if (plan.dataType === 'list') continue; // skip list types as they are handled separately
             if (!(plan.arrayName in arrayInfo)) {
                 arrayInfo[plan.arrayName] = { 
                     index: 0, 
@@ -365,7 +367,7 @@ export default class PLYParser extends Parser {
         }
         Object.keys(arrayInfo).forEach(arrayName => {
             const arraySize = arrayInfo[arrayName].numValues * elementSpec.count;
-            const ArrayClass = Parser._typeToArray.get(arrayInfo[arrayName].dataType);
+            const ArrayClass = Parser.typeToArray.get(arrayInfo[arrayName].dataType);
 
             arrayInfo[arrayName].array = new ArrayClass(arraySize);
         });
@@ -389,37 +391,133 @@ export default class PLYParser extends Parser {
     }
 
     #convertToArray(dataView, elementSpec) {
-        let numListValues = 0;
+        let totalListValues = 0;
+        const listIndices = {};
         if (elementSpec.name in this.#listProperties) {
             const elementLists = this.#listProperties[elementSpec.name];
-            const listProperties = elementSpec.writePlans.filter(plan => plan.dataType == 'list');
-            for (const listProp of listProperties) {
-                elementLists[listProp.arrayName].data.map(list => numListValues += list.length);
+            const listPlans = elementSpec.writePlans.filter(plan => plan.dataType == 'list');
+            for (const plan of listPlans) {
+                elementLists[plan.name].data.forEach(list => totalListValues += list.length);
+                listIndices[plan.name] = 0;
             }
         }
-        const arraySize = elementSpec.count * elementSpec.numPrimitives + numListValues;
+        const arraySize = elementSpec.count * elementSpec.numPrimitives + totalListValues;
         const array = new Float32Array(arraySize);
 
-        let arrayIndex = 0, dataViewByteOffset = 0, propListIndex = 0;
+        let arrayIndex = 0, dataViewByteOffset = 0
         for (let line = 0; line < elementSpec.count; line++) {
             for (const plan of elementSpec.writePlans) {
-                if (plan.dataType === 'list') {
-                    const elementLists = this.#listProperties[elementSpec.name]
-                    const currentList = elementLists[plan.name]
-                    currentList.data[propListIndex].map(value => {
-                        array[arrayIndex] = value;
-                        arrayIndex++;
-                    })
-                    propListIndex++;
-                } else {
-                    array[arrayIndex] = Parser.readFromDataView(dataView, dataViewByteOffset, plan.dataType)
-                    arrayIndex++;
+                if (plan.dataType !== 'list') {
+                    array[arrayIndex++] = Parser.readFromDataView(dataView, dataViewByteOffset, plan.dataType)
                     dataViewByteOffset += plan.byteSize;
+                    continue;
                 }
+                
+                const currentList = this.#listProperties[elementSpec.name][plan.name];
+                currentList.data[listIndices[plan.name]++].forEach(value => {
+                    array[arrayIndex++] = value;
+                })
             }
         }
 
         return array;
+    }
+
+    #generateNormals() {
+        const vertexElement = this.#elementSpecs.filter(elementSpec => elementSpec.name === 'vertex')[0];
+        const faceElement = this.#elementSpecs.filter(elementSpec => elementSpec.name === 'face')[0];
+        const faceInfo = this.#listProperties['face'][faceElement.writePlans[0].name];
+        const vertexDataView = this.#elementData['vertex'];
+
+        // x/y/z byte locations are the locations of the x, y and z vertex coords per line.
+        // that is, if x is the first property in the line, then it's byte location is 0.
+        let xbyteLoc, ybyteLoc, zbyteLoc;
+        let xDataType, yDataType, zDataType;
+        vertexElement.writePlans.forEach((plan, index) => {
+            if (plan.name === 'x' || plan.name === 'vx')  {
+                xbyteLoc = index * plan.byteSize;
+                xDataType = plan.dataType;
+            }
+            if (plan.name === 'y' || plan.name === 'vy')  {
+                ybyteLoc = index * plan.byteSize;
+                yDataType = plan.dataType;
+            }
+            if (plan.name === 'z' || plan.name === 'vz')  {
+                zbyteLoc = index * plan.byteSize;
+                zDataType = plan.dataType;
+            }
+        });
+
+        let sharedNormals = Array.from({ length: vertexElement.count }, () => new Set());
+        for (const vertIndices of faceInfo.data) {
+            // byte offsets for each line (first line is offset 0, next line is primitiveBytes, etc...)
+            const v1ByteOffset = vertIndices[0] * vertexElement.primitiveBytes;
+            const v2ByteOffset = vertIndices[1] * vertexElement.primitiveBytes;
+            const v3ByteOffset = vertIndices[2] * vertexElement.primitiveBytes;
+
+            const x1 = Parser.readFromDataView(vertexDataView, xbyteLoc + v1ByteOffset, xDataType);
+            const y1 = Parser.readFromDataView(vertexDataView, ybyteLoc + v1ByteOffset, yDataType);
+            const z1 = Parser.readFromDataView(vertexDataView, zbyteLoc + v1ByteOffset, zDataType);
+
+            const x2 = Parser.readFromDataView(vertexDataView, xbyteLoc + v2ByteOffset, xDataType);
+            const y2 = Parser.readFromDataView(vertexDataView, ybyteLoc + v2ByteOffset, yDataType);
+            const z2 = Parser.readFromDataView(vertexDataView, zbyteLoc + v2ByteOffset, zDataType);
+
+            const x3 = Parser.readFromDataView(vertexDataView, xbyteLoc + v3ByteOffset, xDataType);
+            const y3 = Parser.readFromDataView(vertexDataView, ybyteLoc + v3ByteOffset, yDataType);
+            const z3 = Parser.readFromDataView(vertexDataView, zbyteLoc + v3ByteOffset, zDataType);
+
+            const xCross = (y2 - y1) * (z3 - z1) - (z2 - z1) * (y3 - y1);
+            const yCross = (z2 - z1) * (x3 - x1) - (x2 - x1) * (z3 - z1);
+            const zCross = (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1);
+
+            const magnitude = Math.sqrt(xCross * xCross + yCross * yCross + zCross * zCross);
+            const xNormal = xCross / magnitude;
+            const yNormal = yCross / magnitude;
+            const zNormal = zCross / magnitude;
+
+            sharedNormals[vertIndices[0]].add(JSON.stringify([xNormal, yNormal, zNormal]));
+            sharedNormals[vertIndices[1]].add(JSON.stringify([xNormal, yNormal, zNormal]));
+            sharedNormals[vertIndices[2]].add(JSON.stringify([xNormal, yNormal, zNormal]));
+        }
+
+        let elementIndex = 0;
+        for (const normalSet of sharedNormals) {
+            // generated normals always go at the end of the line
+            const normalStartByte = (elementIndex+1) * vertexElement.primitiveBytes - 12;
+
+            let xSum = 0, ySum = 0, zSum = 0;
+            for (const normalStr of normalSet) {
+                const normal = JSON.parse(normalStr);
+                xSum += normal[0];
+                ySum += normal[1];
+                zSum += normal[2];
+            }
+            Parser.writeToDataView(vertexDataView, normalStartByte + 0, xSum / normalSet.size, 'float');
+            Parser.writeToDataView(vertexDataView, normalStartByte + 4, ySum / normalSet.size, 'float');
+            Parser.writeToDataView(vertexDataView, normalStartByte + 8, zSum / normalSet.size, 'float');
+            elementIndex++;
+        }
+    }
+
+    #createElementKey(elementSpec) {
+        let elementKey = {
+            stride: elementSpec.primitiveBytes,
+            numElements: elementSpec.count,
+            properties: []
+        }
+
+        let propByteOffset = 0;
+        for (const plan of elementSpec.writePlans) {
+            if (plan.dataType === 'list') continue;
+            elementKey.properties.push({ 
+                name: plan.name,
+                byteOffset: propByteOffset, 
+                dataType: plan.dataType
+            })
+            propByteOffset += plan.byteSize;
+        }
+        return elementKey;
     }
 
     /** triangulates a face using the fan method */
