@@ -51,7 +51,7 @@ export default class ParserTester {
 
             chunkIndex += chunkSize;
         }
-        console.log(parser.getData());
+        console.log(parser.getDataWebGL());
     }
 
     /** prepends buffer1 onto buffer2 and returns the result. Assumes they are both Uint8Arrays */

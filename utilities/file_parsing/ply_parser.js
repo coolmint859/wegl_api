@@ -318,23 +318,27 @@ export default class PLYParser extends Parser {
     #processParsedData() {
         let processedData = {};
         for (const elementSpec of this.#elementSpecs) {
-            // in the case that the only property was a list, no interleaving/deinterleaving needed.
-            if (!(elementSpec.name in this.#elementData)) {
-                const writePlan = elementSpec.writePlans[0];
+            if (elementSpec.name in this.#listProperties) {
+                const listPlans = elementSpec.writePlans.filter(plan => plan.dataType === 'list');
+                for (const plan of listPlans ) {
+                    let arraySize = 0;
+                    const listData = this.#listProperties[elementSpec.name][plan.name].data;
+                    listData.forEach(list => arraySize += list.length);
 
-                let arraySize = 0;
-                const listInfo = this.#listProperties[elementSpec.name][writePlan.name];
-                listInfo.data.forEach(list => arraySize += list.length);
+                    const TypedArray = Parser.typeToArray.get(plan.valueType);
+                    const array = new TypedArray(arraySize);
 
-                const TypedArray = Parser.typeToArray.get(writePlan.valueType);
-                const array = new TypedArray(arraySize);
+                    let arrayIndex = 0;
+                    for (const list of listData) {
+                        list.forEach(value => array[arrayIndex++] = value);
+                    }
 
-                let arrayIndex = 0;
-                for (const list of listInfo.data) {
-                    list.forEach(value => array[arrayIndex++] = value);
+                    processedData[`${plan.arrayName}Array`] = array;
                 }
-
-                processedData[`${listInfo.arrayName}Array`] = array;
+            } 
+            
+            if (!(elementSpec.name in this.#elementData)) {
+                continue; // skip elements with only list properties
             } else if (!this.#interleaved) {
                 const dataView = this.#elementData[elementSpec.name];
                 const individualArrays = this.#deinterleaveData(dataView, elementSpec);
@@ -391,32 +395,15 @@ export default class PLYParser extends Parser {
     }
 
     #convertToArray(dataView, elementSpec) {
-        let totalListValues = 0;
-        const listIndices = {};
-        if (elementSpec.name in this.#listProperties) {
-            const elementLists = this.#listProperties[elementSpec.name];
-            const listPlans = elementSpec.writePlans.filter(plan => plan.dataType == 'list');
-            for (const plan of listPlans) {
-                elementLists[plan.name].data.forEach(list => totalListValues += list.length);
-                listIndices[plan.name] = 0;
-            }
-        }
-        const arraySize = elementSpec.count * elementSpec.numPrimitives + totalListValues;
+        const arraySize = elementSpec.count * elementSpec.numPrimitives;
         const array = new Float32Array(arraySize);
 
         let arrayIndex = 0, dataViewByteOffset = 0
         for (let line = 0; line < elementSpec.count; line++) {
             for (const plan of elementSpec.writePlans) {
-                if (plan.dataType !== 'list') {
-                    array[arrayIndex++] = Parser.readFromDataView(dataView, dataViewByteOffset, plan.dataType)
-                    dataViewByteOffset += plan.byteSize;
-                    continue;
-                }
-                
-                const currentList = this.#listProperties[elementSpec.name][plan.name];
-                currentList.data[listIndices[plan.name]++].forEach(value => {
-                    array[arrayIndex++] = value;
-                })
+                if (plan.dataType === 'list') continue;  // skip list types as they are handled separately
+                array[arrayIndex++] = Parser.readFromDataView(dataView, dataViewByteOffset, plan.dataType)
+                dataViewByteOffset += plan.byteSize;
             }
         }
 

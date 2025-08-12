@@ -78,7 +78,7 @@ export default class StreamReader {
             }
 
             // return the data the parser generated
-            return stream.parser.getData();
+            return stream.parser.getDataWebGL();
         // } catch (error) {
         //     return Promise.reject(new Error(`[StreamProcessor] An error occured while attempting to fetch/read stream data: ${error}`));
         // }
