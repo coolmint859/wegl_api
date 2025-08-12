@@ -307,8 +307,10 @@ export async function createModel(modelFilePath) {
     }
     let modelFileString;
     if (!ResourceCollector.contains(modelFilePath)) {
+        console.log(`loading new resource ${modelFilePath}`)
         modelFileString = await ResourceCollector.load(modelFilePath, ResourceCollector.fetchTextFile);
     } else {
+        console.log(`waiting for resource ${modelFilePath}`)
         modelFileString = await ResourceCollector.getWhenLoaded(modelFilePath, { pollTimeout: 1.5, pollInterval: 0.1});
     }
     // if (modelFileString === null) {

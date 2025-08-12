@@ -81,14 +81,15 @@ export default class Parser {
      * @returns {DataView} the same dataview instance that was provided.
      */
     static writeToDataView(dataView, offset, value, dataType) {
+        if (Number.isNaN(offset)) {
+            throw new Error(`[Parser] Cannot write value to dataView as the offset is NaN.`);
+        }
         if (!Parser.typeByteSize.has(dataType)) {
-            console.error(`[Parser] Cannot add value to dataView as the type '${dataType}' isn't recognized.`);
-            return dataView;
+            throw new Error(`[Parser] Cannot write value to dataView as the type '${dataType}' isn't recognized.`);
         }
         const byteSize = Parser.typeByteSize.get(dataType);
-        if (offset + byteSize > dataView.byteLength) {
-            console.error(`[Parser] Cannot add value to dataView as the given offset '${offset}' is larger than the dataview can support.`);
-            return dataView;
+        if (offset + byteSize > dataView.byteLength || offset < 0) {
+            throw new Error(`[Parser] Cannot write value to dataView as the given offset '${offset}' is not within a valid range.`);
         }
         switch(dataType) {
             case 'char':
@@ -133,14 +134,15 @@ export default class Parser {
      * @returns {number} the value in the dataview at the given offset.
      */
     static readFromDataView(dataView, offset, dataType) {
+        if (Number.isNaN(offset)) {
+            throw new Error(`[Parser] Cannot extract value from dataView as the offset is NaN.`);
+        }
         if (!Parser.typeByteSize.has(dataType)) {
-            console.error(`[Parser] Cannot extract value from dataView as the type '${dataType}' isn't recognized.`);
-            return dataView;
+            throw new Error(`[Parser] Cannot extract value from dataView as the type '${dataType}' isn't recognized.`);
         }
         const byteSize = Parser.typeByteSize.get(dataType);
-        if (offset + byteSize > dataView.byteLength) {
-            console.error(`[Parser] Cannot extract value from dataView as the given offset '${offset}' is larger than the dataview can support.`);
-            return dataView;
+        if (offset + byteSize > dataView.byteLength || offset < 0) {
+            throw new Error(`[Parser] Cannot extract value from dataView as the given offset '${offset}' is not within a valid range.`);
         }
         switch(dataType) {
             case 'char':

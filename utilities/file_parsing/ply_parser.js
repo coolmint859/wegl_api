@@ -90,20 +90,6 @@ export default class PLYParser extends Parser {
     }
 
     /**
-     * Process and return the parsed data in a format compatible with webgl.
-     * 
-     * Individual arrays are always named in the format "elementNameArray". For interleaved arrays, the format is 'elementNameElementArray'. 
-     * Interleaved arrays will also have an accompanying key in the format 'elementNameElementKey'. The only exception is face data, which is named 'indexArray'.
-     * @returns {object} a object containing the parsed data converted into typed arrays
-     */
-    getDataWebGL() {
-        if (!this.#hasNormals && this.#genNormals) {
-            this.#generateNormals();
-        }
-        return this.#processParsedData();
-    }
-
-    /**
      * Parses PLY file data into mesh data
      * @param {DataView} dataView the current stream data to be parsed as a data view instance.
      * @param {boolean} isLastStream a flag indicating if there is any more stream data (true means no more data)
@@ -315,47 +301,158 @@ export default class PLYParser extends Parser {
         }
     }
 
-    #processParsedData() {
-        let processedData = {};
+    /**
+     * Process and return the parsed data in a format compatible with webgl.
+     * 
+     * Individual arrays are always named in the format "elementNameArray". For interleaved arrays, the format is 'elementNameElementArray'. 
+     * Interleaved arrays will also have an accompanying key in the format 'elementNameElementKey'. The only exception is face data, which is named 'indexArray'.
+     * @returns {object} a object containing the parsed data converted into typed arrays
+     */
+    getDataWebGL() {
+        if (!this.#hasNormals && this.#genNormals) {
+            this.#generateNormals();
+        }
+        let processedData = { arrays: [], attributes: [] };
         for (const elementSpec of this.#elementSpecs) {
             if (elementSpec.name in this.#listProperties) {
                 const listPlans = elementSpec.writePlans.filter(plan => plan.dataType === 'list');
-                for (const plan of listPlans ) {
-                    let arraySize = 0;
-                    const listData = this.#listProperties[elementSpec.name][plan.name].data;
-                    listData.forEach(list => arraySize += list.length);
-
-                    const TypedArray = Parser.typeToArray.get(plan.valueType);
-                    const array = new TypedArray(arraySize);
-
-                    let arrayIndex = 0;
-                    for (const list of listData) {
-                        list.forEach(value => array[arrayIndex++] = value);
-                    }
-
-                    processedData[`${plan.arrayName}Array`] = array;
-                }
+                this.#createListArrays(listPlans, elementSpec.name, processedData);
             } 
             
             if (!(elementSpec.name in this.#elementData)) {
                 continue; // skip elements with only list properties
             } else if (!this.#interleaved) {
                 const dataView = this.#elementData[elementSpec.name];
-                const individualArrays = this.#deinterleaveData(dataView, elementSpec);
-                for (const { name, array } of individualArrays) {
-                    processedData[`${name}Array`] = array;
-                }
+                this.#createIndividualArrays(dataView, elementSpec, processedData);
             } else {
                 const dataView = this.#elementData[elementSpec.name];
-                const elementArray = this.#convertToArray(dataView, elementSpec);
-                processedData[`${elementSpec.name}ElementArray`] = elementArray;
-                processedData[`${elementSpec.name}ElementKey`] = this.#createElementKey(elementSpec);
+                this.#createInterleavedArray(dataView, elementSpec, processedData);
             }
         }
         return processedData;
     }
 
-    #deinterleaveData(dataView, elementSpec) {
+    #generateNormals() {
+        const vertexElement = this.#elementSpecs.filter(elementSpec => elementSpec.name === 'vertex')[0];
+        const faceElement = this.#elementSpecs.filter(elementSpec => elementSpec.name === 'face')[0];
+        const faceInfo = this.#listProperties['face'][faceElement.writePlans[0].name];
+        const vertexDataView = this.#elementData['vertex'];
+
+        // component byte locations are the locations of the x, y and z vertex coords per line.
+        // that is, if x is the first property on the line, then it's byte location is 0.
+        const coordInfo = {};
+        vertexElement.writePlans.forEach((plan, index) => {
+            // const coordNames = ['x', 'y', 'z', 'vx', 'vy', 'vz'];
+            // if (coordNames.includes(plan.name)) {
+            //     const coordName = plan.name.startsWith('v') ? plan.name[1] : plan.name;
+            //     coordInfo[`${coordName}ByteLoc`] = index * plan.byteSize;
+            //     coordInfo[`${coordName}DataType`] = plan.dataType;
+            // }
+
+
+            if (plan.name === 'x' || plan.name === 'vx')  {
+                coordInfo.xByteLoc = index * plan.byteSize;
+                coordInfo.xDataType = plan.dataType;
+            }
+            if (plan.name === 'y' || plan.name === 'vy')  {
+                coordInfo.yByteLoc = index * plan.byteSize;
+                coordInfo.yDataType = plan.dataType;
+            }
+            if (plan.name === 'z' || plan.name === 'vz')  {
+                coordInfo.zByteLoc = index * plan.byteSize;
+                coordInfo.zDataType = plan.dataType;
+            }
+        });
+
+        let sharedNormals = Array.from({ length: vertexElement.count }, () => new Set());
+        for (const vertexIndices of faceInfo.data) {
+            // byte offsets for each line (first line is offset 0, next line is primitiveBytes, etc...)
+            const faceNormal = this.#calculateFaceNormal(vertexDataView, vertexElement, vertexIndices, coordInfo);
+
+            sharedNormals[vertexIndices[0]].add(JSON.stringify(faceNormal));
+            sharedNormals[vertexIndices[1]].add(JSON.stringify(faceNormal));
+            sharedNormals[vertexIndices[2]].add(JSON.stringify(faceNormal));
+        }
+
+        let elementIndex = 0;
+        for (const normalSet of sharedNormals) {
+            // generated normals always go at the end of the line
+            const normalStartByte = (elementIndex+1) * vertexElement.primitiveBytes - 12;
+
+            let xSum = 0, ySum = 0, zSum = 0;
+            for (const normalStr of normalSet) {
+                const normal = JSON.parse(normalStr);
+                xSum += normal.x;
+                ySum += normal.y;
+                zSum += normal.z;
+            }
+            Parser.writeToDataView(vertexDataView, normalStartByte + 0, xSum / normalSet.size, 'float');
+            Parser.writeToDataView(vertexDataView, normalStartByte + 4, ySum / normalSet.size, 'float');
+            Parser.writeToDataView(vertexDataView, normalStartByte + 8, zSum / normalSet.size, 'float');
+            elementIndex++;
+        }
+    }
+
+    #calculateFaceNormal(vertexDataView, vertexElement, vertexIndices, coordInfo) {
+        // byte offsets for each line (first line is offset 0, next line is primitiveBytes, etc...)
+        const v1ByteOffset = vertexIndices[0] * vertexElement.primitiveBytes;
+        const v2ByteOffset = vertexIndices[1] * vertexElement.primitiveBytes;
+        const v3ByteOffset = vertexIndices[2] * vertexElement.primitiveBytes;
+
+        const x1 = Parser.readFromDataView(vertexDataView, coordInfo.xByteLoc + v1ByteOffset, coordInfo.xDataType);
+        const y1 = Parser.readFromDataView(vertexDataView, coordInfo.yByteLoc + v1ByteOffset, coordInfo.yDataType);
+        const z1 = Parser.readFromDataView(vertexDataView, coordInfo.zByteLoc + v1ByteOffset, coordInfo.zDataType);
+
+        const x2 = Parser.readFromDataView(vertexDataView, coordInfo.xByteLoc + v2ByteOffset, coordInfo.xDataType);
+        const y2 = Parser.readFromDataView(vertexDataView, coordInfo.yByteLoc + v2ByteOffset, coordInfo.yDataType);
+        const z2 = Parser.readFromDataView(vertexDataView, coordInfo.zByteLoc + v2ByteOffset, coordInfo.zDataType);
+
+        const x3 = Parser.readFromDataView(vertexDataView, coordInfo.xByteLoc + v3ByteOffset, coordInfo.xDataType);
+        const y3 = Parser.readFromDataView(vertexDataView, coordInfo.yByteLoc + v3ByteOffset, coordInfo.yDataType);
+        const z3 = Parser.readFromDataView(vertexDataView, coordInfo.zByteLoc + v3ByteOffset, coordInfo.zDataType);
+
+        const xCross = (y2 - y1) * (z3 - z1) - (z2 - z1) * (y3 - y1);
+        const yCross = (z2 - z1) * (x3 - x1) - (x2 - x1) * (z3 - z1);
+        const zCross = (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1);
+
+        const magnitude = Math.sqrt(xCross * xCross + yCross * yCross + zCross * zCross);
+        const xNormal = xCross / magnitude;
+        const yNormal = yCross / magnitude;
+        const zNormal = zCross / magnitude;
+
+        return { x: xNormal, y: yNormal, z: zNormal };
+    }
+
+    #createListArrays(listPlans, elementName, dataObject) {
+        for (const plan of listPlans) {
+            let arraySize = 0;
+            const listData = this.#listProperties[elementName][plan.name].data;
+            listData.forEach(list => arraySize += list.length);
+
+            const TypedArray = Parser.typeToArray.get(plan.valueType);
+            const array = new TypedArray(arraySize);
+
+            let arrayIndex = 0;
+            for (const list of listData) {
+                list.forEach(value => array[arrayIndex++] = value);
+            }
+
+            dataObject.arrays.push(array);
+            const attribute = {
+                attribName: plan.arrayName,
+                arrayName: `${plan.arrayName}Array`,
+                isIndexAttr: plan.arrayName === 'index',
+                arrayIndex: dataObject.arrays.length - 1,
+                size: 1,
+                dataType: plan.valueType,
+                stride: 0,
+                offset: 0
+            }
+            dataObject.attributes.push(attribute);
+        }
+    }
+
+    #createIndividualArrays(dataView, elementSpec, dataObject) {
         const arrayInfo = {};
         for (const plan of elementSpec.writePlans) {
             if (plan.dataType === 'list') continue; // skip list types as they are handled separately
@@ -387,124 +484,79 @@ export default class PLYParser extends Parser {
             })
         }
 
-        let typedArrays = [];
         Object.keys(arrayInfo).forEach(arrayName => {
-            typedArrays.push({ name: arrayName, array: arrayInfo[arrayName].array })
+            const info = arrayInfo[arrayName];
+            dataObject.arrays.push(info.array);
+
+            const attribute = {
+                attribName: arrayName,
+                arrayName: `${arrayName}Array`,
+                isIndexAttr: arrayName === 'index',
+                arrayIndex: dataObject.arrays.length - 1,
+                size: info.numValues,
+                dataType: info.dataType,
+                stride: 0,
+                offset: 0
+            }
+            dataObject.attributes.push(attribute);
         })
-        return typedArrays;
     }
 
-    #convertToArray(dataView, elementSpec) {
+    #createInterleavedArray(dataView, elementSpec, dataObject) {
+        const primitivePlans = elementSpec.writePlans.filter(plan => plan.dataType !== 'list');
         const arraySize = elementSpec.count * elementSpec.numPrimitives;
         const array = new Float32Array(arraySize);
 
         let arrayIndex = 0, dataViewByteOffset = 0
         for (let line = 0; line < elementSpec.count; line++) {
-            for (const plan of elementSpec.writePlans) {
-                if (plan.dataType === 'list') continue;  // skip list types as they are handled separately
+            for (const plan of primitivePlans) {
                 array[arrayIndex++] = Parser.readFromDataView(dataView, dataViewByteOffset, plan.dataType)
                 dataViewByteOffset += plan.byteSize;
             }
         }
 
-        return array;
+        dataObject.arrays.push(elementArray);
+        const arrayInfo = {
+            name: elementSpec.name,
+            index: dataObject.arrays.length - 1,
+            dataType: 'float',
+            byteSize: 4
+        }
+        const arrayAttributes = this.#createAttributes(arrayInfo, primitivePlans);
+        dataObject.attributes.push(...arrayAttributes);
     }
 
-    #generateNormals() {
-        const vertexElement = this.#elementSpecs.filter(elementSpec => elementSpec.name === 'vertex')[0];
-        const faceElement = this.#elementSpecs.filter(elementSpec => elementSpec.name === 'face')[0];
-        const faceInfo = this.#listProperties['face'][faceElement.writePlans[0].name];
-        const vertexDataView = this.#elementData['vertex'];
-
-        // x/y/z byte locations are the locations of the x, y and z vertex coords per line.
-        // that is, if x is the first property in the line, then it's byte location is 0.
-        let xbyteLoc, ybyteLoc, zbyteLoc;
-        let xDataType, yDataType, zDataType;
-        vertexElement.writePlans.forEach((plan, index) => {
-            if (plan.name === 'x' || plan.name === 'vx')  {
-                xbyteLoc = index * plan.byteSize;
-                xDataType = plan.dataType;
+    #createAttributes(arrayInfo, arrayPlans) {
+        const attribInfo = {};
+        let byteOffset = 0;
+        for (const plan of arrayPlans) {
+            if (plan.arrayName in attribInfo) {
+                attribInfo[plan.arrayName].numValues++;
+            } else {
+                attribInfo[plan.arrayName] = {
+                    numValues: 1, 
+                    byteOffset: byteOffset
+                };
             }
-            if (plan.name === 'y' || plan.name === 'vy')  {
-                ybyteLoc = index * plan.byteSize;
-                yDataType = plan.dataType;
-            }
-            if (plan.name === 'z' || plan.name === 'vz')  {
-                zbyteLoc = index * plan.byteSize;
-                zDataType = plan.dataType;
-            }
-        });
-
-        let sharedNormals = Array.from({ length: vertexElement.count }, () => new Set());
-        for (const vertIndices of faceInfo.data) {
-            // byte offsets for each line (first line is offset 0, next line is primitiveBytes, etc...)
-            const v1ByteOffset = vertIndices[0] * vertexElement.primitiveBytes;
-            const v2ByteOffset = vertIndices[1] * vertexElement.primitiveBytes;
-            const v3ByteOffset = vertIndices[2] * vertexElement.primitiveBytes;
-
-            const x1 = Parser.readFromDataView(vertexDataView, xbyteLoc + v1ByteOffset, xDataType);
-            const y1 = Parser.readFromDataView(vertexDataView, ybyteLoc + v1ByteOffset, yDataType);
-            const z1 = Parser.readFromDataView(vertexDataView, zbyteLoc + v1ByteOffset, zDataType);
-
-            const x2 = Parser.readFromDataView(vertexDataView, xbyteLoc + v2ByteOffset, xDataType);
-            const y2 = Parser.readFromDataView(vertexDataView, ybyteLoc + v2ByteOffset, yDataType);
-            const z2 = Parser.readFromDataView(vertexDataView, zbyteLoc + v2ByteOffset, zDataType);
-
-            const x3 = Parser.readFromDataView(vertexDataView, xbyteLoc + v3ByteOffset, xDataType);
-            const y3 = Parser.readFromDataView(vertexDataView, ybyteLoc + v3ByteOffset, yDataType);
-            const z3 = Parser.readFromDataView(vertexDataView, zbyteLoc + v3ByteOffset, zDataType);
-
-            const xCross = (y2 - y1) * (z3 - z1) - (z2 - z1) * (y3 - y1);
-            const yCross = (z2 - z1) * (x3 - x1) - (x2 - x1) * (z3 - z1);
-            const zCross = (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1);
-
-            const magnitude = Math.sqrt(xCross * xCross + yCross * yCross + zCross * zCross);
-            const xNormal = xCross / magnitude;
-            const yNormal = yCross / magnitude;
-            const zNormal = zCross / magnitude;
-
-            sharedNormals[vertIndices[0]].add(JSON.stringify([xNormal, yNormal, zNormal]));
-            sharedNormals[vertIndices[1]].add(JSON.stringify([xNormal, yNormal, zNormal]));
-            sharedNormals[vertIndices[2]].add(JSON.stringify([xNormal, yNormal, zNormal]));
+            byteOffset += plan.dataType === 'list' ? 0 : arrayInfo.byteSize;
         }
 
-        let elementIndex = 0;
-        for (const normalSet of sharedNormals) {
-            // generated normals always go at the end of the line
-            const normalStartByte = (elementIndex+1) * vertexElement.primitiveBytes - 12;
-
-            let xSum = 0, ySum = 0, zSum = 0;
-            for (const normalStr of normalSet) {
-                const normal = JSON.parse(normalStr);
-                xSum += normal[0];
-                ySum += normal[1];
-                zSum += normal[2];
+        const attributes = [];
+        Object.keys(attribInfo).forEach(name => {
+            const info = attribInfo[name];
+            const attribute = {
+                attribName: name,
+                arrayName: `${arrayInfo.name}Array`,
+                isIndexAttr: name === 'index',
+                arrayIndex: arrayInfo.index,
+                size: info.numValues,
+                dataType: arrayInfo.dataType,
+                stride: byteOffset,
+                offset: info.byteOffset
             }
-            Parser.writeToDataView(vertexDataView, normalStartByte + 0, xSum / normalSet.size, 'float');
-            Parser.writeToDataView(vertexDataView, normalStartByte + 4, ySum / normalSet.size, 'float');
-            Parser.writeToDataView(vertexDataView, normalStartByte + 8, zSum / normalSet.size, 'float');
-            elementIndex++;
-        }
-    }
-
-    #createElementKey(elementSpec) {
-        let elementKey = {
-            stride: elementSpec.primitiveBytes,
-            numElements: elementSpec.count,
-            properties: []
-        }
-
-        let propByteOffset = 0;
-        for (const plan of elementSpec.writePlans) {
-            if (plan.dataType === 'list') continue;
-            elementKey.properties.push({ 
-                name: plan.name,
-                byteOffset: propByteOffset, 
-                dataType: plan.dataType
-            })
-            propByteOffset += plan.byteSize;
-        }
-        return elementKey;
+            attributes.push(attribute)
+        })
+        return attributes;
     }
 
     /** triangulates a face using the fan method */
