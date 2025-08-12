@@ -42,7 +42,7 @@ export default class PLYParser extends Parser {
     #listProperties = {};
 
     // data values;
-    #elementData;
+    #elementDataViews;
     #genNormals;
     #interleaved;
 
@@ -58,7 +58,7 @@ export default class PLYParser extends Parser {
         super();
         this.#genNormals = options.generateNormals ?? true; // default is to always generate normals
         this.#interleaved = options.interleaveArrays ?? false;
-        this.#elementData = {};
+        this.#elementDataViews = {};
     }
 
     /**
@@ -84,7 +84,7 @@ export default class PLYParser extends Parser {
         this.#elementSpecIndex = 0;
         this.#elementIndex = 0;
         this.#listProperties = {};
-        this.#elementData = {};
+        this.#elementDataViews = {};
 
         return this;
     }
@@ -98,6 +98,8 @@ export default class PLYParser extends Parser {
     parse(dataView, isLastStream) {
         if (dataView.buffer.byteLength === 0 && isLastStream) {
             this.#currentState = PLYParser.State.DONE;
+            this.#generateNormals();
+
             return { remainingData: new Uint8Array(0), isDone: isLastStream }
         }
 
@@ -120,6 +122,7 @@ export default class PLYParser extends Parser {
                 throw Error(`[PLYParser] Malformed or incomplete data at end-of-file.`);
             }
             this.#currentState = PLYParser.State.DONE;
+            this.#generateNormals();
         }
 
         return { remainingData, isDone: this.#currentState === PLYParser.State.DONE }
@@ -237,7 +240,7 @@ export default class PLYParser extends Parser {
                 elementSpec.numPrimitives += 3
             }
             const buffer = new ArrayBuffer(elementSpec.count * elementSpec.primitiveBytes);
-            this.#elementData[elementSpec.name] = new DataView(buffer);
+            this.#elementDataViews[elementSpec.name] = new DataView(buffer);
         }
     }
 
@@ -287,7 +290,7 @@ export default class PLYParser extends Parser {
                 }
             } else {
                 const bufferOffset = currentElementSpec.primitiveBytes * this.#elementIndex + byteOffset;
-                Parser.writeToDataView(this.#elementData[elementName], bufferOffset, lineValues[valueIndex], currentPlan.dataType);
+                Parser.writeToDataView(this.#elementDataViews[elementName], bufferOffset, lineValues[valueIndex], currentPlan.dataType);
                 byteOffset += currentPlan.byteSize;
                 valueIndex++;
             }
@@ -301,17 +304,103 @@ export default class PLYParser extends Parser {
         }
     }
 
+    #generateNormals() {
+        if (!this.#genNormals || this.#hasNormals) return; // normals not requested / already present
+
+        const vertexElement = this.#elementSpecs.filter(elementSpec => elementSpec.name === 'vertex')[0];
+        const faceElement = this.#elementSpecs.filter(elementSpec => elementSpec.name === 'face')[0];
+        const faceData = this.#listProperties['face'][faceElement.writePlans[0].name].data;
+        // Coordinate byte locations are the locations of the x, y and z vertex coords per vertex element.
+        // that is, if x is the first property on the line, then it's byte location is 0 (for every element).
+        const coordInfo = {};
+        vertexElement.writePlans.filter(plan => plan.arrayName == 'vertex')
+        .forEach((plan, index) => {
+            const coordName = plan.name.startsWith('v') ? plan.name[1] : plan.name;
+            coordInfo[`${coordName}Offset`] = index * plan.byteSize;
+            coordInfo[`${coordName}DataType`] = plan.dataType;
+        });
+
+        let sharedNormals = this.#calculateSharedNormals(faceData, vertexElement, coordInfo);
+        this.#createVertexNormals(sharedNormals, vertexElement.primitiveBytes);
+    }
+
+    #calculateSharedNormals(faceData, vertexElement, coordInfo) {
+        const vertexDataView = this.#elementDataViews['vertex'];
+
+        let sharedNormals = Array.from({ length: vertexElement.count }, () => new Set());
+        for (const vertexIndices of faceData) {
+            // byte offsets for each line (first line is offset 0, next line is primitiveBytes, etc...)
+            const elementOffsets = [
+                vertexIndices[0] * vertexElement.primitiveBytes,
+                vertexIndices[1] * vertexElement.primitiveBytes,
+                vertexIndices[2] * vertexElement.primitiveBytes
+            ]
+
+            const vertices = [];
+            for (const elementOffset of elementOffsets) {
+                const x = Parser.readFromDataView(vertexDataView, coordInfo.xOffset + elementOffset, coordInfo.xDataType);
+                const y = Parser.readFromDataView(vertexDataView, coordInfo.yOffset + elementOffset, coordInfo.yDataType);
+                const z = Parser.readFromDataView(vertexDataView, coordInfo.zOffset + elementOffset, coordInfo.zDataType);
+                vertices.push({ x, y, z });
+            }
+
+            const [ v1, v2, v3 ] = vertices;
+            const vec1x = v2.x - v1.x, vec1y = v2.y - v1.y, vec1z = v2.z - v1.z;
+            const vec2x = v3.x - v1.x, vec2y = v3.y - v1.y, vec2z = v3.z - v1.z;
+
+            const xCross = vec1y * vec2z - vec1z * vec2y;
+            const yCross = vec1z * vec2x - vec1x * vec2z;
+            const zCross = vec1x * vec2y - vec1y * vec2x;
+
+            const magnitude = Math.sqrt(xCross * xCross + yCross * yCross + zCross * zCross);
+            const faceNormal = { x: xCross / magnitude, y: yCross / magnitude, z: zCross / magnitude }
+
+            for (let i = 0; i < vertexIndices.length; i++) {
+                sharedNormals[vertexIndices[i]].add(JSON.stringify(faceNormal));
+            }
+        }
+        return sharedNormals;
+    }
+
+    #createVertexNormals(sharedNormals, vertexStride) {
+        const vertexDataView = this.#elementDataViews['vertex'];
+
+        let elementIndex = 0;
+        for (const normalSet of sharedNormals) {
+            let vertexNormal = [0, 0, 0] // zero vector is default
+            if (normalSet.size === 0) {
+                console.warn(`[PLYParser] Vertex ${elementIndex} has no associated faces for normal computation. Assigning default normal [0, 0, 0].`);
+            } else {
+                let xSum = 0, ySum = 0, zSum = 0;
+                for (const normalStr of normalSet) {
+                    const faceNormal = JSON.parse(normalStr);
+                    xSum += faceNormal.x;
+                    ySum += faceNormal.y;
+                    zSum += faceNormal.z;
+                }
+
+                const magnitude = Math.sqrt(xSum * xSum + ySum * ySum + zSum * zSum);
+                vertexNormal = [xSum / magnitude, ySum / magnitude, zSum / magnitude];
+            }
+
+            // generated normals always go at the end of the line
+            const normalStartByte = (elementIndex+1) * vertexStride - 12;
+            for (let i = 0; i < vertexNormal.length; i++) {
+                const byteOffset = normalStartByte + (i * 4); // 4 bytes per float
+                Parser.writeToDataView(vertexDataView, byteOffset, vertexNormal[i], 'float');
+            }
+            elementIndex++;
+        }
+    }
+
     /**
      * Process and return the parsed data in a format compatible with webgl.
-     * 
-     * Individual arrays are always named in the format "elementNameArray". For interleaved arrays, the format is 'elementNameElementArray'. 
-     * Interleaved arrays will also have an accompanying key in the format 'elementNameElementKey'. The only exception is face data, which is named 'indexArray'.
-     * @returns {object} a object containing the parsed data converted into typed arrays
+     *
+     * The return object's format is a list of the typed arrays 'arrays' of all the parsed data. There is also a list of 'attributes' that describe the data in the arrays, including the index of the array it's describing. 
+     * The intention is to allow iteration over the arrays to create the webgl buffers, and then the attributes to create the attribute pointers for the arrays. This design allows it to be independent of the arrays being interleaved or not.
+     * @returns {object} a object containing the parsed data
      */
     getDataWebGL() {
-        if (!this.#hasNormals && this.#genNormals) {
-            this.#generateNormals();
-        }
         let processedData = { arrays: [], attributes: [] };
         for (const elementSpec of this.#elementSpecs) {
             if (elementSpec.name in this.#listProperties) {
@@ -319,108 +408,15 @@ export default class PLYParser extends Parser {
                 this.#createListArrays(listPlans, elementSpec.name, processedData);
             } 
             
-            if (!(elementSpec.name in this.#elementData)) {
+            if (!(elementSpec.name in this.#elementDataViews)) {
                 continue; // skip elements with only list properties
             } else if (!this.#interleaved) {
-                const dataView = this.#elementData[elementSpec.name];
-                this.#createIndividualArrays(dataView, elementSpec, processedData);
+                this.#createIndividualArrays(elementSpec, processedData);
             } else {
-                const dataView = this.#elementData[elementSpec.name];
-                this.#createInterleavedArray(dataView, elementSpec, processedData);
+                this.#createInterleavedArray(elementSpec, processedData);
             }
         }
         return processedData;
-    }
-
-    #generateNormals() {
-        const vertexElement = this.#elementSpecs.filter(elementSpec => elementSpec.name === 'vertex')[0];
-        const faceElement = this.#elementSpecs.filter(elementSpec => elementSpec.name === 'face')[0];
-        const faceInfo = this.#listProperties['face'][faceElement.writePlans[0].name];
-        const vertexDataView = this.#elementData['vertex'];
-
-        // component byte locations are the locations of the x, y and z vertex coords per line.
-        // that is, if x is the first property on the line, then it's byte location is 0.
-        const coordInfo = {};
-        vertexElement.writePlans.forEach((plan, index) => {
-            // const coordNames = ['x', 'y', 'z', 'vx', 'vy', 'vz'];
-            // if (coordNames.includes(plan.name)) {
-            //     const coordName = plan.name.startsWith('v') ? plan.name[1] : plan.name;
-            //     coordInfo[`${coordName}ByteLoc`] = index * plan.byteSize;
-            //     coordInfo[`${coordName}DataType`] = plan.dataType;
-            // }
-
-
-            if (plan.name === 'x' || plan.name === 'vx')  {
-                coordInfo.xByteLoc = index * plan.byteSize;
-                coordInfo.xDataType = plan.dataType;
-            }
-            if (plan.name === 'y' || plan.name === 'vy')  {
-                coordInfo.yByteLoc = index * plan.byteSize;
-                coordInfo.yDataType = plan.dataType;
-            }
-            if (plan.name === 'z' || plan.name === 'vz')  {
-                coordInfo.zByteLoc = index * plan.byteSize;
-                coordInfo.zDataType = plan.dataType;
-            }
-        });
-
-        let sharedNormals = Array.from({ length: vertexElement.count }, () => new Set());
-        for (const vertexIndices of faceInfo.data) {
-            // byte offsets for each line (first line is offset 0, next line is primitiveBytes, etc...)
-            const faceNormal = this.#calculateFaceNormal(vertexDataView, vertexElement, vertexIndices, coordInfo);
-
-            sharedNormals[vertexIndices[0]].add(JSON.stringify(faceNormal));
-            sharedNormals[vertexIndices[1]].add(JSON.stringify(faceNormal));
-            sharedNormals[vertexIndices[2]].add(JSON.stringify(faceNormal));
-        }
-
-        let elementIndex = 0;
-        for (const normalSet of sharedNormals) {
-            // generated normals always go at the end of the line
-            const normalStartByte = (elementIndex+1) * vertexElement.primitiveBytes - 12;
-
-            let xSum = 0, ySum = 0, zSum = 0;
-            for (const normalStr of normalSet) {
-                const normal = JSON.parse(normalStr);
-                xSum += normal.x;
-                ySum += normal.y;
-                zSum += normal.z;
-            }
-            Parser.writeToDataView(vertexDataView, normalStartByte + 0, xSum / normalSet.size, 'float');
-            Parser.writeToDataView(vertexDataView, normalStartByte + 4, ySum / normalSet.size, 'float');
-            Parser.writeToDataView(vertexDataView, normalStartByte + 8, zSum / normalSet.size, 'float');
-            elementIndex++;
-        }
-    }
-
-    #calculateFaceNormal(vertexDataView, vertexElement, vertexIndices, coordInfo) {
-        // byte offsets for each line (first line is offset 0, next line is primitiveBytes, etc...)
-        const v1ByteOffset = vertexIndices[0] * vertexElement.primitiveBytes;
-        const v2ByteOffset = vertexIndices[1] * vertexElement.primitiveBytes;
-        const v3ByteOffset = vertexIndices[2] * vertexElement.primitiveBytes;
-
-        const x1 = Parser.readFromDataView(vertexDataView, coordInfo.xByteLoc + v1ByteOffset, coordInfo.xDataType);
-        const y1 = Parser.readFromDataView(vertexDataView, coordInfo.yByteLoc + v1ByteOffset, coordInfo.yDataType);
-        const z1 = Parser.readFromDataView(vertexDataView, coordInfo.zByteLoc + v1ByteOffset, coordInfo.zDataType);
-
-        const x2 = Parser.readFromDataView(vertexDataView, coordInfo.xByteLoc + v2ByteOffset, coordInfo.xDataType);
-        const y2 = Parser.readFromDataView(vertexDataView, coordInfo.yByteLoc + v2ByteOffset, coordInfo.yDataType);
-        const z2 = Parser.readFromDataView(vertexDataView, coordInfo.zByteLoc + v2ByteOffset, coordInfo.zDataType);
-
-        const x3 = Parser.readFromDataView(vertexDataView, coordInfo.xByteLoc + v3ByteOffset, coordInfo.xDataType);
-        const y3 = Parser.readFromDataView(vertexDataView, coordInfo.yByteLoc + v3ByteOffset, coordInfo.yDataType);
-        const z3 = Parser.readFromDataView(vertexDataView, coordInfo.zByteLoc + v3ByteOffset, coordInfo.zDataType);
-
-        const xCross = (y2 - y1) * (z3 - z1) - (z2 - z1) * (y3 - y1);
-        const yCross = (z2 - z1) * (x3 - x1) - (x2 - x1) * (z3 - z1);
-        const zCross = (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1);
-
-        const magnitude = Math.sqrt(xCross * xCross + yCross * yCross + zCross * zCross);
-        const xNormal = xCross / magnitude;
-        const yNormal = yCross / magnitude;
-        const zNormal = zCross / magnitude;
-
-        return { x: xNormal, y: yNormal, z: zNormal };
     }
 
     #createListArrays(listPlans, elementName, dataObject) {
@@ -452,7 +448,9 @@ export default class PLYParser extends Parser {
         }
     }
 
-    #createIndividualArrays(dataView, elementSpec, dataObject) {
+    #createIndividualArrays(elementSpec, dataObject) {
+        const dataView = this.#elementDataViews[elementSpec.name];
+
         const arrayInfo = {};
         for (const plan of elementSpec.writePlans) {
             if (plan.dataType === 'list') continue; // skip list types as they are handled separately
@@ -467,10 +465,23 @@ export default class PLYParser extends Parser {
             arrayInfo[plan.arrayName].numValues++;
         }
         Object.keys(arrayInfo).forEach(arrayName => {
-            const arraySize = arrayInfo[arrayName].numValues * elementSpec.count;
-            const ArrayClass = Parser.typeToArray.get(arrayInfo[arrayName].dataType);
+            const info = arrayInfo[arrayName];
 
-            arrayInfo[arrayName].array = new ArrayClass(arraySize);
+            const arraySize = info.numValues * elementSpec.count;
+            const ArrayClass = Parser.typeToArray.get(info.dataType);
+            info.array = new ArrayClass(arraySize);
+
+            dataObject.arrays.push(info.array);
+            dataObject.attributes.push({
+                attribName: arrayName,
+                arrayName: `${arrayName}Array`,
+                isIndexAttr: arrayName === 'index',
+                arrayIndex: dataObject.arrays.length - 1,
+                size: info.numValues,
+                dataType: info.dataType,
+                stride: 0,
+                offset: 0
+            });
         });
 
         let byteOffset = 0;
@@ -483,26 +494,10 @@ export default class PLYParser extends Parser {
                 }
             })
         }
-
-        Object.keys(arrayInfo).forEach(arrayName => {
-            const info = arrayInfo[arrayName];
-            dataObject.arrays.push(info.array);
-
-            const attribute = {
-                attribName: arrayName,
-                arrayName: `${arrayName}Array`,
-                isIndexAttr: arrayName === 'index',
-                arrayIndex: dataObject.arrays.length - 1,
-                size: info.numValues,
-                dataType: info.dataType,
-                stride: 0,
-                offset: 0
-            }
-            dataObject.attributes.push(attribute);
-        })
     }
 
-    #createInterleavedArray(dataView, elementSpec, dataObject) {
+    #createInterleavedArray(elementSpec, dataObject) {
+        const dataView = this.#elementDataViews[elementSpec.name];
         const primitivePlans = elementSpec.writePlans.filter(plan => plan.dataType !== 'list');
         const arraySize = elementSpec.count * elementSpec.numPrimitives;
         const array = new Float32Array(arraySize);
@@ -515,7 +510,7 @@ export default class PLYParser extends Parser {
             }
         }
 
-        dataObject.arrays.push(elementArray);
+        dataObject.arrays.push(array);
         const arrayInfo = {
             name: elementSpec.name,
             index: dataObject.arrays.length - 1,
@@ -544,7 +539,7 @@ export default class PLYParser extends Parser {
         const attributes = [];
         Object.keys(attribInfo).forEach(name => {
             const info = attribInfo[name];
-            const attribute = {
+            attributes.push({
                 attribName: name,
                 arrayName: `${arrayInfo.name}Array`,
                 isIndexAttr: name === 'index',
@@ -553,8 +548,7 @@ export default class PLYParser extends Parser {
                 dataType: arrayInfo.dataType,
                 stride: byteOffset,
                 offset: info.byteOffset
-            }
-            attributes.push(attribute)
+            });
         })
         return attributes;
     }
