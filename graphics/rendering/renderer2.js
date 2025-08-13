@@ -46,15 +46,15 @@ export default class Graphics3D {
         this.shaders = new Map();
 
         this.RenderType = Object.freeze({
-            PHONG: 'phong',
-            BASIC: 'basic',
-            LIGHT: 'basic',
-            TEXTURE: 'texture'
+            'PHONG': 'phong',
+            'BASIC': 'basic',
+            'LIGHT': 'light',
+            'TEXTURE': 'texture'
         });
         this.MeshType = Object.freeze({
-            STRIP: gl.TRIANGLE_STRIP,
-            FAN: gl.TRIANGLE_FAN,
-            TRIANGLES: gl.TRIANGLES
+            'STRIP': gl.TRIANGLE_STRIP,
+            'FAN': gl.TRIANGLE_FAN,
+            'TRIANGLES': gl.TRIANGLES
         });
         
         this.scenes = new Map();
@@ -163,7 +163,7 @@ export default class Graphics3D {
     }
 
     /** draws an object */
-    draw(mesh, renderType, meshType) {
+    draw(model, renderType, meshType) {
         let rType;
         if (renderType != null) {
             let validRenderType = false;
@@ -198,11 +198,18 @@ export default class Graphics3D {
             mType = this.MeshType.TRIANGLES;
         }
 
-        const object = { mesh, rType, mType };
         if (rType == this.RenderType.LIGHT) {
-            this.pointLights.push(object);
+            this.pointLights.push({
+                "model": model,
+                "rType": rType,
+                "mType": mType,
+            });
         }
-        this.sceneObjects.push(object);
+        this.sceneObjects.push({
+            "model": model,
+            "rType": rType,
+            'mType': mType,
+        });
     }
 
     /** renders objects and lights to the screen. */
@@ -216,34 +223,31 @@ export default class Graphics3D {
             shader.use(); // VERY IMPORTANT LINE, this sets the current shader appropriately.
 
             // set up and bind object VAO
-            if (!object.mesh.VAO) {
-                this.#createMeshVAO(shader, object.mesh);
+            if (!object.model.VAO) {
+                this.#createMeshVAO(shader, object.rType, object.model);
             }
-            gl.bindVertexArray(object.mesh.VAO);
+            gl.bindVertexArray(object.model.VAO);
+            const indexAttribute = object.model.mesh.attributes.find(attr => attr.isIndexArray);
+            const indexBuffer = object.model.glBuffers[indexAttribute.arrayIndex];
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 
             // set up shader uniforms && attributes
-            const modelMatrix = Matrix4.TRS4(object.mesh.center, object.mesh.rotation, object.mesh.dimensions);
-            shader.setMatrix4("model", modelMatrix);
-            shader.setMatrix4('view', this.currentCamera.viewMatrix);
-            shader.setMatrix4('projection', this.currentCamera.projectionMatrix);
-
-            let shouldUseTextures = false;
-            if (object.rType === this.RenderType.PHONG) {
-                shader.setColor('ambientColor', this.ambientColor);
+            if (object.rType == this.RenderType.PHONG) {
+                this.#setPhongShaderUniforms(shader, object);
                 this.#setLightingAttributes(shader);
-            } else if (object.rType === this.RenderType.TEXTURE) {
-                shader.setColor('ambientColor', this.ambientColor);
+            } else if (object.rType == this.RenderType.TEXTURE) {
+                this.#setTextureShaderUniforms(shader, object);
                 this.#setLightingAttributes(shader);
-                shouldUseTextures = true;
+            } else {
+                this.#setBasicShaderUniforms(shader, object);
             }
-            object.mesh.material.applyToShader(shader, shouldUseTextures);
 
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, object.mesh.indexBuffer)
-            gl.drawElements(object.mType, object.mesh.indices.length, gl.UNSIGNED_SHORT, 0);
+            const indexArrayLength = object.model.mesh.arrays[indexAttribute.arrayIndex].length;
+            gl.drawElements(object.mType, indexArrayLength, gl.UNSIGNED_SHORT, 0);
 
             // unbind material textures (if exist)
-            if (object.mesh.material) {
-                object.mesh.material.unbindTextures();
+            if (object.model.material) {
+                object.model.material.unbindTextures();
             }
             
             // unbind buffers
@@ -253,6 +257,42 @@ export default class Graphics3D {
         EventScheduler.update(dt);
     }
 
+    #setBasicShaderUniforms(baseShader, object) {
+        // in case something goes wrong with the other shaders, this ensures that
+        // the object will still be rendered (even if it's just black)
+        // let baseColor;
+        // if (object.mesh.diffuseColor == null) {
+        //     baseColor = new Vector3(); // black
+        // } else {
+        //     baseColor = object.mesh.diffuseColor;
+        // }
+            
+        const modelMatrix = Matrix4.TRS4(object.model.center, object.model.rotation, object.model.dimensions);
+        baseShader.setMatrix4("model", modelMatrix);
+        baseShader.setMatrix4('view', this.currentCamera.viewMatrix);
+        baseShader.setMatrix4('projection', this.currentCamera.projectionMatrix);
+        object.model.material.applyToShader(baseShader, false);
+    }
+
+    #setPhongShaderUniforms(phongShader, object) {
+        const modelMatrix = Matrix4.TRS4(object.model.center, object.model.rotation, object.model.dimensions);
+        phongShader.setMatrix4("model", modelMatrix);
+        phongShader.setMatrix4('view', this.currentCamera.viewMatrix);
+        phongShader.setMatrix4('projection', this.currentCamera.projectionMatrix);
+        phongShader.setColor('ambientColor', this.ambientColor);
+        object.model.material.applyToShader(phongShader, false);
+    }
+
+    #setTextureShaderUniforms(textureShader, object) {
+        const gl = Graphics3D.#gl;
+        const modelMatrix = Matrix4.TRS4(object.model.center, object.model.rotation, object.model.dimensions);
+        textureShader.setMatrix4("model", modelMatrix);
+        textureShader.setMatrix4('view', this.currentCamera.viewMatrix);
+        textureShader.setMatrix4('projection', this.currentCamera.projectionMatrix);
+        textureShader.setColor('ambientColor', this.ambientColor);
+        object.model.material.applyToShader(textureShader, true);
+    }
+
     #setLightingAttributes(shader) {
         shader.setInt("numLights", this.pointLights.length);
         for (let i = 0; i < this.pointLights.length; i++) {
@@ -260,68 +300,139 @@ export default class Graphics3D {
             const currentLight = this.pointLights[i];
 
             // light colors
-            const diffuseColor = currentLight.mesh.material.getProperty('diffuseColor')
-            shader.setColor(currentLightName + ".diffuseColor", diffuseColor);
-
-            const specularColor = currentLight.mesh.material.getProperty('diffuseColor')
-            shader.setColor(currentLightName + ".specularColor", specularColor);
+            shader.setColor(currentLightName + ".diffuseColor", currentLight.mesh.diffuseColor);
+            shader.setColor(currentLightName + ".specularColor", currentLight.mesh.specularColor);
             
             // light attenuation factors
-            const attenuation = currentLight.mesh.material.getProperty('attenuation');
-            shader.setFloat(currentLightName + ".atten_const", attenuation.x);
-            shader.setFloat(currentLightName + ".atten_linear", attenuation.y);
-            shader.setFloat(currentLightName + ".atten_quad", attenuation.z);
+            shader.setFloat(currentLightName + ".atten_const", currentLight.mesh.attenuation.x);
+            shader.setFloat(currentLightName + ".atten_linear", currentLight.mesh.attenuation.y);
+            shader.setFloat(currentLightName + ".atten_quad", currentLight.mesh.attenuation.z);
 
             // light position
             shader.setVector3(currentLightName + ".position", currentLight.mesh.center);
         }
     }
 
-    #createBuffer(bufferType, array) {
+    #createVertexBuffer(shader, vertices) {
+        const gl = Graphics3D.#gl;
+        let vertexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+        let positionLocation = gl.getAttribLocation(shader.getProgramID(), 'aPosition');
+        if (positionLocation !== -1){
+            gl.enableVertexAttribArray(positionLocation);
+            gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 0, 0);
+        } else {
+            console.warn("Attribute 'aPosition' not found in shader.");
+        }
+        
+        return vertexBuffer;
+    }
+
+    #createNormalBuffer(shader, normals) {
         const gl = Graphics3D.#gl;
 
-        const glBuffer = gl.createBuffer();
-        gl.bindBuffer(bufferType, glBuffer);
-        gl.bufferData(bufferType, array, gl.STATIC_DRAW);
+        let normalBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW);
 
-        return glBuffer;
+        let normalLocation = gl.getAttribLocation(shader.getProgramID(), 'aNormal');
+        if (normalLocation !== -1){
+            gl.enableVertexAttribArray(normalLocation);
+            gl.vertexAttribPointer(normalLocation, 3, gl.FLOAT, false, 0, 0);
+        } else {
+            console.warn("Attribute 'aNormal' not found in shader.");
+        }
+        
+        return normalBuffer;
+    }
+
+    #createTextureCoordBuffer(shader, textureCoords) {
+        const gl = Graphics3D.#gl;
+
+        // create coordinate buffer
+        let textureCoordBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, textureCoords, gl.STATIC_DRAW);
+
+        let texCoord = gl.getAttribLocation(shader.getProgramID(), 'aTexCoord');
+        if (texCoord !== -1){
+            gl.enableVertexAttribArray(texCoord);
+            gl.vertexAttribPointer(texCoord, 2, gl.FLOAT, false, 0, 0);
+        } else {
+            console.warn("Attribute 'aTexCoord' not found in shader.");
+        }
+        return textureCoordBuffer;
+    }
+
+    #createIndexBuffer(indices) {
+        const gl = Graphics3D.#gl
+        let indexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+
+        return indexBuffer;
     }
 
     #createAttribute(shader, attribInfo) {
+        console.log(attribInfo);
         if (attribInfo.isIndexArray) return;
 
         const gl = Graphics3D.#gl;
 
+        let attribName = '';
+        if (attribInfo.attribName === 'vertex') {
+            attribName = 'aPosition';
+        } else if (attribInfo.attribName === 'normal') {
+            attribName = 'aNormal'
+        } else if (attribInfo.attribName === 'uv') {
+            attribName = 'aTexCoord'
+        }
+
         const glAttrType = Graphics3D.commonTypeToGL_type.get(attribInfo.dataType);
-        const location = gl.getAttribLocation(shader.getProgramID(), attribInfo.name);
+        const location = gl.getAttribLocation(shader.getProgramID(), attribName);
         if (location === -1) {
-            console.warn(`[Graphics3D] Shader '${shader.getName()}' does not support vertex attribute '${attribInfo.name}'.`)
+            // console.warn(`[Graphics3D] Shader '${shader.getName()}' does not support vertex attribute '${attribName}'.`)
         } else {
             gl.enableVertexAttribArray(location);
             gl.vertexAttribPointer(location, attribInfo.size, glAttrType, false, attribInfo.stride, attribInfo.offset);
         }
     }
 
-    #createMeshVAO(shader, mesh) {
+    #createMeshVAO(shader, renderType, model) {
         const gl = Graphics3D.#gl;
 
-        mesh.VAO = gl.createVertexArray();
-        gl.bindVertexArray(mesh.VAO);
+        model.VAO = gl.createVertexArray();
+        gl.bindVertexArray(model.VAO);
 
-        mesh.vertexBuffer = this.#createBuffer(gl.ARRAY_BUFFER, mesh.vertices);
-        this.#createAttribute(shader, { name: 'aPosition', size: 3, stride: 0, offset: 0, dataType: 'float' });
+        // create buffer and bind attributes
+        model.glBuffers = [];
+        for (let i = 0; i < model.mesh.arrays.length; i++) {
+            console.log(model.mesh.arrays[i]);
+            const glBuffer = gl.createBuffer();
+            const arrayAttrs = model.mesh.attributes.filter(attr => attr.arrayIndex === i);
+            const bufferType = arrayAttrs[0].isIndexArray ? gl.ELEMENT_ARRAY_BUFFER : gl.ARRAY_BUFFER;
 
-        mesh.indexBuffer = this.#createBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indices);
+            gl.bindBuffer(bufferType, glBuffer);
+            gl.bufferData(bufferType, model.mesh.arrays[i], gl.STATIC_DRAW);
 
-        if (mesh.normals !== undefined && shader.supports('aNormal')) {
-            mesh.normalBuffer = this.#createBuffer(gl.ARRAY_BUFFER, mesh.normals);
-            this.#createAttribute(shader, { name: 'aNormal', size: 3, stride: 0, offset: 0, dataType: 'float' });
+            arrayAttrs.forEach(attr => this.#createAttribute(shader, attr));
+
+            model.glBuffers.push(glBuffer);
+
+            gl.bindBuffer(bufferType, null);
         }
 
-        if (mesh.textureCoords !== undefined && shader.supports('aTexCoord')) {
-            mesh.textureCoordBuffer = this.#createBuffer(gl.ARRAY_BUFFER, mesh.textureCoords);
-            this.#createAttribute(shader, { name: 'aTexCoord', size: 2, stride: 0, offset: 0, dataType: 'float' })
-        }
+        // mesh.vertexBuffer = this.#createVertexBuffer(shader, mesh.vertices);
+        // if (renderType != this.RenderType.BASIC && renderType != this.RenderType.LIGHT) {
+        //     mesh.normalBuffer = this.#createNormalBuffer(shader, mesh.normals);
+        // }
+
+        // if (renderType == this.RenderType.TEXTURE) {
+        //     mesh.textureCoordBuffer = this.#createTextureCoordBuffer(shader, mesh.textureCoords);
+        // }
+        // mesh.indexBuffer = this.#createIndexBuffer(mesh.indices);
 
         gl.bindVertexArray(null);
     }

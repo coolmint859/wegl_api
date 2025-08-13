@@ -80,13 +80,21 @@ export default class Shader {
 
     /**
      * Checks if the shader supports the provided variable (uniform/attribute)
-     * @param {string} variableName the name of the variable
+     * @param {string} attribName the name of the variable
      * @returns {boolean} returns true if the shader supports the variable, false otherwise.
      */
-    supports(variableName) {
+    supports(attribName) {
+        // this is a hack, and will not stay. Eventually the commented out code will be used instead
+        if (this.#shaderName === 'basic') {
+            return attribName !== 'aTexCoord' && attribName !== 'aNormal';
+        } else if (this.#shaderName === 'phong') {
+            return attribName !== 'aTexCoord';
+        } else {
+            return true;
+        }
+
         // const shaderData = ResourceCollector.get(this.#shaderName);
         // return shaderData.variableNames.includes(variableName);
-        return true;
     }
 
     /**
@@ -281,7 +289,7 @@ export default class Shader {
                 Shader.#gl.uniform3fv(location, color.asList());
             }
         } else if (!(color instanceof Color)) {
-            console.error(`[Shader @${this.#shaderName}] TypeError: Expected 'color' to be an instance of Color. Unable to set uniform.`);
+            console.error(`[Shader @${this.#shaderName}] TypeError: Expected '${name}' to be an instance of Color. Unable to set uniform.`);
         } else {
             console.error(`[Shader @${this.#shaderName}] Cannot set vec3/vec4 uniform as this shader is not yet loaded.`)
         }

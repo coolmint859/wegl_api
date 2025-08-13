@@ -13,6 +13,7 @@ export default class Color {
     static RED = new Color(1, 0, 0);
     static ORANGE = new Color(1, 0.5, 0);
     static YELLOW = new Color(1, 1, 0);
+    static BROWN = Color.fromInt(150, 75, 0);
     static GREEN = new Color(0, 1, 0);
     static CYAN = new Color(0, 1, 1);
     static BLUE = new Color(0, 0, 1);
