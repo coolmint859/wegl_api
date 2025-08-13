@@ -331,7 +331,7 @@ export async function createModel(modelFilePath) {
 
     // The resulting mesh contains the vertices, normals, and indices needed for rendering.
     let model = generateModel(modelInfo.vertices, modelInfo.normals, modelInfo.faces, modelInfo.textureCoords);
-    console.log("Model Data:", model);
+    // console.log("Model Data:", model);
     return model;
 }
 

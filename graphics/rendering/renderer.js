@@ -3,6 +3,7 @@ import Shader from "../shading/shader.js";
 import Color from "../../utilities/containers/color.js";
 import { Matrix4 } from "../../utilities/math/matrix.js";
 import EventScheduler from "../../utilities/scheduler.js";
+import Camera from "../cameras/camera.js";
 
 /**
  * Core real-time 3D application renderer. 
@@ -11,7 +12,7 @@ export default class Graphics3D {
     static #canvas = document.getElementById("canvas-main");
     static #gl =  Graphics3D.#canvas.getContext('webgl2', { alpha: true, antialias: true, preserveDrawingBuffer: false });
 
-    static commonTypeToGL_type = new Map([
+    static glTypeMap = new Map([
         ['char', Graphics3D.#gl.BYTE], ['uchar', Graphics3D.#gl.UNSIGNED_BYTE],
         ['int8', Graphics3D.#gl.BYTE], ['uint8', Graphics3D.#gl.UNSIGNED_BYTE],
         ['short', Graphics3D.#gl.SHORT], ['ushort', Graphics3D.#gl.UNSIGNED_SHORT],
@@ -35,9 +36,9 @@ export default class Graphics3D {
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
         // enable back-face culling
-        // gl.enable(gl.CULL_FACE);
-        // gl.frontFace(gl.CCW);
-        // gl.cullFace(gl.BACK);
+        gl.enable(gl.CULL_FACE);
+        gl.frontFace(gl.CCW);
+        gl.cullFace(gl.BACK);
 
         this.aspectRatio = height / width;
 
@@ -51,11 +52,15 @@ export default class Graphics3D {
             LIGHT: 'basic',
             TEXTURE: 'texture'
         });
-        this.MeshType = Object.freeze({
-            STRIP: gl.TRIANGLE_STRIP,
-            FAN: gl.TRIANGLE_FAN,
-            TRIANGLES: gl.TRIANGLES
-        });
+        this.DrawModes = Object.freeze({
+            POINTS: gl.POINTS,
+            LINES: gl.LINES,
+            LINE_STRIP: gl.LINE_STRIP,
+            TRIANGLES: gl.TRIANGLES,
+            TRIANGLE_STRIP: gl.TRIANGLE_STRIP,
+            TRIANGLE_FAN: gl.TRIANGLE_FAN,
+        })
+        this.drawMode = this.DrawModes.TRIANGLES;
         
         this.scenes = new Map();
 
@@ -103,6 +108,14 @@ export default class Graphics3D {
         canvas.height = height;
         this.aspectRatio = width/height;
         Graphics3D.#gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+
+    setDrawMode(drawMode) {
+        if (!drawMode in this.DrawModes) {
+            console.error(`${drawMode} is not a valid webgl draw mode.`);
+            return;
+        }
+        this.drawMode = this.DrawModes[drawMode];
     }
 
     /** add a new camera to the scene */
@@ -163,90 +176,69 @@ export default class Graphics3D {
     }
 
     /** draws an object */
-    draw(mesh, renderType, meshType) {
+    draw(mesh, renderType = 'BASIC') {
         let rType;
         if (renderType != null) {
-            let validRenderType = false;
-            Object.values(this.RenderType).forEach(value => {
-                if (renderType == value) validRenderType = true;
-            })
-
-            if (!validRenderType) {
+            if (!(renderType in this.RenderType)) {
                 console.warn(`Invalid render type '${renderType}'. Defaulting to BASIC.`)
                 rType = this.RenderType.BASIC;
             } else {
-                rType = renderType;
+                rType = this.RenderType[renderType];
             }
         } else {
             rType = this.RenderType.BASIC;
         }
 
-        let mType;
-        if (meshType != null) {
-            let validMeshType = false;
-            Object.values(this.MeshType).forEach(value => {
-                if (meshType == value) validMeshType = true;
-            })
-
-            if (!validMeshType) {
-                console.warn(`Invalid mesh type '${meshType}'. Defaulting to TRIANGLES.`)
-                mType = this.MeshType.TRIANGLES;
-            } else {
-                mType = meshType;
-            }
-        } else {
-            mType = this.MeshType.TRIANGLES;
+        mesh.renderType = rType;
+        this.sceneObjects.push(mesh);
+        if (rType === this.RenderType.LIGHT) {
+            this.pointLights.push(mesh);
         }
-
-        const object = { mesh, rType, mType };
-        if (rType == this.RenderType.LIGHT) {
-            this.pointLights.push(object);
-        }
-        this.sceneObjects.push(object);
     }
 
     /** renders objects and lights to the screen. */
     end(dt) {
         const gl = Graphics3D.#gl;
         for (let i = 0; i < this.sceneObjects.length; i++) {
-            let object = this.sceneObjects[i];
+            const mesh = this.sceneObjects[i];
             
             // determine shader
-            const shader = this.shaders.get(object.rType);
+            const shader = this.shaders.get(mesh.renderType);
             shader.use(); // VERY IMPORTANT LINE, this sets the current shader appropriately.
 
             // set up and bind object VAO
-            if (!object.mesh.VAO) {
-                this.#createMeshVAO(shader, object.mesh);
+            if (!mesh.VAO) {
+                this.#createMeshVAO(shader, mesh);
             }
-            gl.bindVertexArray(object.mesh.VAO);
+            gl.bindVertexArray(mesh.VAO);
 
             // set up shader uniforms && attributes
-            const modelMatrix = Matrix4.TRS4(object.mesh.center, object.mesh.rotation, object.mesh.dimensions);
+            const modelMatrix = Matrix4.TRS4(mesh.center, mesh.rotation, mesh.dimensions);
             shader.setMatrix4("model", modelMatrix);
             shader.setMatrix4('view', this.currentCamera.viewMatrix);
             shader.setMatrix4('projection', this.currentCamera.projectionMatrix);
 
             let shouldUseTextures = false;
-            if (object.rType === this.RenderType.PHONG) {
+            if (mesh.renderType === this.RenderType.PHONG) {
                 shader.setColor('ambientColor', this.ambientColor);
                 this.#setLightingAttributes(shader);
-            } else if (object.rType === this.RenderType.TEXTURE) {
+            } else if (mesh.renderType === this.RenderType.TEXTURE) {
                 shader.setColor('ambientColor', this.ambientColor);
                 this.#setLightingAttributes(shader);
                 shouldUseTextures = true;
             }
-            object.mesh.material.applyToShader(shader, shouldUseTextures);
+            mesh.material.applyToShader(shader, shouldUseTextures); 
 
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, object.mesh.indexBuffer)
-            gl.drawElements(object.mType, object.mesh.indices.length, gl.UNSIGNED_SHORT, 0);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
+            // const numIndices = mesh.data.arrays[3].length;
+            const numIndices = mesh.indices.length;
+            gl.drawElements(this.drawMode, numIndices, gl.UNSIGNED_SHORT, 0);
 
             // unbind material textures (if exist)
-            if (object.mesh.material) {
-                object.mesh.material.unbindTextures();
+            if (mesh.material) {
+                mesh.material.unbindTextures();
             }
             
-            // unbind buffers
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
             gl.bindVertexArray(null);
         }
@@ -260,20 +252,20 @@ export default class Graphics3D {
             const currentLight = this.pointLights[i];
 
             // light colors
-            const diffuseColor = currentLight.mesh.material.getProperty('diffuseColor')
+            const diffuseColor = currentLight.material.getProperty('diffuseColor')
             shader.setColor(currentLightName + ".diffuseColor", diffuseColor);
 
-            const specularColor = currentLight.mesh.material.getProperty('diffuseColor')
+            const specularColor = currentLight.material.getProperty('diffuseColor')
             shader.setColor(currentLightName + ".specularColor", specularColor);
             
             // light attenuation factors
-            const attenuation = currentLight.mesh.material.getProperty('attenuation');
+            const attenuation = currentLight.material.getProperty('attenuation');
             shader.setFloat(currentLightName + ".atten_const", attenuation.x);
             shader.setFloat(currentLightName + ".atten_linear", attenuation.y);
             shader.setFloat(currentLightName + ".atten_quad", attenuation.z);
 
             // light position
-            shader.setVector3(currentLightName + ".position", currentLight.mesh.center);
+            shader.setVector3(currentLightName + ".position", currentLight.center);
         }
     }
 
@@ -292,7 +284,7 @@ export default class Graphics3D {
 
         const gl = Graphics3D.#gl;
 
-        const glAttrType = Graphics3D.commonTypeToGL_type.get(attribInfo.dataType);
+        const glAttrType = Graphics3D.glTypeMap.get(attribInfo.dataType);
         const location = gl.getAttribLocation(shader.getProgramID(), attribInfo.name);
         if (location === -1) {
             console.warn(`[Graphics3D] Shader '${shader.getName()}' does not support vertex attribute '${attribInfo.name}'.`)
@@ -308,18 +300,28 @@ export default class Graphics3D {
         mesh.VAO = gl.createVertexArray();
         gl.bindVertexArray(mesh.VAO);
 
-        mesh.vertexBuffer = this.#createBuffer(gl.ARRAY_BUFFER, mesh.vertices);
+        // const vertexArray = mesh.data.arrays[0];
+        // const uvArray = mesh.data.arrays[1];
+        // const normalArray = mesh.data.arrays[2];
+        // const indexArray = mesh.data.arrays[3];
+
+        const vertexArray = mesh.vertices;
+        const uvArray = mesh.textureCoords;
+        const normalArray = mesh.normals;
+        const indexArray = mesh.indices;
+
+        mesh.vertexBuffer = this.#createBuffer(gl.ARRAY_BUFFER, vertexArray);
         this.#createAttribute(shader, { name: 'aPosition', size: 3, stride: 0, offset: 0, dataType: 'float' });
 
-        mesh.indexBuffer = this.#createBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indices);
+        mesh.indexBuffer = this.#createBuffer(gl.ELEMENT_ARRAY_BUFFER, indexArray);
 
         if (mesh.normals !== undefined && shader.supports('aNormal')) {
-            mesh.normalBuffer = this.#createBuffer(gl.ARRAY_BUFFER, mesh.normals);
+            mesh.normalBuffer = this.#createBuffer(gl.ARRAY_BUFFER, normalArray);
             this.#createAttribute(shader, { name: 'aNormal', size: 3, stride: 0, offset: 0, dataType: 'float' });
         }
 
         if (mesh.textureCoords !== undefined && shader.supports('aTexCoord')) {
-            mesh.textureCoordBuffer = this.#createBuffer(gl.ARRAY_BUFFER, mesh.textureCoords);
+            mesh.textureCoordBuffer = this.#createBuffer(gl.ARRAY_BUFFER, uvArray);
             this.#createAttribute(shader, { name: 'aTexCoord', size: 2, stride: 0, offset: 0, dataType: 'float' })
         }
 

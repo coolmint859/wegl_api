@@ -15,17 +15,16 @@ export default class PLYParser extends Parser {
         FAILED: 'failed',
     })
 
-    // common property to array names for non-iterleaved data
-    static #propToArrayName = new Map([
-        ['x', 'aPosition'], ['y', 'aPosition'], ['z', 'aPosition'],
-        ['vx', 'aPosition'], ['vy', 'aPosition'], ['vz', 'aPosition'],
-        ['s', 'aTexCoord'], ['t', 'aTexCoord'], ['u', 'aTexCoord'], ['v', 'aTexCoord'],
-        ['nx', 'aNormal'], ['ny', 'aNormal'], ['nz', 'aNormal'],
+    static #arrayNameMap = new Map([
+        ['x', 'vertex'], ['y', 'vertex'], ['z', 'vertex'],
+        ['vx', 'vertex'], ['vy', 'vertex'], ['vz', 'vertex'],
+        ['coordinates', 'vertex'], ['vertex_coordinates', 'vertex'],
+        ['s', 'uv'], ['t', 'uv'], ['u', 'uv'], ['v', 'uv'],
+        ['uv_coordinates', 'uv'], ['uvs', 'uv'],
+        ['nx', 'normal'], ['ny', 'normal'], ['nz', 'normal'],
+        ['normal_coordinates', 'normal'], ['normals', 'normal'],
         ['r', 'color'], ['g', 'color'], ['b', 'color'], ['a', 'color'],
         ['vertex_index', 'index'], ['vertex_indices', 'index'],
-        ['coordinates', 'aPosition'], ['vertex_coordinates', 'aPosition'],
-        ['normal_coordinates', 'aNormal'], ['normals', 'aNormal'],
-        ['uv_coordinates', 'aTexCoord'], ['uvs', 'aTexCoord']
     ]);
 
     // state
@@ -182,9 +181,10 @@ export default class PLYParser extends Parser {
                 this.#hasNormals = true;
             }
 
-            let arrayName = PLYParser.#propToArrayName.get(propName);
+            let arrayName = PLYParser.#arrayNameMap.get(propName);
             if (arrayName === undefined) arrayName = propName;
-            const writePlan = { name: propName, arrayName, dataType: tokens[1] };
+
+            const writePlan = { propName, arrayName, dataType: tokens[1] };
             if (tokens[1] === 'list') {
                 writePlan.countType = tokens[2];
                 writePlan.valueType = tokens[3];
@@ -202,7 +202,6 @@ export default class PLYParser extends Parser {
                 currentElement.primitiveBytes += byteSize;
                 currentElement.numPrimitives++;
                 writePlan.byteSize = byteSize;
-                writePlan.arrayName = PLYParser.#propToArrayName.get(propName);
             }
             currentElement.writePlans.push(writePlan);
         }
@@ -235,9 +234,9 @@ export default class PLYParser extends Parser {
             // make space for normals (1 float -> 4 bytes * 3 values = 12 bytes)
             // only applied to vertex element
             if (elementSpec.name === 'vertex' && this.#genNormals && !this.#hasNormals) {
-                elementSpec.writePlans.push({ name: 'nx', arrayName: 'aNormal', dataType: 'float', byteSize: 4});
-                elementSpec.writePlans.push({ name: 'ny', arrayName: 'aNormal', dataType: 'float', byteSize: 4});
-                elementSpec.writePlans.push({ name: 'nz', arrayName: 'aNormal', dataType: 'float', byteSize: 4});
+                elementSpec.writePlans.push({ propName: 'nx', arrayName: 'normal', dataType: 'float', byteSize: 4});
+                elementSpec.writePlans.push({ propName: 'ny', arrayName: 'normal', dataType: 'float', byteSize: 4});
+                elementSpec.writePlans.push({ propName: 'nz', arrayName: 'normal', dataType: 'float', byteSize: 4});
                 elementSpec.primitiveBytes += 12;
                 elementSpec.numPrimitives += 3
             }
@@ -283,7 +282,7 @@ export default class PLYParser extends Parser {
                 const listData = lineValues.slice(valueIndex+1, valueIndex+numListValues+1);
                 valueIndex += numListValues + 1;
 
-                const listInfo = this.#listProperties[elementName][currentPlan.name]
+                const listInfo = this.#listProperties[elementName][currentPlan.propName]
                 if (elementName === 'face' && lineValues[0] > 3) {
                     const lines = this.#triangulate(numListValues, listData);
                     listInfo.data.push(...lines);
@@ -312,7 +311,7 @@ export default class PLYParser extends Parser {
 
         const vertexElement = this.#elementSpecs.filter(elementSpec => elementSpec.name === 'vertex')[0];
         const faceElement = this.#elementSpecs.filter(elementSpec => elementSpec.name === 'face')[0];
-        const faceData = this.#listProperties['face'][faceElement.writePlans[0].name].data;
+        const faceData = this.#listProperties['face'][faceElement.writePlans[0].propName].data;
         if (faceData === undefined) {
             console.error(`[PLYParser] Cannot generate vertex normals as the ply file does not have face data.`)
             return;
@@ -321,9 +320,9 @@ export default class PLYParser extends Parser {
         // Coordinate byte locations are the locations of the x, y and z vertex coords per vertex element.
         // that is, if x is the first property on the line, then it's byte location is 0 (for every element).
         const coordInfo = {};
-        vertexElement.writePlans.filter(plan => plan.arrayName == 'aPosition')
+        vertexElement.writePlans.filter(plan => plan.arrayName == 'vertex')
         .forEach((plan, index) => {
-            const coordName = plan.name.startsWith('v') ? plan.name[1] : plan.name;
+            const coordName = plan.propName.startsWith('v') ? plan.propName[1] : plan.propName;
             coordInfo[`${coordName}Offset`] = index * plan.byteSize;
             coordInfo[`${coordName}DataType`] = plan.dataType;
         });
@@ -403,7 +402,7 @@ export default class PLYParser extends Parser {
      * @returns {object} a object containing the parsed data
      */
     getDataWebGL() {
-        let processedData = { arrays: [], attributes: [] };
+        let processedData = {};
         for (const elementSpec of this.#elementSpecs) {
             if (elementSpec.name in this.#listProperties) {
                 const listPlans = elementSpec.writePlans.filter(plan => plan.dataType === 'list');
@@ -424,7 +423,7 @@ export default class PLYParser extends Parser {
     #createListArrays(listPlans, elementName, dataObject) {
         for (const plan of listPlans) {
             let arraySize = 0;
-            const listData = this.#listProperties[elementName][plan.name].data;
+            const listData = this.#listProperties[elementName][plan.propName].data;
             listData.forEach(list => arraySize += list.length);
 
             const TypedArray = Parser.typeToArray.get(plan.valueType);
@@ -435,17 +434,18 @@ export default class PLYParser extends Parser {
                 list.forEach(value => array[arrayIndex++] = value);
             }
 
-            dataObject.arrays.push(array);
-            const attribute = {
-                name: plan.arrayName,
-                isIndexArray: plan.arrayName === 'index',
-                arrayIndex: dataObject.arrays.length - 1,
-                size: 1,
-                dataType: plan.valueType,
-                stride: 0,
-                offset: 0
+            const arrayObject = { array, stride: 0, attributes: [] }
+            if (plan.arrayName === 'index') {
+                arrayObject.dataType = plan.valueType;
+            } else {
+                arrayObject.attributes.push({ 
+                    name: plan.arrayName, 
+                    size: 1, 
+                    dataType: plan.valueType, 
+                    offset: 0 
+                });
             }
-            dataObject.attributes.push(attribute);
+            dataObject[plan.arrayName] = arrayObject
         }
     }
 
@@ -465,34 +465,30 @@ export default class PLYParser extends Parser {
             }
             arrayInfo[plan.arrayName].numValues++;
         });
-        Object.keys(arrayInfo).forEach(arrayName => {
+        for (const arrayName in arrayInfo) {
             const info = arrayInfo[arrayName];
 
             const arraySize = info.numValues * elementSpec.count;
             const ArrayClass = Parser.typeToArray.get(info.dataType);
             info.array = new ArrayClass(arraySize);
 
-            dataObject.arrays.push(info.array);
-            dataObject.attributes.push({
-                name: arrayName,
-                isIndexArray: arrayName === 'index',
-                arrayIndex: dataObject.arrays.length - 1,
-                size: info.numValues,
-                dataType: info.dataType,
-                stride: 0,
-                offset: 0
-            });
-        });
+            const attribute = { name: arrayName, size: info.numValues, dataType: info.dataType, offset: 0 }
+            dataObject[arrayName] = { 
+                array: info.array, 
+                stride: 0, 
+                attributes: [attribute]
+            };
+        }
 
         let byteOffset = 0;
         while(byteOffset < dataView.byteLength) {
-            Object.keys(arrayInfo).forEach(arrayName => {
+            for (const arrayName in arrayInfo) {
                 const info = arrayInfo[arrayName];
                 for (let i = 0; i < info.numValues; i++) {
                     info.array[info.index++] = Parser.readFromDataView(dataView, byteOffset, info.dataType);
                     byteOffset += info.byteSize;
                 }
-            })
+            }
         }
     }
 
@@ -510,15 +506,17 @@ export default class PLYParser extends Parser {
             }
         }
 
-        dataObject.arrays.push(array);
         const arrayInfo = {
             name: elementSpec.name,
-            index: dataObject.arrays.length - 1,
             dataType: 'float',
             byteSize: 4
         }
-        const arrayAttributes = this.#createAttributes(arrayInfo, primitivePlans);
-        dataObject.attributes.push(...arrayAttributes);
+        const { attributes, stride } = this.#createAttributes(arrayInfo, primitivePlans);
+        dataObject[arrayInfo.name] = {
+            array: array, 
+            stride: stride,
+            attributes: attributes
+        };
     }
 
     #createAttributes(arrayInfo, arrayPlans) {
@@ -537,19 +535,16 @@ export default class PLYParser extends Parser {
         }
 
         const attributes = [];
-        Object.keys(attribInfo).forEach(name => {
-            const info = attribInfo[name];
+        for (const arrayName in attribInfo) {
+            const info = attribInfo[arrayName];
             attributes.push({
-                name: name,
-                isIndexArray: name === 'index',
-                arrayIndex: arrayInfo.index,
+                name: arrayName,
                 size: info.numValues,
                 dataType: arrayInfo.dataType,
-                stride: byteOffset,
                 offset: info.byteOffset
             });
-        })
-        return attributes;
+        }
+        return { attributes, stride: byteOffset };
     }
 
     /** triangulates a face using the fan method */
