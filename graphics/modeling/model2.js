@@ -1,5 +1,7 @@
-export default class Model {
-    constructor() {
+export function gernerateSphere() {
 
-    }
+}
+
+function formatOutput() {
+    
 }

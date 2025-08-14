@@ -3,7 +3,7 @@ precision lowp float;
 
 // used to draw things without shading
 
-in vec3 aPosition;
+layout(location = 0) in vec3 aPosition;
 
 // transformation matrices
 uniform mat4 model;

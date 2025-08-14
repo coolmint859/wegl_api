@@ -138,7 +138,7 @@ export default class PLYParser extends Parser {
         while ((lineEnd = headerString.indexOf('\n', lineStart)) !== -1) {
             const line = headerString.substring(lineStart, lineEnd);
             const headerLine = line.split("//")[0].trim(); // remove comments
-            if (headerLine == "") {
+            if (headerLine === "" || headerLine.startsWith('comment')) {
                 lineStart = lineEnd + 1;
                 continue;
             }
@@ -255,7 +255,7 @@ export default class PLYParser extends Parser {
         while ((lineEnd = textData.indexOf('\n', lineStart)) !== -1) {
             const line = textData.substring(lineStart, lineEnd);
             const dataLine = line.split("//")[0].trim(); // remove comments
-            if (dataLine == "") {
+            if (dataLine === "" || dataLine.startsWith('comment')) {
                 lineStart = lineEnd + 1;
                 continue;
             }
@@ -434,12 +434,12 @@ export default class PLYParser extends Parser {
                 list.forEach(value => array[arrayIndex++] = value);
             }
 
-            const arrayObject = { array, stride: 0, attributes: [] }
+            const arrayObject = { data: array, stride: 0, attributes: [] }
             if (plan.arrayName === 'index') {
                 arrayObject.dataType = plan.valueType;
             } else {
                 arrayObject.attributes.push({ 
-                    name: plan.arrayName, 
+                    name: plan.arrayName,
                     size: 1, 
                     dataType: plan.valueType, 
                     offset: 0 
@@ -474,7 +474,7 @@ export default class PLYParser extends Parser {
 
             const attribute = { name: arrayName, size: info.numValues, dataType: info.dataType, offset: 0 }
             dataObject[arrayName] = { 
-                array: info.array, 
+                data: info.array,
                 stride: 0, 
                 attributes: [attribute]
             };
@@ -513,7 +513,7 @@ export default class PLYParser extends Parser {
         }
         const { attributes, stride } = this.#createAttributes(arrayInfo, primitivePlans);
         dataObject[arrayInfo.name] = {
-            array: array, 
+            data: array,
             stride: stride,
             attributes: attributes
         };
@@ -535,6 +535,7 @@ export default class PLYParser extends Parser {
         }
 
         const attributes = [];
+        
         for (const arrayName in attribInfo) {
             const info = attribInfo[arrayName];
             attributes.push({

@@ -4,6 +4,7 @@ import Color from "../../utilities/containers/color.js";
 import { Matrix4 } from "../../utilities/math/matrix.js";
 import EventScheduler from "../../utilities/scheduler.js";
 import Camera from "../cameras/camera.js";
+import ShaderManager from "../shading/shader_manager.js";
 
 /**
  * Core real-time 3D application renderer. 
@@ -229,10 +230,12 @@ export default class Graphics3D {
             }
             mesh.material.applyToShader(shader, shouldUseTextures); 
 
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
-            // const numIndices = mesh.data.arrays[3].length;
-            const numIndices = mesh.indices.length;
-            gl.drawElements(this.drawMode, numIndices, gl.UNSIGNED_SHORT, 0);
+            const indexArray = mesh.arrays.index;
+            const indexArrayType = Graphics3D.glTypeMap.get(indexArray.dataType);
+            const numIndices = indexArray.data.length;
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.buffers.index);
+            gl.drawElements(this.drawMode, numIndices, indexArrayType, 0);
 
             // unbind material textures (if exist)
             if (mesh.material) {
@@ -255,7 +258,7 @@ export default class Graphics3D {
             const diffuseColor = currentLight.material.getProperty('diffuseColor')
             shader.setColor(currentLightName + ".diffuseColor", diffuseColor);
 
-            const specularColor = currentLight.material.getProperty('diffuseColor')
+            const specularColor = currentLight.material.getProperty('specularColor')
             shader.setColor(currentLightName + ".specularColor", specularColor);
             
             // light attenuation factors
@@ -279,9 +282,7 @@ export default class Graphics3D {
         return glBuffer;
     }
 
-    #createAttribute(shader, attribInfo) {
-        if (attribInfo.isIndexArray) return;
-
+    #createAttribute(shader, attribInfo, stride) {
         const gl = Graphics3D.#gl;
 
         const glAttrType = Graphics3D.glTypeMap.get(attribInfo.dataType);
@@ -290,41 +291,59 @@ export default class Graphics3D {
             console.warn(`[Graphics3D] Shader '${shader.getName()}' does not support vertex attribute '${attribInfo.name}'.`)
         } else {
             gl.enableVertexAttribArray(location);
-            gl.vertexAttribPointer(location, attribInfo.size, glAttrType, false, attribInfo.stride, attribInfo.offset);
+            gl.vertexAttribPointer(location, attribInfo.size, glAttrType, false, stride, attribInfo.offset);
         }
     }
 
     #createMeshVAO(shader, mesh) {
         const gl = Graphics3D.#gl;
 
+        if (mesh.arrays.vertex && mesh.arrays.uv) {
+            console.log('checking vertex and uv arrays')
+            const numPositions = mesh.arrays.vertex.data.length / 3;
+            const numUVs = mesh.arrays.uv.data.length / 2;
+
+            if (numPositions !== numUVs) {
+                console.warn(`[Graphics3D] Mismatch between number of vertices and UVs! Positions: ${numPositions}, UVs: ${numUVs}. This could be the source of the visual error.`);
+            }
+        }
+
         mesh.VAO = gl.createVertexArray();
         gl.bindVertexArray(mesh.VAO);
 
-        // const vertexArray = mesh.data.arrays[0];
-        // const uvArray = mesh.data.arrays[1];
-        // const normalArray = mesh.data.arrays[2];
-        // const indexArray = mesh.data.arrays[3];
+        mesh.buffers = {};
+        for (const name in mesh.arrays) {
+            const array = mesh.arrays[name];
 
-        const vertexArray = mesh.vertices;
-        const uvArray = mesh.textureCoords;
-        const normalArray = mesh.normals;
-        const indexArray = mesh.indices;
+            const bufferType = name === 'index' ? gl.ELEMENT_ARRAY_BUFFER : gl.ARRAY_BUFFER;
 
-        mesh.vertexBuffer = this.#createBuffer(gl.ARRAY_BUFFER, vertexArray);
-        this.#createAttribute(shader, { name: 'aPosition', size: 3, stride: 0, offset: 0, dataType: 'float' });
-
-        mesh.indexBuffer = this.#createBuffer(gl.ELEMENT_ARRAY_BUFFER, indexArray);
-
-        if (mesh.normals !== undefined && shader.supports('aNormal')) {
-            mesh.normalBuffer = this.#createBuffer(gl.ARRAY_BUFFER, normalArray);
-            this.#createAttribute(shader, { name: 'aNormal', size: 3, stride: 0, offset: 0, dataType: 'float' });
+            const glBuffer = gl.createBuffer();
+            gl.bindBuffer(bufferType, glBuffer);
+            gl.bufferData(bufferType, array.data, gl.STATIC_DRAW);
+            mesh.buffers[name] = glBuffer;
         }
+            
+        for (const name in mesh.buffers) {
+            if (name === 'index') continue;
 
-        if (mesh.textureCoords !== undefined && shader.supports('aTexCoord')) {
-            mesh.textureCoordBuffer = this.#createBuffer(gl.ARRAY_BUFFER, uvArray);
-            this.#createAttribute(shader, { name: 'aTexCoord', size: 2, stride: 0, offset: 0, dataType: 'float' })
+            gl.bindBuffer(gl.ARRAY_BUFFER, mesh.buffers[name]);
+
+            const array = mesh.arrays[name]
+            for (const attr of array.attributes) {
+                let attribLocation;
+                if (attr.name === 'vertex') attribLocation = ShaderManager.ATTRIB_LOCATION_VERTEX;
+                if (attr.name === 'uv') attribLocation = ShaderManager.ATTRIB_LOCATION_UV;
+                if (attr.name === 'normal') attribLocation = ShaderManager.ATTRIB_LOCATION_NORMAL;
+
+                const glAttrType = Graphics3D.glTypeMap.get(attr.dataType);
+                gl.enableVertexAttribArray(attribLocation);
+                gl.vertexAttribPointer(attribLocation, attr.size, glAttrType, false, array.stride, attr.offset);
+            }
         }
+        console.log(mesh.buffers);
 
         gl.bindVertexArray(null);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
     }
 }

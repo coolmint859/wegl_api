@@ -7,6 +7,7 @@ export default class Parser {
         ['char', Int8Array], ['uchar', Uint8Array],
         ['short', Int16Array], ['ushort', Uint16Array],
         ['int', Int32Array], ['uint', Uint32Array],
+        ['int32', Int32Array], ['uint32', Uint32Array],
         ['float', Float32Array], ['float32', Float32Array],
         ['double', Float64Array], ['float64', Float64Array],
     ]);
