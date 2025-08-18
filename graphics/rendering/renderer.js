@@ -192,7 +192,7 @@ export default class Graphics3D {
 
         mesh.renderType = rType;
         this.sceneObjects.push(mesh);
-        if (rType === this.RenderType.LIGHT) {
+        if (rType === this.RenderType.LIGHT && renderType !== 'BASIC') {
             this.pointLights.push(mesh);
         }
     }
@@ -209,13 +209,12 @@ export default class Graphics3D {
 
             // set up and bind object VAO
             if (!mesh.VAO) {
-                this.#createMeshVAO(shader, mesh);
+                mesh.VAO = this.#createMeshVAO(mesh);
             }
             gl.bindVertexArray(mesh.VAO);
 
             // set up shader uniforms && attributes
-            const modelMatrix = Matrix4.TRS4(mesh.center, mesh.rotation, mesh.dimensions);
-            shader.setMatrix4("model", modelMatrix);
+            shader.setMatrix4("model", mesh.transform.worldMatrix);
             shader.setMatrix4('view', this.currentCamera.viewMatrix);
             shader.setMatrix4('projection', this.currentCamera.projectionMatrix);
 
@@ -268,51 +267,20 @@ export default class Graphics3D {
             shader.setFloat(currentLightName + ".atten_quad", attenuation.z);
 
             // light position
-            shader.setVector3(currentLightName + ".position", currentLight.center);
+            shader.setVector3(currentLightName + ".position", currentLight.transform.position);
         }
     }
 
-    #createBuffer(bufferType, array) {
+    #createMeshVAO(mesh) {
         const gl = Graphics3D.#gl;
 
-        const glBuffer = gl.createBuffer();
-        gl.bindBuffer(bufferType, glBuffer);
-        gl.bufferData(bufferType, array, gl.STATIC_DRAW);
-
-        return glBuffer;
-    }
-
-    #createAttribute(shader, attribInfo, stride) {
-        const gl = Graphics3D.#gl;
-
-        const glAttrType = Graphics3D.glTypeMap.get(attribInfo.dataType);
-        const location = gl.getAttribLocation(shader.getProgramID(), attribInfo.name);
-        if (location === -1) {
-            console.warn(`[Graphics3D] Shader '${shader.getName()}' does not support vertex attribute '${attribInfo.name}'.`)
-        } else {
-            gl.enableVertexAttribArray(location);
-            gl.vertexAttribPointer(location, attribInfo.size, glAttrType, false, stride, attribInfo.offset);
-        }
-    }
-
-    #createMeshVAO(shader, mesh) {
-        const gl = Graphics3D.#gl;
-
-        if (mesh.arrays.vertex && mesh.arrays.uv) {
-            console.log('checking vertex and uv arrays')
-            const numPositions = mesh.arrays.vertex.data.length / 3;
-            const numUVs = mesh.arrays.uv.data.length / 2;
-
-            if (numPositions !== numUVs) {
-                console.warn(`[Graphics3D] Mismatch between number of vertices and UVs! Positions: ${numPositions}, UVs: ${numUVs}. This could be the source of the visual error.`);
-            }
-        }
-
-        mesh.VAO = gl.createVertexArray();
-        gl.bindVertexArray(mesh.VAO);
+        const VAO = gl.createVertexArray();
+        gl.bindVertexArray(VAO);
 
         mesh.buffers = {};
         for (const name in mesh.arrays) {
+            if (name === 'buffers') continue;
+
             const array = mesh.arrays[name];
 
             const bufferType = name === 'index' ? gl.ELEMENT_ARRAY_BUFFER : gl.ARRAY_BUFFER;
@@ -321,29 +289,23 @@ export default class Graphics3D {
             gl.bindBuffer(bufferType, glBuffer);
             gl.bufferData(bufferType, array.data, gl.STATIC_DRAW);
             mesh.buffers[name] = glBuffer;
-        }
-            
-        for (const name in mesh.buffers) {
-            if (name === 'index') continue;
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, mesh.buffers[name]);
-
-            const array = mesh.arrays[name]
             for (const attr of array.attributes) {
                 let attribLocation;
                 if (attr.name === 'vertex') attribLocation = ShaderManager.ATTRIB_LOCATION_VERTEX;
-                if (attr.name === 'uv') attribLocation = ShaderManager.ATTRIB_LOCATION_UV;
                 if (attr.name === 'normal') attribLocation = ShaderManager.ATTRIB_LOCATION_NORMAL;
+                if (attr.name === 'uv') attribLocation = ShaderManager.ATTRIB_LOCATION_UV;
 
                 const glAttrType = Graphics3D.glTypeMap.get(attr.dataType);
                 gl.enableVertexAttribArray(attribLocation);
                 gl.vertexAttribPointer(attribLocation, attr.size, glAttrType, false, array.stride, attr.offset);
             }
         }
-        console.log(mesh.buffers);
 
         gl.bindVertexArray(null);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+        return VAO;
     }
 }

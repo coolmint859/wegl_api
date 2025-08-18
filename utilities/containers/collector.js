@@ -89,7 +89,7 @@ export default class ResourceCollector {
         try {
             const loadedData = await ResourceCollector.#loadResource(resourcePath, loadFunction, options);
             ResourceCollector.#onLoadSuccess(resourcePath, loadedData, resourceInfo.disposalCallback);
-            console.log(`[ResourceCollector] Load successful for resource '${resourcePath}'; data cached and ready for use.`);
+            // console.log(`[ResourceCollector] Load successful for resource '${resourcePath}'; data cached and ready for use.`);
             return loadedData;
         } catch (error) {
             // cache data remains null
@@ -156,7 +156,7 @@ export default class ResourceCollector {
         try {
             const loadedData = await ResourceCollector.#loadResource(resourcePath, resourceInfo.loadFunction, options);
             ResourceCollector.#onLoadSuccess(resourcePath, loadedData, resourceInfo.disposalCallback);
-            console.log(`[ResourceCollector] Reload successful for resource '${resourcePath}'; new data is cached and ready for use.`)
+            // console.log(`[ResourceCollector] Reload successful for resource '${resourcePath}'; new data is cached and ready for use.`)
             return loadedData;
         } catch (error) {
             // old data stays in cache
@@ -190,7 +190,7 @@ export default class ResourceCollector {
         }
         if (ResourceCollector.#cache.has(alias)) {
             const resourceInfo = ResourceCollector.#cache.get(alias);
-            console.info(`[ResourceCollector] Reusing cached resource '${alias}'`)
+            // console.info(`[ResourceCollector] Reusing cached resource '${alias}'`)
             resourceInfo.refCount++;
             return true;
         } else {
@@ -356,7 +356,7 @@ export default class ResourceCollector {
             let isResolved = false;
             let onTimeout = function() {
                 if (isResolved) return;
-                console.log(`[ResourceCollector] Last poll occurred for resource '${resourcePath}', failed to get resource.`);
+                // console.log(`[ResourceCollector] Last poll occurred for resource '${resourcePath}', failed to get resource.`);
                 resolve(null);
             }
             let checkStatus = function() {
@@ -427,7 +427,7 @@ export default class ResourceCollector {
             EventScheduler.cancel(resourcePath);
         }
         resourceInfo.refCount++;
-        console.log(`[ResourceCollector] Acquired resource '${resourcePath}'. Current Reference count: ${resourceInfo.refCount}.`)
+        // console.log(`[ResourceCollector] Acquired resource '${resourcePath}'. Current Reference count: ${resourceInfo.refCount}.`)
         return true;
     }
 
@@ -476,7 +476,7 @@ export default class ResourceCollector {
         }
         const resourceInfo = ResourceCollector.#cache.get(resourcePath);
         resourceInfo.refCount--;
-        console.log(`[ResourceCollector] Successfully released resource '${resourcePath}'. Current Reference count: ${resourceInfo.refCount}'`)
+        // console.log(`[ResourceCollector] Successfully released resource '${resourcePath}'. Current Reference count: ${resourceInfo.refCount}'`)
         if (resourceInfo.refCount <= 0 ) {
             console.log(`[ResourceCollector] No more consumers are using resource '${resourcePath}'. Scheduling for disposal.`);
             ResourceCollector.#scheduleForDisposal(resourcePath, resourceInfo);

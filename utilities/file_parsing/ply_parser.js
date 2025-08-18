@@ -44,35 +44,38 @@ export default class PLYParser extends Parser {
     #elementDataViews;
     #genNormals;
     #interleaved;
+    #normalizeVertices;
 
     /**
      * Create a new PLYParser.
      * @param {object} options options for data parsing and output format
-     * @param {boolean} options.generateNormals if true, after parsing it will generate vertex normals if not already present. A face element must be in the file data for this to work. 
-     * @param {boolean} options.interleaveArrays if true, each element will have their data interleaved according to the properties in the header, 
-     * otherwise each element will be separated into logically similar groups (vertices, normals, etc). List properties will be interleaved or in separate arrays accordingly.
-     * @returns {PLYParser} a reference to this parser instance
+     * @param {boolean} options.generateNormals if true, after parsing it will generate vertex normals if not already present. A face element must be in the file data for this to work. This is true by default.
+     * @param {boolean} options.interleaveArrays if true, each element will have their data interleaved according to the properties in the header, otherwise each element will be separated into logically 
+     * similar groups (vertices, normals, etc). List properties will always be in separate arrays. This is true by default.
+     * @param {boolean} options.normalizeVertices if true, will scale the vertices such that the range of their distances from the local origin is between -1 and 1, and it's local origin is at it's geometric center. This is false by default.
      */
     constructor(options={}) {
         super();
         this.#genNormals = options.generateNormals ?? true; // default is to always generate normals
-        this.#interleaved = options.interleaveArrays ?? false;
+        this.#interleaved = options.interleaveArrays ?? true;
+        this.#normalizeVertices = options.normalizeVertices ?? false;
         this.#elementDataViews = {};
     }
 
-    /**
+     /**
      * Reset this PLYParser.
      * @param {object} options options for data parsing and output format
-     * @param {boolean} options.includeOptions if true, will also reset the options given at constuction.
-     * @param {boolean} options.generateNormals if true, after parsing it will generate vertex normals if not already present. A face element must be in the array for this to work. 
-     * @param {boolean} options.interleaveArrays if true, each element will have their data interleaved according to the properties in the header, 
-     * otherwise each element will be separated into logically similar groups (vertices, normals, etc). List properties will be interleaved or in separate arrays accordingly.
+     * @param {boolean} options.generateNormals if true, after parsing it will generate vertex normals if not already present. A face element must be in the file data for this to work. This is true by default.
+     * @param {boolean} options.interleaveArrays if true, each element will have their data interleaved according to the properties in the header, otherwise each element will be separated into logically 
+     * similar groups (vertices, normals, etc). List properties will always be in separate arrays. This is true by default.
+     * @param {boolean} options.normalizeVertices if true, will scale the vertices such that the range of their distances from the local origin is between -1 and 1, and it's local origin is at it's geometric center. This is false by default.
      * @returns {PLYParser} a reference to this parser instance
      */
     reset(options={}) {
         if (options.includeOptions) {
             this.#genNormals = options.generateNormals ?? true;
-            this.#interleaved = options.interleaveArrays ?? false;
+            this.#interleaved = options.interleaveArrays ?? true;
+            this.#normalizeVertices = options.normalizeVertices ?? false;
         }
 
         this.#currentState = PLYParser.State.HEADER;
@@ -92,7 +95,7 @@ export default class PLYParser extends Parser {
      * Parses PLY file data into mesh data
      * @param {DataView} dataView the current stream data to be parsed as a data view instance.
      * @param {boolean} isLastStream a flag indicating if there is any more stream data (true means no more data)
-     * @returns {object} A state object holding any remaining unprocessed data and and isDone flag.
+     * @returns {object} A state object holding any remaining unprocessed data and an isDone flag.
      */
     parse(dataView, isLastStream) {
         if (dataView.buffer.byteLength === 0 && isLastStream) {
@@ -109,6 +112,10 @@ export default class PLYParser extends Parser {
         if (this.#currentState === PLYParser.State.DATA) {
             if (this.#plyFormat.type === 'ascii') {
                 remainingByteOffset = this.#parseDataAscii(dataView, remainingByteOffset);
+                if (remainingByteOffset === -1) {
+                    this.#currentState === PLYParser.State.FAILED;
+                    throw new Error('[PLYParser] Malformed or incomplete data.');
+                }
             } else {
                 this.#currentState === PLYParser.State.FAILED;
                 throw new Error('[PLYParser] PLY files in binary format are unsupported at this time.');
@@ -251,7 +258,7 @@ export default class PLYParser extends Parser {
         const textData = (new TextDecoder).decode(intBuffer.subarray(byteOffset));
 
         let lineStart = 0, lineEnd;
-        let remainingDataIndex = byteOffset;
+        let remainingDataIndex = byteOffset, continueParsing = true;
         while ((lineEnd = textData.indexOf('\n', lineStart)) !== -1) {
             const line = textData.substring(lineStart, lineEnd);
             const dataLine = line.split("//")[0].trim(); // remove comments
@@ -260,11 +267,13 @@ export default class PLYParser extends Parser {
                 continue;
             }
             
-            this.#parseDataLine(dataLine);
+            continueParsing = this.#parseDataLine(dataLine);
+            if (!continueParsing) return -1;
 
             lineStart = lineEnd + 1;
             remainingDataIndex = byteOffset + lineStart;
         }
+
 
         return remainingDataIndex;
     }
@@ -275,6 +284,7 @@ export default class PLYParser extends Parser {
         const lineValues = dataLine.split(" ").map(token => Number(token));
         let planIndex = 0, valueIndex = 0, byteOffset = 0;
         while (valueIndex < lineValues.length) {
+            if (currentElementSpec === undefined) console.log(lineValues, planIndex);
             const currentPlan = currentElementSpec.writePlans[planIndex];
             const elementName = currentElementSpec.name;
             if (currentPlan.dataType === 'list') {
@@ -301,8 +311,14 @@ export default class PLYParser extends Parser {
         this.#elementIndex++;
         if (this.#elementIndex === this.#elementSpecs[this.#elementSpecIndex].count) {
             this.#elementSpecIndex++;
+            if (this.#elementSpecIndex >= this.#elementSpecs.size) {
+                console.error(`[PLYParser] Malformed ply file: Data section has more than defined in header.`);
+                return false
+            }
+
             this.#elementIndex = 0;
         }
+        return true;
     }
 
     /** generate vertex normal vectors from face data */
@@ -381,7 +397,9 @@ export default class PLYParser extends Parser {
                 }
 
                 const magnitude = Math.sqrt(xSum * xSum + ySum * ySum + zSum * zSum);
-                vertexNormal = [xSum / magnitude, ySum / magnitude, zSum / magnitude];
+                if (magnitude !== 0) {
+                    vertexNormal = [xSum / magnitude, ySum / magnitude, zSum / magnitude];
+                }
             }
 
             // generated normals always go at the end of the line
@@ -397,9 +415,14 @@ export default class PLYParser extends Parser {
     /**
      * Process and return the parsed data in a format compatible with webgl.
      *
-     * The return object's format is a list of the typed arrays 'arrays' of all the parsed data. There is also a list of 'attributes' that describe the data in the arrays, including the index of the array it's describing. 
-     * The intention is to allow iteration over the arrays to create the webgl buffers, and then the attributes to create the attribute pointers for the arrays. This design allows it to be independent of the arrays being interleaved or not.
-     * @returns {object} a object containing the parsed data
+     * The return object's format is an object of array objects. The array object's properties are the array names (e.g. 'vertex', 'normal'), which is based on their data content as determined from the ply file header. 
+     * The array objects have a data parameter, which is the typed array holding the raw data; a stride parameter, which is 0 for non-interleaved arrays; and a list of attribute objects, 
+     * each of which contains the attribute name, datatype, offset, and size. For non-interleaved arrays, this will hold only one attribute.
+     * 
+     * For PLY files with face data, the generated index array also holds a datatype parameter, and has no attributes. It is always named 'index'.
+     * 
+     * The intention with this format is to allow iteration over the objects to create the buffers, while also allowing easy access to the arrays without iteration.
+     * @returns {object} a object containing the parsed data in the format described.
      */
     getDataWebGL() {
         let processedData = {};

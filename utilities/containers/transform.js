@@ -12,7 +12,7 @@ export default class Transform {
     static localForward = new Vector3(0, 0, 1); // right-handed system
 
     #position;
-    #scale;
+    #dimensions;
     #rotation;
 
     #worldMatrix;
@@ -20,30 +20,31 @@ export default class Transform {
 
     /**
      * Create an new Transform instance
-     * @param {Vector3} position initial position, default is Vector3(0, 0, 0)
-     * @param {Quaternion} rotation initial rotation, default is Quaternion(1, 0i, 0j, 0k)
-     * @param {Vector3} scale initial scale, default is Vector3(1, 1, 1)
+     * @param {object} params optional intitial transform values. 
+     * @param {Vector3} params.position initial position, default is Vector3(0, 0, 0)
+     * @param {Quaternion} params.rotation initial rotation, default is Quaternion(1, 0i, 0j, 0k)
+     * @param {Vector3} params.dimensions initial dimensions, default is Vector3(1, 1, 1)
      */
-    constructor(position = new Vector3(), rotation = new Quaternion(), scale = Vector3.Ones()) {
-        if (arguments.length > 0 && !(position instanceof Vector3)) {
-            console.warn("TypeError: Expected 'position' to be instance of Vector3. Assigning default position.")
-            position = new Vector3();
+    constructor(params = {}) {
+        if (params.position && !(params.position instanceof Vector3)) {
+            console.warn(`[Transform] TypeError: Expected 'params.position' to be instance of Vector3. Assigning default position.`)
+            params.position = new Vector3();
         }
-        if (arguments.length > 1 && !(rotation instanceof Quaternion)) {
-            console.warn("TypeError: Expected 'rotation' to be instance of Quaternion. Assigning default rotation.")
-            rotation = new Quaternion();
+        if (params.rotation && !(params.rotation instanceof Quaternion)) {
+            console.warn(`[Transform] TypeError: Expected 'params.rotation' to be instance of Quaternion. Assigning default rotation.`)
+            params.rotation = new Quaternion();
         }
-        if (arguments.length > 2 && !(scale instanceof Vector3)) {
-            console.warn("TypeError: Expected 'scale' to be instance of Vector3. Assigning default scale.")
-            scale = Vector3.Ones()
+        if (params.dimensions && !(params.dimensions instanceof Vector3)) {
+            console.warn(`[Transform] TypeError: Expected 'params.dimensions' to be instance of Vector3. Assigning default dimensions.`)
+            params.dimensions = new Vector3();
         }
 
-        this.#position = position;
-        this.#rotation = rotation;
-        this.#scale = scale;
+        this.#position = params.position ?? new Vector3();
+        this.#rotation = params.rotation ?? new Quaternion();
+        this.#dimensions = params.dimensions ?? Vector3.Ones();
 
         // create world matrix based on inititial orientation
-        this.#worldMatrix = Matrix4.TRS4(this.#position, this.#rotation, this.#scale);
+        this.#worldMatrix = Matrix4.TRS4(this.#position, this.#rotation, this.#dimensions);
         this.#isDirty = false;
     }
 
@@ -67,8 +68,8 @@ export default class Transform {
      * Retrieve the scale vector of this transform
      * @returns {Vector3} the scale vector
      */
-    get scale() {
-        return this.#scale.clone();
+    get dimensions() {
+        return this.#dimensions.clone();
     }
     
     /**
@@ -106,12 +107,12 @@ export default class Transform {
      * @param {Vector3} scale the new scale
      * @returns {boolean} true if the scale was successfully set, false otherwise
      */
-    set scale(scale) {
-        if (!(scale instanceof Vector3)) {
-            console.error("TypeError: Expected 'scale' to be instance of Vector3. Unable to set scale vector.")
+    set dimensions(dimensions) {
+        if (!(dimensions instanceof Vector3)) {
+            console.error("TypeError: Expected 'dimensions' to be instance of Vector3. Unable to set dimensions.")
             return false;
         }
-        this.#scale = scale.clone();
+        this.#dimensions = dimensions.clone();
         this.#isDirty = true;
         return true;
     }
@@ -173,7 +174,7 @@ export default class Transform {
     }
 
     /**
-     * Multiplies this transform's scale by the given scale vector. Note that this is a linear operation.
+     * Multiplies this transform's dimensions by the given scaling vector. Note that this is a linear operation.
      * @param {Vector3} scaleVector the amount to scale
      * @returns {boolean} true if the scale was successfully changed, false otherwise
      */
@@ -182,13 +183,13 @@ export default class Transform {
             console.error("TypeError: Expected 'scaleVector' to be instance of Vector3. Unable to update scale vector.")
             return false;
         }
-        this.#scale.mult(scaleVector);
+        this.#dimensions.mult(scaleVector);
         this.#isDirty = true;
         return true;
     }
 
     /**
-     * Reorients the world coordinate system of this transform such that it's forward vector 'points' at a target point.
+     * Reorients this transform such that it's forward vector 'points' at a target point.
      * @param {Vector3} target the point in space to point the forward vector at
      * @param {Vector3} up the world space up, allowing for optional roll. Default is the local up axis.
      */
@@ -205,12 +206,12 @@ export default class Transform {
     }
 
     /**
-     * Computes the transformation matrix as determined by the current position, rotation, and scale.
+     * Computes the transformation matrix as determined by the current position, rotation, and dimensions.
      * @returns {Matrix4} the computed transformation matrix
      */
     get worldMatrix() {
         if (this.#isDirty) {
-            this.#worldMatrix = Matrix4.TRS4(this.#position, this.#rotation, this.#scale);
+            this.#worldMatrix = Matrix4.TRS4(this.#position, this.#rotation, this.#dimensions);
             this.#isDirty = false;
         }
         return this.#worldMatrix.clone();

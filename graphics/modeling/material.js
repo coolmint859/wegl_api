@@ -37,6 +37,7 @@ export default class Material {
     #properties;            // map of material properties
     #textures;              // map of material textures
     #materialID;
+    #firstTimeAquisition;
 
     /**
      * Create a new Material Instance
@@ -45,6 +46,7 @@ export default class Material {
     constructor(properties={}) {
         this.#materialID = Material.#ID_COUNTER++;
         this.#refCount = 0; // a material is only 'used' when it attached to a renderable object (like a mesh)
+        this.#firstTimeAquisition = true;
 
         this.#properties = new Map();
         Object.keys(properties).forEach(propName => {
@@ -69,12 +71,14 @@ export default class Material {
 
     acquire() {
         // cancel releases of textures if the ref count was 0
-        if (this.#refCount === 0 && this.#textures.size !== 0) {
+        if (this.#refCount === 0 && this.#textures.size !== 0 && !this.#firstTimeAquisition) {
             for (const texType of this.#textures.keys()) {
                 EventScheduler.cancel(texType);
             }
         }
         this.#refCount++;
+        this.#firstTimeAquisition = false;
+        return this;
     }
 
     release() {

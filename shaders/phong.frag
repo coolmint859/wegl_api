@@ -86,4 +86,6 @@ void main()
     // outColor = vec4(vec3(1.0-depth), 1.0);
     
     outColor = vec4(fragColor, 1.0);
+    
+    // outColor = vec4(N, 1.0);
 }

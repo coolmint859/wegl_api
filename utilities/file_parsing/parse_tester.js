@@ -15,6 +15,12 @@ export default class ParserTester {
         }
     }
 
+    /**
+     * Test a parser with the given chunk size
+     * @param {Array<number>} chunkSize the chunk size for each iteration. The size is in terms of characters (so a value of 100 means a chunk size of 100 characters)
+     * @param {Parser} parser the parser instance to test with. Must be a derived instance of Parser.
+     * @param {string} testFileString the string of test data to parse.
+     */
     static testParser(chunkSize, parser, testFileString) {
         const streamState = { 
             buffer: new Uint8Array(0), 

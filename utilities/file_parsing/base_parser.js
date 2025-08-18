@@ -22,7 +22,7 @@ export default class Parser {
     ])
     
     /**
-     * Reset the state of the parser, allowing it to be used on another file. This method must be overridden.
+     * Reset the state of the parser, allowing it to be used on mutiple files. This method must be overridden.
      */
     reset() {
         throw Error(`[Parser] A parser class derived from this one must implement the reset method.`);
@@ -30,11 +30,11 @@ export default class Parser {
 
     /**
      * The core parsing logic. This method must be overridden.
-     * @param {Uint8Array} currentBuffer The current buffer state. Is prepended with unprocessed data from the last call.
-     * @param {boolean} isStreamDone A flag indicating if there are no more incoming buffer data.
-     * @returns {object} A state object. Should hold any 'remainingData' and an 'isDone' flag - the flag signals to the stream processor that parsing is complete, and thus should terminate.
+     * @param {Uint8Array} dataView The current buffer wrapped in a DataView instance. The buffer is prepended with any unprocessed data from the last call.
+     * @param {boolean} isStreamDone A flag indicating if there is any more incoming buffer data.
+     * @returns {object} A state object. Should hold any 'remainingData' as an ArrayBufferLike and an 'isDone' flag - the flag signals to the caller that parsing is complete, and thus should terminate.
      */
-    parse(currentBuffer, isStreamDone) {
+    parse(dataView, isStreamDone) {
         throw Error(`[Parser] A parser class derived from this one must implement the parse method.`);
     }
 
@@ -52,11 +52,12 @@ export default class Parser {
      * @param {Uint8Array} bytes the set of bytes to search for in the binary data
      * @param {number} start an index into the binary array for which to begin searching.
      * @param {number} end an index into the binary array for which to stop searching.
-     * @returns {number} the index for which the bytes starts in the binary array. If the bytes are not in the array, -1 is returned.
+     * @returns {number} the index for which the bytes starts in the binary array. If the bytes are not in the array or the byte length is invalid, -1 is returned.
      */
     static findByteIndex(binData, bytes, start, end) {
-        if (bytes.length === 0) return start;
-        if (bytes.length > end - start) return -1;
+        if (bytes.length === 0 || bytes.length > end - start) {
+            return -1;
+        }
 
         for (let i = start; i <= end - bytes.length; i++) {
             let found = true;
@@ -82,8 +83,8 @@ export default class Parser {
      * @returns {DataView} the same dataview instance that was provided.
      */
     static writeToDataView(dataView, offset, value, dataType) {
-        if (Number.isNaN(offset)) {
-            throw new Error(`[Parser] Cannot write value to dataView as the offset is NaN.`);
+        if (Number.isNaN(offset) || Number.isNaN(value)) {
+            throw new Error(`[Parser] Cannot write value to dataView as the offset or value is NaN.`);
         }
         if (!Parser.typeByteSize.has(dataType)) {
             throw new Error(`[Parser] Cannot write value to dataView as the type '${dataType}' isn't recognized.`);
@@ -136,14 +137,14 @@ export default class Parser {
      */
     static readFromDataView(dataView, offset, dataType) {
         if (Number.isNaN(offset)) {
-            throw new Error(`[Parser] Cannot extract value from dataView as the offset is NaN.`);
+            throw new Error(`[Parser] Cannot read value from dataView as the offset is NaN.`);
         }
         if (!Parser.typeByteSize.has(dataType)) {
-            throw new Error(`[Parser] Cannot extract value from dataView as the type '${dataType}' isn't recognized.`);
+            throw new Error(`[Parser] Cannot read value from dataView as the type '${dataType}' isn't recognized.`);
         }
         const byteSize = Parser.typeByteSize.get(dataType);
         if (offset + byteSize > dataView.byteLength || offset < 0) {
-            throw new Error(`[Parser] Cannot extract value from dataView as the given offset '${offset}' is not within a valid range.`);
+            throw new Error(`[Parser] Cannot read value from dataView as the given offset '${offset}' is not within a valid range.`);
         }
         switch(dataType) {
             case 'char':
