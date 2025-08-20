@@ -69,6 +69,10 @@ export default class Material {
         return this.#materialID;
     }
 
+    /**
+     * Acquire this material for use
+     * @returns {Material} a reference to this material instance.
+     */
     acquire() {
         // cancel releases of textures if the ref count was 0
         if (this.#refCount === 0 && this.#textures.size !== 0 && !this.#firstTimeAquisition) {

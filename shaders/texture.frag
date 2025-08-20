@@ -92,7 +92,7 @@ void main()
     // float depth = linearizeDepth(gl_FragCoord.z) / far;
     // outColor = vec4(vec3(1.0-depth), 1.0);
 
-    // outColor = vec4(pow(fragColor, vec3(1.0/gamma)), 1.0);
+    outColor = vec4(pow(fragColor, vec3(1.0/gamma)), 1.0);
 
-    outColor = vec4(N, 1.0);
+    // outColor = vec4(N, 1.0);
 }

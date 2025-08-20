@@ -11,7 +11,22 @@ import ShaderManager from "../shading/shader_manager.js";
  */
 export default class Graphics3D {
     static #canvas = document.getElementById("canvas-main");
-    static #gl =  Graphics3D.#canvas.getContext('webgl2', { alpha: true, antialias: true, preserveDrawingBuffer: false });
+    static #gl = Graphics3D.#canvas.getContext('webgl2', { alpha: true, antialias: true, preserveDrawingBuffer: false });
+
+    static RenderType = Object.freeze({
+        PHONG: 'phong',
+        BASIC: 'basic',
+        LIGHT: 'light',
+        TEXTURE: 'texture'
+    });
+    static RenderMode = Object.freeze({
+        POINTS: Graphics3D.#gl.POINTS,
+        LINES: Graphics3D.#gl.LINES,
+        LINE_STRIP: Graphics3D.#gl.LINE_STRIP,
+        TRIANGLES: Graphics3D.#gl.TRIANGLES,
+        TRIANGLE_STRIP: Graphics3D.#gl.TRIANGLE_STRIP,
+        TRIANGLE_FAN: Graphics3D.#gl.TRIANGLE_FAN,
+    })
 
     static glTypeMap = new Map([
         ['char', Graphics3D.#gl.BYTE], ['uchar', Graphics3D.#gl.UNSIGNED_BYTE],
@@ -41,27 +56,17 @@ export default class Graphics3D {
         gl.frontFace(gl.CCW);
         gl.cullFace(gl.BACK);
 
+        // enable depth testing
+        gl.depthFunc(gl.LEQUAL);
+        gl.enable(gl.DEPTH_TEST);
+
         this.aspectRatio = height / width;
 
         this.sceneObjects = [];
         this.pointLights = [];
         this.shaders = new Map();
 
-        this.RenderType = Object.freeze({
-            PHONG: 'phong',
-            BASIC: 'basic',
-            LIGHT: 'basic',
-            TEXTURE: 'texture'
-        });
-        this.DrawModes = Object.freeze({
-            POINTS: gl.POINTS,
-            LINES: gl.LINES,
-            LINE_STRIP: gl.LINE_STRIP,
-            TRIANGLES: gl.TRIANGLES,
-            TRIANGLE_STRIP: gl.TRIANGLE_STRIP,
-            TRIANGLE_FAN: gl.TRIANGLE_FAN,
-        })
-        this.drawMode = this.DrawModes.TRIANGLES;
+        this.renderMode = Graphics3D.RenderMode.TRIANGLES;
         
         this.scenes = new Map();
 
@@ -74,18 +79,14 @@ export default class Graphics3D {
         this.ambientColor = Color.BLACK;
         this.clearColor = Color.CF_BLUE;
 
-        this.#setupShader(this.RenderType.BASIC);
-        this.#setupShader(this.RenderType.PHONG);
-        this.#setupShader(this.RenderType.TEXTURE);
-        this.#setupShader(this.RenderType.LIGHT);
-    }
+        const shaderNames = ["basic", "phong", 'texture'];
+        for (const name of shaderNames) {
+            let vertexPath = "shaders/" + name + ".vert";
+            let fragmentPath = "shaders/" + name + ".frag";
 
-    #setupShader(name) {
-        let vertexPath = "shaders/" + name + ".vert";
-        let fragmentPath = "shaders/" + name + ".frag";
-
-        let shader = new Shader(name, vertexPath, fragmentPath);
-        this.shaders.set(name, shader);
+            let shader = new Shader(name, vertexPath, fragmentPath);
+            this.shaders.set(name, shader);
+        }
     }
 
     /** Returns the current WebGl context. */
@@ -111,12 +112,12 @@ export default class Graphics3D {
         Graphics3D.#gl.viewport(0, 0, canvas.width, canvas.height);
     }
 
-    setDrawMode(drawMode) {
-        if (!drawMode in this.DrawModes) {
-            console.error(`${drawMode} is not a valid webgl draw mode.`);
+    setRenderMode(renderMode) {
+        if (!Object.values(Graphics3D.RenderMode).includes(renderMode)) {
+            console.error(`${renderMode} is not a valid webgl draw mode.`);
             return;
         }
-        this.drawMode = this.DrawModes[drawMode];
+        this.renderMode = renderMode;
     }
 
     /** add a new camera to the scene */
@@ -158,7 +159,7 @@ export default class Graphics3D {
         this.currentCamera.update(dt, this.aspectRatio);
 
         // this is to make sure a shader is always in use.
-        this.shaders.get(this.RenderType.BASIC).use();
+        this.shaders.get(Graphics3D.RenderType.BASIC).use();
 
         // reset scene objects to be empty
         this.sceneObjects = [];
@@ -168,32 +169,19 @@ export default class Graphics3D {
         gl.clearColor(this.clearColor.r, this.clearColor.g, this.clearColor.b, this.clearColor.a);
         gl.clearDepth(1.0);
 
-        // enable depth testing
-        gl.depthFunc(gl.LEQUAL);
-        gl.enable(gl.DEPTH_TEST);
-
         // clear the screen & depth buffer
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     }
 
     /** draws an object */
-    draw(mesh, renderType = 'BASIC') {
-        let rType;
-        if (renderType != null) {
-            if (!(renderType in this.RenderType)) {
-                console.warn(`Invalid render type '${renderType}'. Defaulting to BASIC.`)
-                rType = this.RenderType.BASIC;
-            } else {
-                rType = this.RenderType[renderType];
-            }
-        } else {
-            rType = this.RenderType.BASIC;
+    draw(object) {
+        if (object.renderType === null || !Object.values(Graphics3D.RenderType).includes(object.renderType)) {
+            object.renderType = this.RenderType.BASIC;
         }
 
-        mesh.renderType = rType;
-        this.sceneObjects.push(mesh);
-        if (rType === this.RenderType.LIGHT && renderType !== 'BASIC') {
-            this.pointLights.push(mesh);
+        this.sceneObjects.push(object);
+        if (object.renderType === Graphics3D.RenderType.LIGHT) {
+            this.pointLights.push(object);
         }
     }
 
@@ -204,7 +192,8 @@ export default class Graphics3D {
             const mesh = this.sceneObjects[i];
             
             // determine shader
-            const shader = this.shaders.get(mesh.renderType);
+            const shaderName = mesh.renderType === Graphics3D.RenderType.LIGHT ? 'basic': mesh.renderType;
+            const shader = this.shaders.get(shaderName);
             shader.use(); // VERY IMPORTANT LINE, this sets the current shader appropriately.
 
             // set up and bind object VAO
@@ -219,10 +208,10 @@ export default class Graphics3D {
             shader.setMatrix4('projection', this.currentCamera.projectionMatrix);
 
             let shouldUseTextures = false;
-            if (mesh.renderType === this.RenderType.PHONG) {
+            if (mesh.renderType === Graphics3D.RenderType.PHONG) {
                 shader.setColor('ambientColor', this.ambientColor);
                 this.#setLightingAttributes(shader);
-            } else if (mesh.renderType === this.RenderType.TEXTURE) {
+            } else if (mesh.renderType === Graphics3D.RenderType.TEXTURE) {
                 shader.setColor('ambientColor', this.ambientColor);
                 this.#setLightingAttributes(shader);
                 shouldUseTextures = true;
@@ -234,7 +223,7 @@ export default class Graphics3D {
             const numIndices = indexArray.data.length;
 
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.buffers.index);
-            gl.drawElements(this.drawMode, numIndices, indexArrayType, 0);
+            gl.drawElements(this.renderMode, numIndices, indexArrayType, 0);
 
             // unbind material textures (if exist)
             if (mesh.material) {
@@ -282,7 +271,6 @@ export default class Graphics3D {
             if (name === 'buffers') continue;
 
             const array = mesh.arrays[name];
-
             const bufferType = name === 'index' ? gl.ELEMENT_ARRAY_BUFFER : gl.ARRAY_BUFFER;
 
             const glBuffer = gl.createBuffer();

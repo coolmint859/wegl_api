@@ -1,60 +1,60 @@
 /**
  * Generates a rectangular prism. Normalized to fit within a unit cube. (To make it bigger overall, use a transform instance.)
+ * @param {number} width the width (x-axis) of the rectangular prism. Must be greater than 0.
+ * @param {number} height the height (y-axis) of the rectangular prism. Must be greater than 0.
+ * @param {number} depth the depth (z-axis) of the rectangular prism. Must be greater than 0.
  * @returns an object containing the arrays and accompanying attributes
  */
-export function generateRectPrism() {
-    const vertexArray = new Float32Array([
-         1, -1, -1, 
-         1,  1, -1, 
-        -1, -1, -1, 
-        -1,  1, -1,
-        -1, -1,  1, 
-         1, -1,  1, 
-        -1,  1,  1, 
-         1,  1,  1,
-         1, -1,  1, 
-         1,  1,  1, 
-         1, -1, -1, 
-         1,  1, -1,
-        -1, -1, -1, 
-        -1,  1, -1, 
-        -1, -1,  1, 
-        -1,  1,  1,
-        -1,  1,  1, 
-        -1,  1, -1, 
-         1,  1,  1, 
-         1,  1, -1,
-        -1, -1, -1, 
-        -1, -1,  1, 
-         1, -1, -1, 
-         1, -1,  1,
-    ]);
+export function generateRectPrism(width, height, depth) {
+    if (width <= 0) {
+        console.warn(`[GenerateRectPrism] Width must be greater than 0. Assigning default (width=1).`);
+        width = 1;
+    }
+    if (height <= 0) {
+        console.warn(`[GenerateRectPrism] Height must be greater than 0. Assigning default (height=1).`);
+        height = 1;
+    }
+    if (depth <= 0) {
+        console.warn(`[GenerateRectPrism] Depth must be greater than 0. Assigning default (depth=1).`);
+        depth = 1;
+    }
+
+    const hw = width/2, hh = height/2, hd = depth/2;
+
     const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }]
+    const vertexArray = new Float32Array([
+        -hw, -hh,  hd, -hw,  hh,  hd,  hw, -hh,  hd,  hw,  hh,  hd,     // front face
+         hw, -hh,  hd,  hw,  hh,  hd,  hw, -hh, -hd,  hw,  hh, -hd,     // right face
+        -hw,  hh,  hd, -hw,  hh, -hd,  hw,  hh,  hd,  hw,  hh, -hd,     // top face
+         hw, -hh, -hd,  hw,  hh, -hd, -hw, -hh, -hd, -hw,  hh, -hd,     // back face
+        -hw, -hh, -hd, -hw,  hh, -hd, -hw, -hh,  hd, -hw,  hh,  hd,     // left face
+        -hw, -hh, -hd, -hw, -hh,  hd,  hw, -hh, -hd,  hw, -hh,  hd,     // bottom face
+    ]);
 
     const indexArray = new Uint16Array([
-        2, 1, 0, 2, 3, 1,
-        5, 6, 4, 5, 7, 6, 
-        9, 10, 11, 9, 8, 10, 
-        15, 12, 14, 15, 13, 12, 
-        17, 18, 19, 17, 16, 18, 
-        20, 23, 21, 20, 22, 23,
+        2,  1,  0,  2,  3,  1,      // front face
+        6,  5,  4,  6,  7,  5,      // right face
+        9,  10, 11, 9,  8,  10,     // top face
+        15, 12, 14, 15, 13, 12,     // back face
+        17, 18, 19, 17, 16, 18,     // left face
+        20, 23, 21, 20, 22, 23,     // bottom face
     ]);
 
+    const uvAttributes = [{ name: 'uv', size: 2, dataType: 'float', offset: 0 }]
     const uvArray = new Float32Array([
         0, 1, 0, 0, 1, 1, 1, 0,
-        0, 1, 1, 1, 0, 0, 1, 0,
+        0, 1, 0, 0, 1, 1, 1, 0,
         0, 1, 0, 0, 1, 1, 1, 0,
         0, 1, 0, 0, 1, 1, 1, 0,
         0, 1, 0, 0, 1, 1, 1, 0,
         0, 1, 0, 0, 1, 1, 1, 0,
     ]);
-    const uvAttributes = [{ name: 'uv', size: 2, dataType: 'float', offset: 0 }]
 
     const normalArray = generateNormals(vertexArray, indexArray);
     const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
 
     return {
-        vertex: { data: vertexArray, attributes: vertexAttributes, stride: 0 },
+        vertex: { data: normalizeVertices(vertexArray), attributes: vertexAttributes, stride: 0 },
         normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
         uv:     { data: uvArray,     attributes: uvAttributes, stride: 0},
         index:  { data: indexArray,  attributes: [], stride: 0, dataType: 'uint16' },
@@ -62,26 +62,31 @@ export function generateRectPrism() {
 }
 
 /**
- * Generates a tetahredon. Normalized to fit within a unit cube. (To make it bigger overall, use a transform instance.)
+ * Generates a tetahredon. Normalized to fit within a unit cube. (To make it bigger overall, use a transform instance)
  * @returns an object containing the arrays and accompanying attributes
  */
-export function generateTetrahedron() {
-    const angle = 2 * Math.PI / 3
-    const vertexArray = new Float32Array([
-        Math.cos(angle), 0, Math.sin(angle),
-        0, Math.sqrt(2), 0,
-        Math.cos(2*angle), 0, Math.sin(2*angle),
-        Math.cos(2*angle), 0, Math.sin(2*angle),
-        0, Math.sqrt(2), 0,
-        Math.cos(3*angle), 0, Math.sin(3*angle),
-        Math.cos(3*angle), 0, Math.sin(3*angle),
-        0, Math.sqrt(2), 0,
-        Math.cos(angle), 0, Math.sin(angle),
-        Math.cos(angle), 0, Math.sin(angle),
-        Math.cos(2*angle), 0, Math.sin(2*angle),
-        Math.cos(3*angle), 0, Math.sin(3*angle)
-    ]);
+export function generateTetrahedron(width, height, depth) {
+    if (width <= 0) {
+        console.warn(`[GenerateRectPrism] Width must be greater than 0. Assigning default (width=1).`);
+        width = 1;
+    }
+    if (height <= 0) {
+        console.warn(`[GenerateRectPrism] Height must be greater than 0. Assigning default (height=1).`);
+        height = 1;
+    }
+    if (depth <= 0) {
+        console.warn(`[GenerateRectPrism] Depth must be greater than 0. Assigning default (depth=1).`);
+        depth = 1;
+    }
+
     const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }];
+    const hw = width/2, hh = height / Math.sqrt(8), hd = depth/2
+    const vertexArray = new Float32Array([
+         hw,  hh,  0,  0, -hh, -hd, -hw,  hh,   0,
+         hw,  hh,  0,  0, -hh,  hd,   0, -hh, -hd,
+        -hw,  hh,  0,  0, -hh,  hd,  hw,  hh,   0,
+          0, -hh, hd, -hw, hh,   0,   0, -hh, -hd
+    ]);
 
     // [ 0, 1, 2, 3, ...];
     const indexArray = Uint16Array.from({ length: 12 }, (v, i) => i);
@@ -90,7 +95,7 @@ export function generateTetrahedron() {
     const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
 
     return {
-        vertex: { data: vertexArray, attributes: vertexAttributes, stride: 0 },
+        vertex: { data: normalizeVertices(vertexArray), attributes: vertexAttributes, stride: 0 },
         normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
         index:  { data: indexArray,  attributes: [], stride: 0, dataType: 'uint16' },
     }
@@ -102,7 +107,7 @@ export function generateTetrahedron() {
  * @param length the length of the pyramid base. Must be greater than 0.
  * @returns an object containing the arrays and accompanying attributes
  */
-export function generatePyramid(height, length) {
+export function generatePyramid(width, height, depth) {
     if (height <= 0) {
         console.warn(`[GeneratePyramid] Height must be greater than 0. Assigning default (height=1).`);
         height = 1;
@@ -112,17 +117,15 @@ export function generatePyramid(height, length) {
         length = 1;
     }
 
-    //----- vertices -----//
-    
-    const l2 = length/2;
+    const hw = width/2, hh = height/2, hd = depth/2;
     const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }];
     const vertexArray = new Float32Array([
-         l2, 0,  l2,   0, height,  0, -l2, 0,  l2,      // front
-         l2, 0, -l2,   0, height,  0,  l2, 0,  l2,      // right
-        -l2, 0, -l2,   0, height,  0,  l2, 0, -l2,      // left
-        -l2, 0,  l2,   0, height,  0, -l2, 0, -l2,      // back
-         l2, 0, -l2,  l2, 0,      l2, -l2, 0,  l2,      // bottom right
-        -l2, 0,  l2, -l2, 0,     -l2,  l2, 0, -l2,      // bottom left
+         hw, 0, hd,    0, hh,   0, -hw, 0,  hd,      // front
+         hw, 0, -hd,   0, hh,   0,  hw, 0,  hd,      // right
+        -hw, 0, -hd,   0, hh,   0,  hw, 0, -hd,      // left
+        -hw, 0,  hd,   0, hh,   0, -hw, 0, -hd,      // back
+         hw, 0, -hd,  hw,  0,  hw, -hw, 0,  hd,      // bottom right
+        -hw, 0,  hd, -hw,  0, -hw,  hw, 0, -hd,      // bottom left
     ]);
     
     // [ 0, 1, 2, 3, ...];
@@ -164,14 +167,14 @@ export function generateIsosohedron() {
 
 /**
  * Generates a cone. Normalized to fit within a unit cube. (To make it bigger overall, use a transform instance.)
- * @param numBands the number of bands around the cone. Must be greater than 3.
+ * @param numBands the number of bands around the cone. Must be at least 3.
  * @param height the height of the cone. Must be greater than 0.
  * @param radius the radius of the cone. Must be greater than 0.
  * @returns an object containing the arrays and accompanying attributes
  */
 export function generateCone(numBands, height, radius) {
     if (numBands < 3) {
-        console.warn(`[GenerateCone] numBands must be greater than 2. Assigning fallback (numBands=5).`);
+        console.warn(`[GenerateCone] numBands must be greater than 2. Assigning default (numBands=5).`);
         numBands = 5;
     }
     if (height <= 0) {
@@ -179,13 +182,14 @@ export function generateCone(numBands, height, radius) {
         height = 1;
     }
     if (radius <= 0) {
-        console.warn(`[GenerateCone] radius must be greater than 0. Assigning fallback (radius=1).`);
+        console.warn(`[GenerateCone] Radius must be greater than 0. Assigning default (radius=1).`);
         radius = 1;
     }
 
     //----- vertices -----//
 
-    const vertexArray = new Float32Array(3*(3 * numBands + 1));
+    const numVertices = 3 * numBands + 1;
+    const vertexArray = new Float32Array(3*numVertices);
     const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }];
 
     // base center
@@ -199,10 +203,6 @@ export function generateCone(numBands, height, radius) {
         let x = radius * Math.cos(angle);
         let z = radius * Math.sin(angle);
 
-        const epsilon = 0.00001;
-        x = Math.abs(x) > epsilon ? x : 0;
-        z = Math.abs(z) > epsilon ? z : 0;
-
         for (let k = 0; k < 3; k++) {
             // k=0 -> base; k=1 -> side; k=2 -> apex;
             const offset = 3 * (k * numBands + i + 1);
@@ -214,7 +214,8 @@ export function generateCone(numBands, height, radius) {
 
     //----- indices -----//
 
-    const indexArray = new Uint16Array(3*(2 * numBands));
+    const numFaces = 2 * numBands;
+    const indexArray = new Uint16Array(3*numFaces);
     for (let i = 0; i < numBands; i++) {
         const currBaseFace = 3*i;
         indexArray[currBaseFace+0] = i+1;
@@ -241,23 +242,29 @@ export function generateCone(numBands, height, radius) {
 
 /**
  * Generates a cylinder.
- * @param numBands the number of bands around the cylinder. Must be greater than 2.
- * @param height the height of the cylinder. This is inversely proportional to the radius (i.e. a larger height -> smaller radius). Must be greater than 0.
+ * @param numBands the number of bands around the cylinder. Must be at least 3.
+ * @param height the height of the cylinder. Must be greater than 0.
+ * @param radius the radius of the cylinder. Must be greater than 0.
  * @returns an object containing the arrays and accompanying attributes
  */
-export function generateCylinder(numBands, height = 1) {
+export function generateCylinder(numBands, height, radius) {
     if (numBands < 3) {
-        console.warn(`[GeneratePyramid] numBands must be greater than 2. Assigning fallback (numBands=10).`);
+        console.warn(`[GeneratePyramid] numBands must be greater than 2. Assigning default (numBands=10).`);
         numBands = 10;
     }
     if (height <= 0) {
         console.warn(`[GeneratePyramid] Height must be greater than 0. Assigning default (height=1).`);
         height = 1;
     }
+    if (radius <= 0) {
+        console.warn(`[GeneratePyramid] Radius must be greater than 0. Assigning default (radius=1).`);
+        radius = 1;
+    }
 
     //----- vertices -----//
 
-    const vertexArray = new Float32Array(3*(4 * numBands + 2));
+    const numVertices = 4 * numBands + 2;
+    const vertexArray = new Float32Array(3*numVertices);
     const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }]
 
     // top center
@@ -273,8 +280,8 @@ export function generateCylinder(numBands, height = 1) {
     const angleStep = 2*Math.PI/numBands;
     for (let i = 0; i < numBands; i++) {
         const angle = angleStep * i;
-        let x = Math.cos(angle);
-        let z = Math.sin(angle);
+        let x = radius * Math.cos(angle);
+        let z = radius * Math.sin(angle);
 
         const epsilon = 0.00001;
         x = Math.abs(x) > epsilon ? x : 0;
@@ -291,7 +298,8 @@ export function generateCylinder(numBands, height = 1) {
 
     //----- indices -----//
 
-    const indexArray = new Uint16Array(3*(4 * numBands));
+    const numFaces = 4 * numBands;
+    const indexArray = new Uint16Array(3*numFaces);
     for (let i = 0; i < numBands; i++) {
         const top_offset1 = 3*i;
         indexArray[top_offset1+0] = i+2;
@@ -306,7 +314,7 @@ export function generateCylinder(numBands, height = 1) {
         const bottom_offset1 = 3*(2*numBands + i);
         indexArray[bottom_offset1+0] = i + 2*numBands + 2;
         indexArray[bottom_offset1+1] = i < numBands-1 ? numBands+i+3 : numBands+2;
-        indexArray[bottom_offset1+2] = i < numBands-1 ? i + 2*numBands + 3 : 2*numBands+2;
+        indexArray[bottom_offset1+2] = i < numBands-1 ? i + 2*numBands + 3 : 2*numBands + 2;
 
         const bottom_offset2 = 3*(3*numBands + i);
         indexArray[bottom_offset2+0] = i + 3*numBands + 2;
@@ -334,6 +342,12 @@ export function generateCylinder(numBands, height = 1) {
  * @returns {Float32Array} a flat Float32Array of vertex normals
  */
 export function generateNormals(vertexArray, indexArray) {
+    const sharedNormals = calculateSharedNormals(vertexArray, indexArray);
+    return calculateVertexNormals(sharedNormals, vertexArray.length);
+}
+
+/** Calculates the face normals shared by the vertices */
+function calculateSharedNormals(vertexArray, indexArray) {
     const numVertices = Math.trunc(vertexArray.length/3);
 
     const sharedNormals = Array.from({ length: numVertices }, () => new Set());
@@ -365,8 +379,12 @@ export function generateNormals(vertexArray, indexArray) {
 
         vertexIndices.forEach(index => sharedNormals[index].add(JSON.stringify(faceNormal)));
     }
+    return sharedNormals;
+}
 
-    const normalArray = new Float32Array(vertexArray.length);
+/** Calculates the vertex normals using the shared face normals of each vertex */
+function calculateVertexNormals(sharedNormals, arrayLength) {
+    const normalArray = new Float32Array(arrayLength);
 
     let normalIndex = 0;
     for (const normalSet of sharedNormals) {
@@ -393,10 +411,10 @@ export function generateNormals(vertexArray, indexArray) {
 }
 
 /**
- * Transform vertices such that they fit snugly in a unit cube. Does not effect the original vertex array.
+ * Transform vertices such that they fit snugly in a unit cube without distortion. Does not effect the original vertex array.
  * @param {ArrayBufferLike} vertexArray a flat typed array of vertices. This function treats each three consecutive values as the three components for a vertex.
  * @param {object} options options for vertex normalization
- * @param {object} options.aboutCentroid if true, will shift the vertices such that the geometric center is at the centroid. Otherwise, will shift the vertices according to the bounding box center.
+ * @param {boolean} options.aboutCentroid if true, will shift the vertices such that the geometric center is at the centroid. Otherwise, will shift the vertices according to the bounding box center.
  * @returns a new Typed Array of the same kind that was given, but with the transformed vertices.
  */
 export function normalizeVertices(vertexArray, options = {}) {
