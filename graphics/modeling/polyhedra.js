@@ -1,3 +1,45 @@
+/** -------------------------------------- PLATONIC SOLIDS -------------------------------------- */
+
+/**
+ * Generates a tetahredon. Normalized to fit within a unit cube. (To make it bigger overall, use a transform instance)
+ * @returns an object containing the arrays and accompanying attributes
+ */
+export function generateTetrahedron(width, height, depth) {
+    if (width <= 0) {
+        console.warn(`[GenerateTetrahedron] Width must be greater than 0. Assigning default (width=1).`);
+        width = 1;
+    }
+    if (height <= 0) {
+        console.warn(`[GenerateTetrahedron] Height must be greater than 0. Assigning default (height=1).`);
+        height = 1;
+    }
+    if (depth <= 0) {
+        console.warn(`[GenerateTetrahedron] Depth must be greater than 0. Assigning default (depth=1).`);
+        depth = 1;
+    }
+
+    const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }];
+    const hw = width/2, hh = height / Math.sqrt(8), hd = depth/2
+    const vertexArray = new Float32Array([
+         hw,  hh,  0,  0, -hh, -hd, -hw,  hh,   0,
+         hw,  hh,  0,  0, -hh,  hd,   0, -hh, -hd,
+        -hw,  hh,  0,  0, -hh,  hd,  hw,  hh,   0,
+          0, -hh, hd, -hw, hh,   0,   0, -hh, -hd
+    ]);
+
+    // [ 0, 1, 2, 3, ...];
+    const indexArray = Uint16Array.from({ length: 12 }, (v, i) => i);
+
+    const normalArray = generateNormals(vertexArray, indexArray);
+    const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
+
+    return {
+        vertex: { data: normalizeVertices(vertexArray), attributes: vertexAttributes, stride: 0 },
+        normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
+        index:  { data: indexArray,  attributes: [], stride: 0, dataType: 'uint16' },
+    }
+}
+
 /**
  * Generates a rectangular prism. Normalized to fit within a unit cube. (To make it bigger overall, use a transform instance.)
  * @param {number} width the width (x-axis) of the rectangular prism. Must be greater than 0.
@@ -62,34 +104,38 @@ export function generateRectPrism(width, height, depth) {
 }
 
 /**
- * Generates a tetahredon. Normalized to fit within a unit cube. (To make it bigger overall, use a transform instance)
+ * Generates an octahedron.
  * @returns an object containing the arrays and accompanying attributes
  */
-export function generateTetrahedron(width, height, depth) {
+export function generateOctahedron(width, height, depth) {
     if (width <= 0) {
-        console.warn(`[GenerateRectPrism] Width must be greater than 0. Assigning default (width=1).`);
+        console.warn(`[GenerateOctahedron] Width must be greater than 0. Assigning default (width=1).`);
         width = 1;
     }
     if (height <= 0) {
-        console.warn(`[GenerateRectPrism] Height must be greater than 0. Assigning default (height=1).`);
+        console.warn(`[GenerateOctahedron] Height must be greater than 0. Assigning default (height=1).`);
         height = 1;
     }
     if (depth <= 0) {
-        console.warn(`[GenerateRectPrism] Depth must be greater than 0. Assigning default (depth=1).`);
+        console.warn(`[GenerateOctahedron] Depth must be greater than 0. Assigning default (depth=1).`);
         depth = 1;
     }
 
     const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }];
-    const hw = width/2, hh = height / Math.sqrt(8), hd = depth/2
+    const hw = width/2, hh = height / Math.sqrt(2), hd = depth/2
     const vertexArray = new Float32Array([
-         hw,  hh,  0,  0, -hh, -hd, -hw,  hh,   0,
-         hw,  hh,  0,  0, -hh,  hd,   0, -hh, -hd,
-        -hw,  hh,  0,  0, -hh,  hd,  hw,  hh,   0,
-          0, -hh, hd, -hw, hh,   0,   0, -hh, -hd
+        0,  hh, 0,  hw, 0,  hd,  hw, 0, -hd,
+        0,  hh, 0,  hw, 0, -hd, -hw, 0, -hd,
+        0,  hh, 0, -hw, 0,  hd,  hw, 0,  hd,
+        0,  hh, 0, -hw, 0, -hd, -hw, 0,  hd,
+        0, -hh, 0,  hw, 0,  hd, -hw, 0,  hd,
+        0, -hh, 0,  hw, 0, -hd,  hw, 0,  hd,
+        0, -hh, 0, -hw, 0, -hd,  hw, 0, -hd,
+        0, -hh, 0, -hw, 0,  hd, -hw, 0, -hd,
     ]);
 
     // [ 0, 1, 2, 3, ...];
-    const indexArray = Uint16Array.from({ length: 12 }, (v, i) => i);
+    const indexArray = Uint16Array.from({ length: 24 }, (v, i) => i);
 
     const normalArray = generateNormals(vertexArray, indexArray);
     const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
@@ -102,19 +148,41 @@ export function generateTetrahedron(width, height, depth) {
 }
 
 /**
+ * Generates an octahedron.
+ * @returns an object containing the arrays and accompanying attributes
+ */
+export function generateDodecahedron() {
+
+}
+
+/**
+ * Generates an octahedron.
+ * @returns an object containing the arrays and accompanying attributes
+ */
+export function generateIsosohedron() {
+
+}
+
+/** -------------------------------------- OTHER POLYHEDRA -------------------------------------- */
+
+/**
  * Generates a pyramid. Normalized to fit within a unit cube. (To make it bigger overall, use a transform instance.)
  * @param height the height of the pyramid. Must be greater than 0.
  * @param length the length of the pyramid base. Must be greater than 0.
  * @returns an object containing the arrays and accompanying attributes
  */
 export function generatePyramid(width, height, depth) {
+    if (width <= 0) {
+        console.warn(`[GeneratePyramid] Width must be greater than 0. Assigning default (width=1).`);
+        width = 1;
+    }
     if (height <= 0) {
         console.warn(`[GeneratePyramid] Height must be greater than 0. Assigning default (height=1).`);
         height = 1;
     }
-    if (length <= 0) {
-        console.warn(`[GeneratePyramid] Length must be greater than 0. Assigning default (length=1).`);
-        length = 1;
+    if (depth <= 0) {
+        console.warn(`[GeneratePyramid] Depth must be greater than 0. Assigning default (depth=1).`);
+        depth = 1;
     }
 
     const hw = width/2, hh = height/2, hd = depth/2;
@@ -139,30 +207,6 @@ export function generatePyramid(width, height, depth) {
         normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
         index:  { data: indexArray,  attributes: [], stride: 0, dataType: 'uint16' },
     }
-}
-
-/**
- * Generates an octahedron.
- * @returns an object containing the arrays and accompanying attributes
- */
-export function generateOctahedron() {
-
-}
-
-/**
- * Generates an octahedron.
- * @returns an object containing the arrays and accompanying attributes
- */
-export function generateDodecahedron() {
-
-}
-
-/**
- * Generates an octahedron.
- * @returns an object containing the arrays and accompanying attributes
- */
-export function generateIsosohedron() {
-
 }
 
 /**
@@ -333,6 +377,8 @@ export function generateCylinder(numBands, height, radius) {
         index:  { data: indexArray,  attributes: [], stride: 0, dataType: 'uint16' },
     }
 }
+
+/** -------------------------------------- UTILITY FUNCTIONS -------------------------------------- */
 
 /**
  * Generate vertex normals given a flat vertex array and a flat index array. These can be any kind of typed array.
