@@ -1,8 +1,15 @@
+import Transform from "../../utilities/containers/transform.js";
+import Quaternion, { EulerOrder } from "../../utilities/math/quaternion.js";
+import { Vector3, Vector4 } from "../../utilities/math/vector.js";
+
 /** -------------------------------------- PLATONIC SOLIDS -------------------------------------- */
 
 /**
  * Generates a tetahredon. Normalized to fit within a unit cube. (To make it bigger overall, use a transform instance)
- * @returns an object containing the arrays and accompanying attributes
+ * @param {number} width the width (x-axis) of the rectangular prism. Must be greater than 0.
+ * @param {number} height the height (y-axis) of the rectangular prism. Must be greater than 0.
+ * @param {number} depth the depth (z-axis) of the rectangular prism. Must be greater than 0.
+ * @returns {object} an object containing the arrays and accompanying attributes
  */
 export function generateTetrahedron(width, height, depth) {
     if (width <= 0) {
@@ -45,7 +52,7 @@ export function generateTetrahedron(width, height, depth) {
  * @param {number} width the width (x-axis) of the rectangular prism. Must be greater than 0.
  * @param {number} height the height (y-axis) of the rectangular prism. Must be greater than 0.
  * @param {number} depth the depth (z-axis) of the rectangular prism. Must be greater than 0.
- * @returns an object containing the arrays and accompanying attributes
+ * @returns {object} an object containing the arrays and accompanying attributes
  */
 export function generateRectPrism(width, height, depth) {
     if (width <= 0) {
@@ -61,51 +68,53 @@ export function generateRectPrism(width, height, depth) {
         depth = 1;
     }
 
-    const hw = width/2, hh = height/2, hd = depth/2;
+    const baseSquare = triangulate(new Float32Array([ 1, -1, 0, 1, 1, 0, -1,  1, 0, -1, -1, 0 ]));
+    const rotations = [
+        new Quaternion(),                               // front face
+        Quaternion.fromEulerAngles(0, Math.PI, 0),      // back face
+        Quaternion.fromEulerAngles(0, Math.PI/2, 0),    // right face
+        Quaternion.fromEulerAngles(0, -Math.PI/2, 0),   // left face
+        Quaternion.fromEulerAngles(-Math.PI/2, 0, 0),   // top face
+        Quaternion.fromEulerAngles(Math.PI/2, 0, 0)     // bottom face
+    ];
+    const transforms = [];
+    for (let i = 0; i < rotations.length; i++) {
+        const pos = rotations[i].rotateVector(Transform.localForward);
+        transforms.push(new Transform({ position: pos, rotation: rotations[i] }));
+    }
 
     const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }]
-    const vertexArray = new Float32Array([
-        -hw, -hh,  hd, -hw,  hh,  hd,  hw, -hh,  hd,  hw,  hh,  hd,     // front face
-         hw, -hh,  hd,  hw,  hh,  hd,  hw, -hh, -hd,  hw,  hh, -hd,     // right face
-        -hw,  hh,  hd, -hw,  hh, -hd,  hw,  hh,  hd,  hw,  hh, -hd,     // top face
-         hw, -hh, -hd,  hw,  hh, -hd, -hw, -hh, -hd, -hw,  hh, -hd,     // back face
-        -hw, -hh, -hd, -hw,  hh, -hd, -hw, -hh,  hd, -hw,  hh,  hd,     // left face
-        -hw, -hh, -hd, -hw, -hh,  hd,  hw, -hh, -hd,  hw, -hh,  hd,     // bottom face
-    ]);
-
-    const indexArray = new Uint16Array([
-        2,  1,  0,  2,  3,  1,      // front face
-        6,  5,  4,  6,  7,  5,      // right face
-        9,  10, 11, 9,  8,  10,     // top face
-        15, 12, 14, 15, 13, 12,     // back face
-        17, 18, 19, 17, 16, 18,     // left face
-        20, 23, 21, 20, 22, 23,     // bottom face
-    ]);
+    const cube = tessellate(baseSquare.vertex, baseSquare.index, transforms);
+    for (let i = 0; i < cube.vertex.length-2; i+=3) {
+        cube.vertex[i+0] *= width/2;
+        cube.vertex[i+1] *= height/2;
+        cube.vertex[i+2] *= depth/2;
+    }
+    
+    const normalArray = generateNormals(cube.vertex, cube.index);
+    const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
 
     const uvAttributes = [{ name: 'uv', size: 2, dataType: 'float', offset: 0 }]
     const uvArray = new Float32Array([
-        0, 1, 0, 0, 1, 1, 1, 0,
-        0, 1, 0, 0, 1, 1, 1, 0,
-        0, 1, 0, 0, 1, 1, 1, 0,
-        0, 1, 0, 0, 1, 1, 1, 0,
-        0, 1, 0, 0, 1, 1, 1, 0,
-        0, 1, 0, 0, 1, 1, 1, 0,
+        1, 1, 1, 0, 0, 0, 0, 1,
+        1, 1, 1, 0, 0, 0, 0, 1,
+        1, 1, 1, 0, 0, 0, 0, 1,
+        1, 1, 1, 0, 0, 0, 0, 1,
+        1, 1, 1, 0, 0, 0, 0, 1,
+        1, 1, 1, 0, 0, 0, 0, 1,
     ]);
 
-    const normalArray = generateNormals(vertexArray, indexArray);
-    const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
-
     return {
-        vertex: { data: normalizeVertices(vertexArray), attributes: vertexAttributes, stride: 0 },
+        vertex: { data: normalizeVertices(cube.vertex), attributes: vertexAttributes, stride: 0 },
         normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
         uv:     { data: uvArray,     attributes: uvAttributes, stride: 0},
-        index:  { data: indexArray,  attributes: [], stride: 0, dataType: 'uint16' },
+        index:  { data: cube.index,  attributes: [], stride: 0, dataType: 'uint16' },
     }
 }
 
 /**
  * Generates an octahedron.
- * @returns an object containing the arrays and accompanying attributes
+ * @returns {object} an object containing the arrays and accompanying attributes
  */
 export function generateOctahedron(width, height, depth) {
     if (width <= 0) {
@@ -148,18 +157,88 @@ export function generateOctahedron(width, height, depth) {
 }
 
 /**
- * Generates an octahedron.
- * @returns an object containing the arrays and accompanying attributes
+ * Generates an dodecahedron.
+ * @param {number} width the width (x-axis) of the rectangular prism. Must be greater than 0.
+ * @param {number} height the height (y-axis) of the rectangular prism. Must be greater than 0.
+ * @param {number} depth the depth (z-axis) of the rectangular prism. Must be greater than 0.
+ * @returns {object} an object containing the arrays and accompanying attributes
  */
-export function generateDodecahedron() {
+export function generateDodecahedron(width, height, depth) {
+    if (width <= 0) {
+        console.warn(`[GenerateRectPrism] Width must be greater than 0. Assigning default (width=1).`);
+        width = 1;
+    }
+    if (height <= 0) {
+        console.warn(`[GenerateRectPrism] Height must be greater than 0. Assigning default (height=1).`);
+        height = 1;
+    }
+    if (depth <= 0) {
+        console.warn(`[GenerateRectPrism] Depth must be greater than 0. Assigning default (depth=1).`);
+        depth = 1;
+    }
 
+    const numVertices = 5;
+    const midRadius = 1.309;
+    const goldRatio = (1 + Math.sqrt(5)) / 2;
+
+    // calculate base pentagon
+    const angle = 2 * Math.PI / numVertices;
+    const basePentagon = new Float32Array(numVertices*3);
+    for (let i = 0; i < numVertices; i++) {
+        const offset = 3*i;
+        basePentagon[offset+0] = Math.cos(angle * i);
+        basePentagon[offset+1] = Math.sin(angle * i);
+        basePentagon[offset+2] = 0;
+    }
+    const pentagon = triangulate(basePentagon);
+
+    // calculate rotation transformations
+    const pi_2 = Math.PI/2;
+    const rotations = [
+        // these are for the 'top' and 'bottom' pentagons
+        Quaternion.fromEulerAngles(1*pi_2, 0, pi_2, EulerOrder.YXZ),
+        Quaternion.fromEulerAngles(3*pi_2, 0, pi_2, EulerOrder.YXZ),
+    ];
+
+    for (let i = 0; i <= 9; i++) {
+        // these are for the side-facing pentagons
+        const pitch = (i % 2 === 0 ? Math.atan(2) : 2*Math.atan(goldRatio)) + pi_2;
+        const yaw = i * Math.PI/5;
+        const roll = i % 2 === 0 ? -pi_2 : pi_2;
+        rotations.push(Quaternion.fromEulerAngles(pitch, yaw, roll, EulerOrder.YXZ))
+    }
+
+    // calculate positions, append to transforms
+    const transforms = [];
+    for (let i = 0; i < rotations.length; i++) {
+        const pos = rotations[i].rotateVector(Transform.localForward).mult(midRadius);
+        transforms.push(new Transform({ position: pos, rotation: rotations[i] }));
+    }
+
+    // tessellate the pentagons
+    const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }];
+    const dodecahedron = tessellate(pentagon.vertex, pentagon.index, transforms);
+    for (let i = 0; i < dodecahedron.vertex.length-2; i+=3) {
+        dodecahedron.vertex[i+0] *= width/2;
+        dodecahedron.vertex[i+1] *= height/2;
+        dodecahedron.vertex[i+2] *= depth/2;
+    }
+
+    const normalArray = generateNormals(dodecahedron.vertex, dodecahedron.index);
+    const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
+
+    return {
+        vertex: { data: normalizeVertices(dodecahedron.vertex), attributes: vertexAttributes, stride: 0 },
+        normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
+        index:  { data: dodecahedron.index,  attributes: [], stride: 0, dataType: 'uint16' },
+    }
 }
 
 /**
- * Generates an octahedron.
- * @returns an object containing the arrays and accompanying attributes
+ * Generates an icosahedron.
+ * @returns {object} an object containing the arrays and accompanying attributes
  */
-export function generateIsosohedron() {
+export function generateIcosahedron() {
 
 }
 
@@ -167,9 +246,9 @@ export function generateIsosohedron() {
 
 /**
  * Generates a pyramid. Normalized to fit within a unit cube. (To make it bigger overall, use a transform instance.)
- * @param height the height of the pyramid. Must be greater than 0.
- * @param length the length of the pyramid base. Must be greater than 0.
- * @returns an object containing the arrays and accompanying attributes
+ * @param {number} height the height of the pyramid. Must be greater than 0.
+ * @param {number} length the length of the pyramid base. Must be greater than 0.
+ * @returns {object} an object containing the arrays and accompanying attributes
  */
 export function generatePyramid(width, height, depth) {
     if (width <= 0) {
@@ -211,10 +290,10 @@ export function generatePyramid(width, height, depth) {
 
 /**
  * Generates a cone. Normalized to fit within a unit cube. (To make it bigger overall, use a transform instance.)
- * @param numBands the number of bands around the cone. Must be at least 3.
- * @param height the height of the cone. Must be greater than 0.
- * @param radius the radius of the cone. Must be greater than 0.
- * @returns an object containing the arrays and accompanying attributes
+ * @param {number} numBands the number of bands around the cone. Must be at least 3.
+ * @param {number} height the height of the cone. Must be greater than 0.
+ * @param {number} radius the radius of the cone. Must be greater than 0.
+ * @returns {object} an object containing the arrays and accompanying attributes
  */
 export function generateCone(numBands, height, radius) {
     if (numBands < 3) {
@@ -286,10 +365,10 @@ export function generateCone(numBands, height, radius) {
 
 /**
  * Generates a cylinder.
- * @param numBands the number of bands around the cylinder. Must be at least 3.
- * @param height the height of the cylinder. Must be greater than 0.
- * @param radius the radius of the cylinder. Must be greater than 0.
- * @returns an object containing the arrays and accompanying attributes
+ * @param {number} numBands the number of bands around the cylinder. Must be at least 3.
+ * @param {number} height the height of the cylinder. Must be greater than 0.
+ * @param {number} radius the radius of the cylinder. Must be greater than 0.
+ * @returns {object} an object containing the arrays and accompanying attributes
  */
 export function generateCylinder(numBands, height, radius) {
     if (numBands < 3) {
@@ -461,7 +540,7 @@ function calculateVertexNormals(sharedNormals, arrayLength) {
  * @param {ArrayBufferLike} vertexArray a flat typed array of vertices. This function treats each three consecutive values as the three components for a vertex.
  * @param {object} options options for vertex normalization
  * @param {boolean} options.aboutCentroid if true, will shift the vertices such that the geometric center is at the centroid. Otherwise, will shift the vertices according to the bounding box center.
- * @returns a new Typed Array of the same kind that was given, but with the transformed vertices.
+ * @returns {ArrayBufferLike} a new Typed Array of the same kind that was given, but with the transformed vertices.
  */
 export function normalizeVertices(vertexArray, options = {}) {
     let maxExtent = [-Infinity, -Infinity, -Infinity];
@@ -505,4 +584,95 @@ export function normalizeVertices(vertexArray, options = {}) {
     }
 
     return newVertices;
+}
+
+/**
+ * Performs fan triangulation on a set of vertices. The input vertices should form a convex shape for the best results.
+ * @param {ArrayBufferLike} vertexArray a flat typed array of vertices. This function treats each three consecutive values as the three components for a vertex.
+ * @returns {object} an object containing the vertices (including center point) and index array. The vertex array is of the same type as the input array, and the index array is a Uint16Array
+ */
+export function triangulate(vertexArray) {
+    const numVertices = Math.trunc(vertexArray.length/3);
+
+    // handle shapes that have 3 or 4 vertices differently
+    if (numVertices === 3) {
+        return { vertex: vertexArray, index: new Uint16Array([0, 1, 2]) };
+    } else if (numVertices === 4) {
+        return { vertex: vertexArray, index: new Uint16Array([0, 1, 2, 0, 2, 3]) };
+    }
+
+    let xSum = 0, ySum = 0, zSum = 0;
+    for (let i = 0; i < vertexArray.length-2; i+=3) {
+        xSum += vertexArray[i+0];
+        ySum += vertexArray[i+1];
+        zSum += vertexArray[i+2];
+    }
+    const indexArray = new Uint16Array(numVertices*3);
+    const newVertices = new (vertexArray.constructor)(vertexArray.length+3);
+
+    newVertices[0] = xSum / numVertices;
+    newVertices[1] = ySum / numVertices;
+    newVertices[2] = zSum / numVertices;
+
+    for (let i = 0; i < numVertices; i++) {
+        let vOffset = 3 * (i+1);
+        newVertices[vOffset+0] = vertexArray[i*3+0];
+        newVertices[vOffset+1] = vertexArray[i*3+1];
+        newVertices[vOffset+2] = vertexArray[i*3+2];
+
+        let iOffset = 3*i;
+        indexArray[iOffset+0] = 0;
+        indexArray[iOffset+1] = i+1;
+        indexArray[iOffset+2] = i < numVertices-1 ? i+2 : 1;
+    }
+
+    return { vertex: newVertices, index: indexArray };
+}
+
+/**
+ * Tesselates a primitive shape by applying a set of transformations to it.
+ * @param {ArrayBufferLike} vertexArray a flat typed array of vertices. This function treats each three consecutive values as the three components for a vertex.
+ * @param {ArrayBufferLike} indexArray the indices defining the faces created by the input vertices. The faces are treated as one unit during the transformations.
+ * @param {Array<Transform>} transforms a js array of Transform instances. These will each be applied to the vertices given, generating new vertices.
+ * @returns {object} an object containing the new vertex and index array. The size of each is proportional to the number of transforms and the size of the input arrays
+ */
+export function tessellate(vertexArray, indexArray, transforms) {
+    if (transforms.length === 0) {
+        return { vertex: vertexArray, index: indexArray };
+    }
+
+    const basisVectors = [];
+    for (let i = 0; i < vertexArray.length-2; i+=3) {
+        const vector = new Vector4(vertexArray[i+0], vertexArray[i+1], vertexArray[i+2], 1)
+        basisVectors.push(vector);
+    }
+
+    const vertexArraySize = vertexArray.length * transforms.length;
+    const newVertices = new (vertexArray.constructor)(vertexArraySize);
+
+    const indexArraySize = indexArray.length * transforms.length;
+    const newIndices = new (indexArray.constructor)(indexArraySize);
+
+    const numVertices = Math.trunc(vertexArray.length/3);
+    for (let i = 0; i < transforms.length; i++) {
+        const transform = transforms[i];
+        for (let k = 0; k < basisVectors.length; k++) {
+            const transVert = transform.applyTo(basisVectors[k]);
+            const offset = i * vertexArray.length + 3*k;
+
+            newVertices[offset+0] = transVert.x;
+            newVertices[offset+1] = transVert.y;
+            newVertices[offset+2] = transVert.z;            
+        }
+
+        const indexDiff = numVertices * i;
+        for (let k = 0; k < indexArray.length; k++) {
+            const offset = i * indexArray.length + 3*k;
+            newIndices[offset+0] = indexArray[k*3+0] + indexDiff;
+            newIndices[offset+1] = indexArray[k*3+1] + indexDiff;
+            newIndices[offset+2] = indexArray[k*3+2] + indexDiff;
+        }
+    }
+
+    return { vertex: newVertices, index: newIndices };
 }

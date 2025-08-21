@@ -1,4 +1,4 @@
-import { Vector3 } from '../math/vector.js';
+import { Vector3, Vector4 } from '../math/vector.js';
 import Quaternion from '../math/quaternion.js';
 import { Matrix4 } from '../math/matrix.js';
 
@@ -44,7 +44,7 @@ export default class Transform {
         this.#dimensions = params.dimensions ?? Vector3.Ones();
 
         // create world matrix based on inititial orientation
-        this.#worldMatrix = Matrix4.TRS4(this.#position, this.#rotation, this.#dimensions);
+        this.#worldMatrix = Matrix4.STR4(this.#position, this.#rotation, this.#dimensions);
         this.#isDirty = false;
     }
 
@@ -206,12 +206,33 @@ export default class Transform {
     }
 
     /**
+     * Combine this transform with another additively. Does not affect this transform.
+     * @param {Transform} transform the other transform
+     * @returns {Transform} a new transform as a combination of both transforms
+     */
+    combine(transform) {
+        return new Transform({
+            position: this.position.add(transform.position),
+            rotation: this.rotation.mult(transform.rotation),
+            dimensions: this.dimensions.add(transform.dimensions)
+        });
+    }
+
+    /**
+     * Apply this transform to a vector, generating a new one.
+     * @param {Vector4} vector a vector to apply the transformation to
+     */
+    applyTo(vector) {
+        return this.worldMatrix.transform(vector);
+    }
+
+    /**
      * Computes the transformation matrix as determined by the current position, rotation, and dimensions.
      * @returns {Matrix4} the computed transformation matrix
      */
     get worldMatrix() {
         if (this.#isDirty) {
-            this.#worldMatrix = Matrix4.TRS4(this.#position, this.#rotation, this.#dimensions);
+            this.#worldMatrix = Matrix4.STR4(this.#position, this.#rotation, this.#dimensions);
             this.#isDirty = false;
         }
         return this.#worldMatrix.clone();

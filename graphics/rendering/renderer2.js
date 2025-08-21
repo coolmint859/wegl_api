@@ -267,7 +267,7 @@ export default class Graphics3D {
         //     baseColor = object.mesh.diffuseColor;
         // }
             
-        const modelMatrix = Matrix4.TRS4(object.model.center, object.model.rotation, object.model.dimensions);
+        const modelMatrix = Matrix4.STR4(object.model.center, object.model.rotation, object.model.dimensions);
         baseShader.setMatrix4("model", modelMatrix);
         baseShader.setMatrix4('view', this.currentCamera.viewMatrix);
         baseShader.setMatrix4('projection', this.currentCamera.projectionMatrix);
@@ -275,7 +275,7 @@ export default class Graphics3D {
     }
 
     #setPhongShaderUniforms(phongShader, object) {
-        const modelMatrix = Matrix4.TRS4(object.model.center, object.model.rotation, object.model.dimensions);
+        const modelMatrix = Matrix4.STR4(object.model.center, object.model.rotation, object.model.dimensions);
         phongShader.setMatrix4("model", modelMatrix);
         phongShader.setMatrix4('view', this.currentCamera.viewMatrix);
         phongShader.setMatrix4('projection', this.currentCamera.projectionMatrix);
@@ -285,7 +285,7 @@ export default class Graphics3D {
 
     #setTextureShaderUniforms(textureShader, object) {
         const gl = Graphics3D.#gl;
-        const modelMatrix = Matrix4.TRS4(object.model.center, object.model.rotation, object.model.dimensions);
+        const modelMatrix = Matrix4.STR4(object.model.center, object.model.rotation, object.model.dimensions);
         textureShader.setMatrix4("model", modelMatrix);
         textureShader.setMatrix4('view', this.currentCamera.viewMatrix);
         textureShader.setMatrix4('projection', this.currentCamera.projectionMatrix);

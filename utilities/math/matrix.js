@@ -207,6 +207,27 @@ export class Matrix4 {
     }
 
     /**
+     * Transforms a vector using this matrix
+     * @param {Vector4} vector the vector to transform
+     * @returns {Vector4} the transformed vector
+     */
+    transform(vector) {
+         if (!(vector instanceof Vector4)) {
+            console.error(`Other is not of type 'Vector4'. Aborting multiplication.`);
+            return new Vector4();
+        }
+
+        const mat = this.#values;
+        
+        const x = vector.x * mat[0] + vector.y * mat[1] + vector.z * mat[2] + vector.w * mat[3];
+        const y = vector.x * mat[4] + vector.y * mat[5] + vector.z * mat[6] + vector.w * mat[7];
+        const z = vector.x * mat[8] + vector.y * mat[9] + vector.z * mat[10] + vector.w * mat[11];
+        const w = vector.x * mat[12] + vector.y * mat[13] + vector.z * mat[14] + vector.w * mat[15];
+
+        return new Vector4(x, y, z, w);
+    }
+
+    /**
      * Returns true if all elements in the given Matrix4 are equal to the elements in this Matrix4, false otherwise.
      */
     equals(other) {
@@ -292,9 +313,9 @@ export class Matrix4 {
     }
 
     /**
-     * Create a combined 4x4 TRS matrix (translate, rotate, scale).
+     * Create a combined 4x4 transformation matrix
      */
-    static TRS4(translateVector, rotationQuaternion, scaleVector) {
+    static STR4(translateVector, rotationQuaternion, scaleVector) {
         if (!(translateVector instanceof Vector3 && rotationQuaternion instanceof Quaternion && scaleVector instanceof Vector3)) {
             console.error("One or more provided values are not of type 'Vector3'. Unable to create TRS matrix from values.");
             return new Matrix4();
@@ -304,7 +325,7 @@ export class Matrix4 {
         const rotation = Matrix4.rotate(rotationQuaternion);
         const scale = Matrix4.scale(scaleVector);
 
-        return translation.multiply(scale).multiply(rotation);
+        return translation.multiply(rotation).multiply(scale);
     }
 
     /**
@@ -511,6 +532,26 @@ export class Matrix3 {
         } else {
             return new Matrix3(m3);
         }
+    }
+
+    /**
+     * Transforms a vector using this matrix
+     * @param {Vector3} vector the vector to transform
+     * @returns {Vector3} the transformed vector
+     */
+    transform(vector) {
+         if (!(vector instanceof Vector3)) {
+            console.error(`Other is not of type 'Vector3'. Aborting multiplication.`);
+            return new Vector3();
+        }
+
+        const mat = this.#values;
+        
+        const x = vector.x * mat[0] + vector.y * mat[1] + vector.z * mat[2];
+        const y = vector.x * mat[3] + vector.y * mat[4] + vector.z * mat[5];
+        const z = vector.x * mat[6] + vector.y * mat[7] + vector.z * mat[8];
+
+        return new Vector3(x, y, z);
     }
 
     /**
@@ -748,6 +789,25 @@ export class Matrix2 {
         } else {
             return new Matrix2(m3);
         }
+    }
+
+    /**
+     * Transforms a vector using this matrix
+     * @param {Vector2} vector the vector to transform
+     * @returns {Vector2} the transformed vector
+     */
+    transform(vector) {
+         if (!(vector instanceof Vector2)) {
+            console.error(`Other is not of type 'Vector2'. Aborting multiplication.`);
+            return new Vector2();
+        }
+
+        const mat = this.#values;
+        
+        const x = vector.x * mat[0] + vector.y * mat[1];
+        const y = vector.x * mat[2] + vector.y * mat[3];
+
+        return new Vector2(x, y);
     }
 
     /**
