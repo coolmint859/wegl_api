@@ -1,5 +1,10 @@
-import Color from "../../utilities/color.js";
+import Color from "../../utilities/containers/color.js";
+import { Vector2 } from "../../utilities/math/vector.js";
+import Graphics3D from "../rendering/renderer.js";
 
+/**
+ * Abstract class, representing a light source.
+ */
 export default class Light {
     static Type = Object.freeze({
         POINTLIGHT: 'point',
@@ -9,10 +14,10 @@ export default class Light {
     static #ID_COUNTER = 0;
 
     // general light properties
-    #color;
-    #intensity;
-    #lightID;
-    #debugEnabled;
+    _color;
+    _intensity;
+    _lightID;
+    _debugEnabled;
 
     // shadow map properties
     #castsShadows = true;
@@ -31,15 +36,15 @@ export default class Light {
             lightIntensity = 1;
         } else { lightIntensity = intensity; }
 
-        this.#color = lightColor;
-        this.#intensity = lightIntensity;
-        this.#debugEnabled = false;
+        this._color = lightColor;
+        this._intensity = lightIntensity;
+        this._debugEnabled = false;
 
         // subclass specific attributes
         this._debugModel = null;
         this._lightType = null;
 
-        this.#lightID = Light.#ID_COUNTER++;
+        this._lightID = Light.#ID_COUNTER++;
     }
 
     /**
@@ -59,8 +64,8 @@ export default class Light {
      * Get this light's ID
      * @returns {number} the light ID.
      */
-    getID() {
-        return this.#lightID;
+    get ID() {
+        return this._lightID;
     }
 
     /**
@@ -68,12 +73,12 @@ export default class Light {
      * @param {Color} color the light's new color
      * @returns {boolean} true if the light's color was successfully set, false otherwise
      */
-    setColor(color) {
+    set color(color) {
         if (!(color instanceof Color)) {
             console.error("TypeError: Expected 'color' to be an instance of Color. Cannot change color of this light.");
             return false;
         }
-        this.#color = color;
+        this._color = color;
         return true;
     }
 
@@ -82,12 +87,12 @@ export default class Light {
      * @param {number} intensity the light's new intensity - must be a value greater than 0.
      * @returns {boolean} true if the light's color was successfully set, false otherwise.
      */
-    setIntensity(intensity) {
+    set intensity(intensity) {
         if (typeof intensity !== 'number' || isNaN(intensity) || intensity < 0) {
             console.error("TypeError: Expected 'intensity' to be an number greater than 0. Cannot change intensity of this light.");
             return false;
         }
-        this.#intensity = intensity;
+        this._intensity = intensity;
         return true;
     }
 
@@ -95,23 +100,23 @@ export default class Light {
      * Get this light's current emissive color
      * @returns {Color} this light's emissive color
      */
-    getColor() {
-        return this.#color.clone();
+    get color() {
+        return this._color.clone();
     }
 
     /**
      * Get this light's current intensity - a value between 0 and 1
      * @returns {number} this light's intensity
      */
-    getIntensity() {
-        return this.#intensity;
+    get intensity() {
+        return this._intensity;
     }
 
     /**
      * Check if this light casts shadows
      * @returns {boolean} true if the light casts shadows, false otherwise
      */
-    castsShadows() {
+    get castsShadows() {
         return this.#castsShadows;
     }
 
@@ -119,7 +124,7 @@ export default class Light {
      * Set whether this light casts shadows.
      * @param {boolean} castsShadows true if this light casts shadows, false otherwise
      */
-    setCastShadowsEnabled(castsShadows) {
+    set castShadowsEnabled(castsShadows) {
         this.#castsShadows = castsShadows;
     }
 
@@ -135,7 +140,8 @@ export default class Light {
             console.error("TypeError: Expected 'width' and 'height' to be numbers greater than 0. Cannot change resolution of the shadow map for this light.");
             return false;
         }
-        this.#shadowMapResolution = new Vector2(width, height);
+        this.#shadowMapResolution.x = width;
+        this.#shadowMapResolution.y = height;
         return true;
     }
 
@@ -143,7 +149,7 @@ export default class Light {
      * Retrieve this light's shadow map's current resolution
      * @returns {Vector2} a Vector2 istance where x is the width, and y is the height
      */
-    getShadowMapResolution() {
+    get shadowMapResolution() {
         return this.#shadowMapResolution.clone();
     }
 
@@ -152,7 +158,7 @@ export default class Light {
      * @param {number} bias the new shadow bias
      * @returns true if the shadow bias was successfully set, false otherwise
      */
-    setShadowMapBias(bias) {
+    set shadowMapBias(bias) {
         if (typeof bias !== 'number' || isNaN(bias)) {
             console.error("TypeError: Expected 'bias' for shadow map to be a number. Cannot change bias of the shadow map for this light.");
             return false;
@@ -166,7 +172,7 @@ export default class Light {
      * @param {number} normalBias the new shadow normal bias
      * @returns true if the shadow normal bias was successfully set, false otherwise
      */
-    setShadowNormalBias(normalBias) {
+    set shadowNormalBias(normalBias) {
         if (typeof normalBias !== 'number' || isNaN(normalBias)) {
             console.error("TypeError: Expected 'normalBias' to be a number. Cannot change normal bias of the shadow map for this light.");
             return false;
@@ -179,7 +185,7 @@ export default class Light {
      * Retrieve this light's shadow map's bias
      * @returns {number} the shadow map bias
      */
-    getShadowMapBias() {
+    get shadowMapBias() {
         return this.#shadowMapBias;
     }
 
@@ -187,15 +193,15 @@ export default class Light {
      * Retrieve this light's shadow normal bias
      * @returns {number} the shadow normal bias
      */
-    getShadowNormalBias() {
+    get shadowNormalBias() {
         return this.#shadowNormalBias;
     }
 
     /**
      * Retrieve the debug model of this light
-     * @returns {Model} the debug model of this light
+     * @returns {Mesh} the debug model of this light
      */
-    getDebugModel() {
+    get debugModel() {
         if (this._debugModel) {
             return this._debugModel; // TODO: need to implement clone method in Model class
         }
@@ -205,11 +211,11 @@ export default class Light {
 
     /**
      * Sets the debug model for this light.
-     * @param {Model} debugModel the new debug model
+     * @param {Mesh} debugModel the new debug model
      * @returns {boolean} true if the debug model was successfully set, false otherwise.
      */
-    setDebugModel(debugModel) {
-        if (!(debugModel instanceof Model)) {
+    set debugModel(debugModel) {
+        if (!(debugModel instanceof Mesh)) {
             console.error("Expected 'debugModel' to be an instance of Model. Cannot set debug model for this Light instance.");
             return false;
         }
@@ -221,27 +227,31 @@ export default class Light {
      * Checks if debug view is enabled with this light. If the light is directional, debug is always disabled.
      * @returns {boolean} true if the debug is enabled and the light is not directional, false otherwise
      */
-    debugEnabled() {
-        return this.#debugEnabled && this._lightType !== Light.DIRECTIONAL;
+    get debugEnabled() {
+        return this._debugEnabled && this._lightType !== Light.DIRECTIONAL;
     }
 
     /**
      * Enable/disable this light's debug mode
      * @param {boolean} debug set to true to enable debug, false otherwise
      */
-    setDebugEnabled(debug) {
-        this.#debugEnabled = debug;
+    set debugEnabled(debug) {
+        this._debugEnabled = debug;
     }
 
     /**
      * Get the type of this light.
      * @returns {string} the light type.
      */
-    getType() {
+    get type() {
         if (this._lightType) {
             return this._lightType;
         }
         console.error("Cannot retrieve type of abstract Light instance. Please instatiate a subclass to get the Light type.");
         return '';
+    }
+
+    applyToShader(shader) {
+        console.error(`[Light] Unable to apply light attributes for abstract light class. Create a concrete subclass to apply attributes.`);
     }
 }

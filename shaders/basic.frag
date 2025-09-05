@@ -1,5 +1,6 @@
 #version 300 es
-precision highp float;
+precision lowp float;
+precision mediump int;
 
 // used to draw things without shading
 

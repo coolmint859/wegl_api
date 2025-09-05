@@ -1,5 +1,6 @@
 #version 300 es
-precision mediump float;
+precision lowp float;
+precision mediump int;
 
 // vertex attributes
 layout(location = 0) in vec3 aPosition;

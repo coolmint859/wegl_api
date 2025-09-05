@@ -30,7 +30,7 @@ export default class Parser {
 
     /**
      * The core parsing logic. This method must be overridden.
-     * @param {Uint8Array} dataView The current buffer wrapped in a DataView instance. The buffer is prepended with any unprocessed data from the last call.
+     * @param {DataView} dataView The current buffer wrapped in a DataView instance. The buffer is prepended with any unprocessed data from the last call.
      * @param {boolean} isStreamDone A flag indicating if there is any more incoming buffer data.
      * @returns {object} A state object. Should hold any 'remainingData' as an ArrayBufferLike and an 'isDone' flag - the flag signals to the caller that parsing is complete, and thus should terminate.
      */

@@ -1,14 +1,20 @@
-import { Vector3 } from "../../utilities/vector.js";
-import Color from "../../utilities/color.js";
-import Light from "./light";
+import { Vector3 } from "../../utilities/math/vector.js";
+import Color from "../../utilities/containers/color.js";
+import Light from "./light.js";
+import Graphics3D from "../rendering/renderer.js";
+import { generateSphere } from "../modeling/model.js";
+import Material from "../modeling/material.js";
+import Transform from "../../utilities/containers/transform.js";
 
+/**
+ * Represents a pointlight
+ */
 export default class PointLight extends Light {
     #attenConstant = 1;
     #attenLinear = 0;
     #attenQuadratic = 0;
 
     #position;
-    #debugModelDimensions;
 
     /**
      * Create a new PointLight instance
@@ -28,8 +34,14 @@ export default class PointLight extends Light {
         }
 
         this.#position = positionVector;
-        this._debugModel = Model.generateSphere(20, 20); // returns an instance of Model
-        this.#debugModelDimensions = new Vector3(0.1, 0.1, 0.1);
+        this._debugModel = {
+            arrays: generateSphere(20, 20),
+            material: new Material({
+                diffuseColor: color
+            }).acquire(),
+            transform: new Transform({ position: this.#position, dimensions: Vector3.Ones() }),
+            renderType: Graphics3D.RenderType.BASIC
+        }
         this._lightType = Light.Type.POINTLIGHT;
     }
     
@@ -38,13 +50,12 @@ export default class PointLight extends Light {
      * @param {number} radius the new radius
      * @returns {boolean} true if the debug model radius was successfully set, false otherwise
      */
-    setDebugModelRadius(radius) {
+    set debugModelRadius(radius) {
         if (typeof radius !== 'number' || isNaN(radius) || radius <= 0) {
             console.error("Expected 'radius' to be a number greater than 0. Cannot set debug model radius.");
             return false;
         }
-        this.#debugModelDimensions = new Vector3(radius, radius, radius);
-        this._debugModel.transform.setScale(this.#debugModelDimensions);
+        this._debugModel.transform.dimensions = new Vector3(radius, radius, radius);
         return true;
     }
 
@@ -53,7 +64,7 @@ export default class PointLight extends Light {
      * @param {Vector3} position the new position vector
      * @returns {boolean} true if the position was successfully set, false otherwise
      */
-    setPosition(position) {
+    set position(position) {
         if (!(position instanceof Vector3)) {
             console.error("Expected 'position' to be an instance of Vector3. Cannot set position of this PointLight.");
             return false
@@ -82,7 +93,7 @@ export default class PointLight extends Light {
      * Retrieve the position of this PointLight
      * @returns {Vector3} the position of this PointLight
      */
-    getPosition() {
+    get position() {
         return this.#position.clone();
     }
 
@@ -114,26 +125,23 @@ export default class PointLight extends Light {
     }
 
     /**
-     * retrieve the constant term of the attenuation of this PointLight
-     * @returns {number} the constant term
+     * retrieve the attenuation of this PointLight
+     * @returns {object} the attenuation (const, linear, quad)
      */
-    getAttenConstant() {
-        return this.#attenConstant;
+    get attenuation() {
+        return {
+            const: this.#attenConstant,
+            linear: this.#attenLinear,
+            quad: this.#attenQuadratic 
+        }
     }
 
-    /**
-     * retrieve the linear term of the attenuation of this PointLight
-     * @returns {number} the linear term
-     */
-    getAttenLinear() {
-        return this.#attenLinear;
-    }
-
-    /**
-     * retrieve the quadratic term of the attenuation of this PointLight
-     * @returns {number} the quadratic term
-     */
-    getAttenQuadratic() {
-        return this.#attenQuadratic;
+    applyToShader(shader, index) {
+        const currentLightName = "pointLights[" + index + "]";
+        shader.setColor(currentLightName + ".emissiveColor", this._color);
+        shader.setFloat(currentLightName + ".attenConst", this.#attenConstant);
+        shader.setFloat(currentLightName + ".attenLinear", this.#attenLinear);
+        shader.setFloat(currentLightName + ".attenQuad", this.#attenQuadratic);
+        shader.setVector3(currentLightName + ".position", this.#position);
     }
 }

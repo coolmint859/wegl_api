@@ -39,7 +39,7 @@ export default class Texture {
      * @param {string} options.category an optional category for the texture, allowing for aggregate texture operations through ResourceCollector/ResourceDisposer.
      * @param {number} options.disposalDelay the delay time in seconds before the texture is disposed of if no consumers use it. Default is 0.5 seconds
      * 
-     * See docs for other optional parameters9
+     * See docs for other optional parameters
      */
     constructor(texturePath, options={}) {
         this.#textureID = Texture.#TEXTURE_ID++;

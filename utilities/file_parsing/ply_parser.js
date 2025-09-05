@@ -417,7 +417,7 @@ export default class PLYParser extends Parser {
      *
      * The return object's format is an object of array objects. The array object's properties are the array names (e.g. 'vertex', 'normal'), which is based on their data content as determined from the ply file header. 
      * The array objects have a data parameter, which is the typed array holding the raw data; a stride parameter, which is 0 for non-interleaved arrays; and a list of attribute objects, 
-     * each of which contains the attribute name, datatype, offset, and size. For non-interleaved arrays, this will hold only one attribute.
+     * each of which contains the attribute name, datatype, offset, and size. For non-interleaved arrays, this will hold only one attribute per array.
      * 
      * For PLY files with face data, the generated index array also holds a datatype parameter, and has no attributes. It is always named 'index'.
      * 

@@ -1,3 +1,6 @@
+import ResourceCollector from "../../utilities/containers/collector.js";
+import ShaderConfigParser from "../../utilities/file_parsing/shader_config_parser.js";
+import StreamReader from "../../utilities/file_parsing/stream.js";
 import Shader from "./shader.js";
 
 export default class ShaderManager {
@@ -5,24 +8,30 @@ export default class ShaderManager {
     static ATTRIB_LOCATION_NORMAL = 1;
     static ATTRIB_LOCATION_UV = 2;
 
+    static #shaderConfigPath = "../shaders/shader-config.json";
     static #shaderPrograms = new Map();
-
-    static #commonShaders = Object.freeze({
-        basic: {vertPath: './shaders/basic.vert', fragPath: './shaders/basic.frag'},
-        phong: {vertPath: './shaders/phong.vert', fragPath: './shaders/phong.frag'},
-        texture: {vertPath: './shaders/texture.vert', fragPath: './shaders/texture.frag'},
-    });
+    static #shadersLoaded = false;
 
     /**
      * Initialize the shader manager to preload common shaders.
      */
     static init() {
-        Object.keys(ShaderManager.#commonShaders).forEach(name => {
-            const vertPath = ShaderManager.#commonShaders[name].vertPath;
-            const fragPath = ShaderManager.#commonShaders[name].fragPath;
-            ShaderManager.#shaderPrograms.set(name, new Shader(name, vertPath, fragPath));
-        })
-        console.log(ShaderManager.#shaderPrograms.entries());
+        StreamReader.read(ShaderManager.#shaderConfigPath, { parser: new ShaderConfigParser() })
+        .then(configMap => {
+            console.log(configMap);
+            // for (const [shaderName, shaderInfo] of configMap) {
+            //     const vert_path = shaderInfo.vert_path;
+            //     const frag_path = shaderInfo.frag_path;
+            //     const config = shaderInfo.config
+            //     const shader = new Shader(shaderName, vert_path, frag_path, config);
+            //     ShaderManager.#shaderPrograms.set(shaderName, shader)
+            // }
+            ShaderManager.#shadersLoaded = true;
+        });
+    }
+
+    static get shadersLoaded() {
+        return ShaderManager.#shadersLoaded;
     }
 
     static registerShader(name, shaderProgram) {
@@ -59,5 +68,4 @@ export default class ShaderManager {
         // TODO: write best fit logic
         return "texture";
     }
-    
 }

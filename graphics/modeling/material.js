@@ -49,9 +49,9 @@ export default class Material {
         this.#firstTimeAquisition = true;
 
         this.#properties = new Map();
-        Object.keys(properties).forEach(propName => {
+        for (const propName in properties) {
             this.setProperty(propName, properties[propName]);
-        });
+        }
 
         if (!this.#properties.has(Material.#defaultColorName)) {
             this.#properties.set(Material.#defaultColorName, Material.#defaultColor);
@@ -89,7 +89,7 @@ export default class Material {
         this.#refCount--;
         if (this.#refCount === 0) {
             console.log(`[Material ID#${this.#materialID}] No more consumers using this material, scheduling textures for release.`)
-            EventScheduler.schedule('texRelease', 1, this.#releaseTextures.bind(this));
+            EventScheduler.schedule('materialRelease', 1, this.#releaseTextures.bind(this));
         }
     }
 
@@ -100,7 +100,7 @@ export default class Material {
     allTexturesLoaded() {
         let texturesLoaded = true;
         for (const texture of this.#textures.values()) {
-            if (!texture.loadSuccess()) texturesLoaded = false;
+            if (!texture.isLoaded) texturesLoaded = false;
         }
         return texturesLoaded;
     }
@@ -318,29 +318,41 @@ export default class Material {
         }
         // iterate through properties and set their uniforms
         for (const [propName, value] of this.#properties.entries()) {
-            const uniformName = `material.${propName}`;
-            // check to see if the shader has the uniform variable. This shouldn't happen with the best fit logic, but just in case.
-            if (!shaderProgram.supports(uniformName)) {
-                console.warn(`[Material ID#${this.#materialID}] ValueError: Expected '${uniformName}' to be a uniform name of ${shaderProgram.getName()}. Skipping this uniform for material.`);
-                continue;
+            if (typeof value === 'object' && value.constructor === Object) {
+                shaderProgram.setObject(propName, value);
+            } else if (Array.isArray(value)) {
+                const elementCountName = 'num' + propName[0].toUpperCase() + propName.slice(1);
+                shaderProgram.setInt(elementCountName, value.length);
+
+                for (let i = 0; i < value.length; i++) {
+                    const valueName = `${propName}[${i}]`;
+                    shaderProgram.setObject(valueName, value[i]);
+                }
+            } else {
+                const uniformName = `material.${propName}`;
+                // check to see if the shader has the uniform variable. This shouldn't happen with the best fit logic, but just in case.
+                if (!shaderProgram.supports(uniformName)) {
+                    console.warn(`[Material ID#${this.#materialID}] ValueError: Expected '${uniformName}' to be a uniform name of ${shaderProgram.getName()}. Skipping this uniform for material.`);
+                    continue;
+                }
+                this.#setUniform(shaderProgram, uniformName, value);
             }
-            this.#setUniform(shaderProgram, uniformName, value);
         }
 
         // only set texture uniforms if allowed by mesh
-        if (renderTextures) {
-            let textureIndex = 0;
-            for (const [texType, texture] of this.#textures.entries()) {
-                // only set texture if the shader program supports it and the texture is valid.
-                // these two things should be either both true or both false, but we need to be sure
-                if (shaderProgram.supports(texType) && texture.isLoaded) {
-                    // console.log(`[Material ID#${this.#materialID}] Applying texture ${texture.getActiveTexture()} as ${texType}`);
-                    const texUniformName = `material.${texType}Map`; // uniform name formatted like 'material.diffuseMap'
-                    texture.bind(textureIndex);
+        if (!renderTextures) return;
 
-                    shaderProgram.setInt(texUniformName, textureIndex);
-                    textureIndex++;
-                }
+        let textureIndex = 0;
+        for (const [texType, texture] of this.#textures.entries()) {
+            // only set texture if the shader program supports it and the texture is valid.
+            // these two things should be either both true or both false, but we need to be sure
+            if (shaderProgram.supports(texType) && texture.isLoaded) {
+                // console.log(`[Material ID#${this.#materialID}] Applying texture ${texture.getActiveTexture()} as ${texType}`);
+                const texUniformName = `material.${texType}Map`; // uniform name formatted like 'material.diffuseMap'
+                texture.bind(textureIndex);
+
+                shaderProgram.setInt(texUniformName, textureIndex);
+                textureIndex++;
             }
         }
     }
@@ -414,7 +426,7 @@ export default class Material {
     }
 
     /**
-     * Add a known Material property type to a registy
+     * Add a Material property type to the registry
      * @param {string} name the name of the property (e.g. 'diffuseColor')
      * @param {function | string} Type the expected type the property should have (e.g. Color, Matrix4...);
      * @returns {boolean} true if the property name and type were successfully added to the registry, false otherwise

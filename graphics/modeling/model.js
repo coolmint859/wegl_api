@@ -85,7 +85,7 @@ function generateModel(vertices, normals, faces, textureCoords) {
  * @param numBands a band is a set of polygons from north to south pole
  * @param numRings a ring is lateral set of polygons
  */
-export function gernerateSphere(numRings, numBands) {
+export function generateSphere(numRings, numBands) {
     if (numBands < 3 || numRings < 2)
         throw Error("Degenerate shape, not enough vertices.");
 

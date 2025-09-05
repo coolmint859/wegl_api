@@ -6,9 +6,9 @@ import { Vector3, Vector4 } from "../../utilities/math/vector.js";
 
 /**
  * Generates a tetahredon. Normalized to fit within a unit cube. (To make it bigger overall, use a transform instance)
- * @param {number} width the width (x-axis) of the rectangular prism. Must be greater than 0.
- * @param {number} height the height (y-axis) of the rectangular prism. Must be greater than 0.
- * @param {number} depth the depth (z-axis) of the rectangular prism. Must be greater than 0.
+ * @param {number} width the width (x-axis) of the tetahredon. Must be greater than 0.
+ * @param {number} height the height (y-axis) of the tetahredon. Must be greater than 0.
+ * @param {number} depth the depth (z-axis) of the tetahredon. Must be greater than 0.
  * @returns {object} an object containing the arrays and accompanying attributes
  */
 export function generateTetrahedron(width, height, depth) {
@@ -77,22 +77,6 @@ export function generateRectPrism(width, height, depth) {
         Quaternion.fromEulerAngles(-Math.PI/2, 0, 0),   // top face
         Quaternion.fromEulerAngles(Math.PI/2, 0, 0)     // bottom face
     ];
-    const transforms = [];
-    for (let i = 0; i < rotations.length; i++) {
-        const pos = rotations[i].rotateVector(Transform.localForward);
-        transforms.push(new Transform({ position: pos, rotation: rotations[i] }));
-    }
-
-    const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }]
-    const cube = tessellate(baseSquare.vertex, baseSquare.index, transforms);
-    for (let i = 0; i < cube.vertex.length-2; i+=3) {
-        cube.vertex[i+0] *= width/2;
-        cube.vertex[i+1] *= height/2;
-        cube.vertex[i+2] *= depth/2;
-    }
-    
-    const normalArray = generateNormals(cube.vertex, cube.index);
-    const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
 
     const uvAttributes = [{ name: 'uv', size: 2, dataType: 'float', offset: 0 }]
     const uvArray = new Float32Array([
@@ -104,16 +88,17 @@ export function generateRectPrism(width, height, depth) {
         1, 1, 1, 0, 0, 0, 0, 1,
     ]);
 
-    return {
-        vertex: { data: normalizeVertices(cube.vertex), attributes: vertexAttributes, stride: 0 },
-        normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
-        uv:     { data: uvArray,     attributes: uvAttributes, stride: 0},
-        index:  { data: cube.index,  attributes: [], stride: 0, dataType: 'uint16' },
-    }
+    const cube = createRegularPolyhedron(baseSquare, rotations, 1, { width, height, depth });
+    cube.uv = { data: uvArray, attributes: uvAttributes, stride: 0};
+
+    return cube;
 }
 
 /**
- * Generates an octahedron.
+ * Generates an octahedron. Normalized to fit within a unit cube. (To make it bigger overall, use a transform instance)
+ * @param {number} width the width (x-axis) of the octahedron. Must be greater than 0.
+ * @param {number} height the height (y-axis) of the octahedron. Must be greater than 0.
+ * @param {number} depth the depth (z-axis) of the octahedron. Must be greater than 0.
  * @returns {object} an object containing the arrays and accompanying attributes
  */
 export function generateOctahedron(width, height, depth) {
@@ -157,10 +142,10 @@ export function generateOctahedron(width, height, depth) {
 }
 
 /**
- * Generates an dodecahedron.
- * @param {number} width the width (x-axis) of the rectangular prism. Must be greater than 0.
- * @param {number} height the height (y-axis) of the rectangular prism. Must be greater than 0.
- * @param {number} depth the depth (z-axis) of the rectangular prism. Must be greater than 0.
+ * Generates an dodecahedron. Normalized to fit within a unit cube. (To make it bigger overall, use a transform instance)
+ * @param {number} width the width (x-axis) of the dodecahedron. Must be greater than 0.
+ * @param {number} height the height (y-axis) of the dodecahedron. Must be greater than 0.
+ * @param {number} depth the depth (z-axis) of the dodecahedron. Must be greater than 0.
  * @returns {object} an object containing the arrays and accompanying attributes
  */
 export function generateDodecahedron(width, height, depth) {
@@ -177,27 +162,16 @@ export function generateDodecahedron(width, height, depth) {
         depth = 1;
     }
 
-    const numVertices = 5;
     const midRadius = 1.309;
     const goldRatio = (1 + Math.sqrt(5)) / 2;
+    const basePentagon = generateRegularPolygon(5, 1);
+    const pentagon = { vertex: basePentagon.vertex.data, index: basePentagon.index.data };
 
-    // calculate base pentagon
-    const angle = 2 * Math.PI / numVertices;
-    const basePentagon = new Float32Array(numVertices*3);
-    for (let i = 0; i < numVertices; i++) {
-        const offset = 3*i;
-        basePentagon[offset+0] = Math.cos(angle * i);
-        basePentagon[offset+1] = Math.sin(angle * i);
-        basePentagon[offset+2] = 0;
-    }
-    const pentagon = triangulate(basePentagon);
-
-    // calculate rotation transformations
     const pi_2 = Math.PI/2;
     const rotations = [
         // these are for the 'top' and 'bottom' pentagons
-        Quaternion.fromEulerAngles(1*pi_2, 0, pi_2, EulerOrder.YXZ),
-        Quaternion.fromEulerAngles(3*pi_2, 0, pi_2, EulerOrder.YXZ),
+        Quaternion.fromEulerAngles(pi_2, 0, pi_2, EulerOrder.YXZ),
+        Quaternion.fromEulerAngles(-pi_2, 0, pi_2, EulerOrder.YXZ),
     ];
 
     for (let i = 0; i <= 9; i++) {
@@ -208,38 +182,55 @@ export function generateDodecahedron(width, height, depth) {
         rotations.push(Quaternion.fromEulerAngles(pitch, yaw, roll, EulerOrder.YXZ))
     }
 
-    // calculate positions, append to transforms
-    const transforms = [];
-    for (let i = 0; i < rotations.length; i++) {
-        const pos = rotations[i].rotateVector(Transform.localForward).mult(midRadius);
-        transforms.push(new Transform({ position: pos, rotation: rotations[i] }));
-    }
-
-    // tessellate the pentagons
-    const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }];
-    const dodecahedron = tessellate(pentagon.vertex, pentagon.index, transforms);
-    for (let i = 0; i < dodecahedron.vertex.length-2; i+=3) {
-        dodecahedron.vertex[i+0] *= width/2;
-        dodecahedron.vertex[i+1] *= height/2;
-        dodecahedron.vertex[i+2] *= depth/2;
-    }
-
-    const normalArray = generateNormals(dodecahedron.vertex, dodecahedron.index);
-    const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
-
-    return {
-        vertex: { data: normalizeVertices(dodecahedron.vertex), attributes: vertexAttributes, stride: 0 },
-        normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
-        index:  { data: dodecahedron.index,  attributes: [], stride: 0, dataType: 'uint16' },
-    }
+    return createRegularPolyhedron(pentagon, rotations, midRadius, { width, height, depth });
 }
 
 /**
- * Generates an icosahedron.
+ * Generates an icosahedron. Normalized to fit within a unit cube. (To make it bigger overall, use a transform instance)
+ * @param {number} width the width (x-axis) of the icosahedron. Must be greater than 0.
+ * @param {number} height the height (y-axis) of the icosahedron. Must be greater than 0.
+ * @param {number} depth the depth (z-axis) of the icosahedron. Must be greater than 0.
  * @returns {object} an object containing the arrays and accompanying attributes
  */
-export function generateIcosahedron() {
+export function generateIcosahedron(width, height, depth) {
+    if (width <= 0) {
+        console.warn(`[GenerateRectPrism] Width must be greater than 0. Assigning default (width=1).`);
+        width = 1;
+    }
+    if (height <= 0) {
+        console.warn(`[GenerateRectPrism] Height must be greater than 0. Assigning default (height=1).`);
+        height = 1;
+    }
+    if (depth <= 0) {
+        console.warn(`[GenerateRectPrism] Depth must be greater than 0. Assigning default (depth=1).`);
+        depth = 1;
+    }
 
+    const midRadius = 1.3101;
+    const triangle = {
+        vertex: new Float32Array([1, 0, 0, -0.5, 0.866, 0, -0.5, -0.866, 0]),
+        index: new Uint16Array([0, 1, 2])
+    }
+
+    // empirically found as true angles weren't working, not sure why
+    const ringPitch = 0.186;
+    const capPitch = 2*Math.atan(0.5)-0.004;
+
+    // calculate rotation transformations
+    const rotations = [];
+    for (let i = 0; i < 10; i++) {
+        const pitch1 = i % 2 === 0 ? -ringPitch : ringPitch;
+        const yaw1 = i * Math.PI/5;
+        const roll1 = i % 2 === 0 ? -Math.PI/2 : Math.PI/2;
+        rotations.push(Quaternion.fromEulerAngles(pitch1, yaw1, roll1, EulerOrder.YXZ))
+
+        const pitch2 = i % 2 === 0 ? -capPitch : capPitch;
+        const yaw2 = i * Math.PI/5;
+        const roll2 = i % 2 === 0 ? Math.PI/2 : -Math.PI/2;
+        rotations.push(Quaternion.fromEulerAngles(pitch2, yaw2, roll2, EulerOrder.YXZ))
+    }
+
+    return createRegularPolyhedron(triangle, rotations, midRadius, { width, height, depth });
 }
 
 /** -------------------------------------- OTHER POLYHEDRA -------------------------------------- */
@@ -457,7 +448,164 @@ export function generateCylinder(numBands, height, radius) {
     }
 }
 
+/** -------------------------------------- 2D PRIMITIVES -------------------------------------- */
+
+/**
+ * create a plane
+ * @param {number} rows the number of rows on the plane. a higher value means more triangles
+ * @param {number} cols the number of columns on the plane. a higher value means more triangles
+ * @param {number} width the width (x-axis) of the plane
+ * @param {number} depth the depth (z-axis) of the plane
+ * @returns {object} an object containing the arrays and accompanying attributes
+ */
+export function generatePlane(rows, cols, width, depth, options={}) {
+    if (rows <= 0) {
+        console.warn(`[GeneratePlane] 'rows' must be greater than 0. Assigning default (rows=1).`);
+        numSides = 1;
+    }
+    if (cols <= 0) {
+        console.warn(`[GeneratePlane] 'cols' must be greater than 0. Assigning default (cols=1).`);
+        cols = 1;
+    }
+    if (width <= 0) {
+        console.warn(`[GeneratePlane] 'width' must be greater than 0. Assigning default (width=1).`);
+        width = 1;
+    }
+    if (depth <= 0) {
+        console.warn(`[GeneratePlane] 'depth' must be greater than 0. Assigning default (depth=1).`);
+        depth = 1;
+    }
+
+    const numVertices = (rows+1) * (cols+1);
+    const vertexArray = new Float32Array(numVertices*3);
+    const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }]
+
+    const numIndices = rows * cols * 6;
+    const indexArray = new Uint32Array(numIndices);
+
+    let vOffset = 0, iOffset = 0;
+    for (let i = 0; i < rows+1; i++) {
+        for (let j = 0; j < cols+1; j++) {
+            // --- VERTICES --- //
+            vertexArray[vOffset++] = (2 * j / cols - 1) * width;
+            vertexArray[vOffset++] = 0
+            vertexArray[vOffset++] = (2 * i / rows - 1) * depth;
+
+            // --- INDICES --- //
+            if (i >= rows || j >= cols) continue; // skip last row/col
+
+            // the vertex indices of a quad at row i and col j
+            const topLeft = i * (cols + 1) + j;
+            const topRight = topLeft + 1;
+            const btmLeft = (i + 1) * (cols + 1) + j;
+            const btmRight = btmLeft + 1;
+
+            // create two triangles from the quad
+            indexArray[iOffset++] = topLeft;
+            indexArray[iOffset++] = btmLeft;
+            indexArray[iOffset++] = topRight;
+
+            indexArray[iOffset++] = topRight;
+            indexArray[iOffset++] = btmLeft;
+            indexArray[iOffset++] = btmRight;
+        }
+    }
+
+    const normalArray = generateNormals(vertexArray, indexArray);
+    const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
+
+    return {
+        vertex: { data: vertexArray, attributes: vertexAttributes, stride: 0 },
+        normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
+        index:  { data: indexArray,  attributes: [], stride: 0, dataType: 'uint32' },
+    }
+}
+
+/**
+ * Create a regular polygon
+ * @param {number} numSides the number of sides of the polygon. Must be at least 3.
+ * @param {number} radius the radius of the polygon. Must be greater than 0.
+ * @param {object} options options for determining how the polygon should be made
+ * @param {number} options.initRotation initial rotation about central axis. default is 0.
+ * @param {boolean} options.shareVertices if true, the vertices around the perimeter will be shared, otherwise each triangle will be independent from eachother. Default is true.
+ * @param {number} options.centerOffset the offset along the polygon's perpendicular axis for which the central vertex will be defined. Default is 0.
+ * @returns {object} an object containing the new vertex and index array. The size of each is proportional to the number of polygon sides
+ */
+export function generateRegularPolygon(numSides, radius, options={}) {
+    if (numSides < 3) {
+        console.warn(`[GenerateRegularPolygon] numSides must be at least 3. Assigning default (numSides=3).`);
+        numSides = 3;
+    }
+    if (radius <= 0) {
+        console.warn(`[GenerateRegularPolygon] radius must be greater than 0. Assigning default (radius=1).`);
+        radius = 1;
+    }
+
+    const rotation = options.initRotation ?? 0;
+
+    const angle = 2 * Math.PI / numSides;
+    const vertexArray = new Float32Array(numSides*3);
+    for (let i = 0; i < numSides; i++) {
+        let cosAngle = Math.cos(i*angle + rotation);
+        let sinAngle = Math.sin(i*angle + rotation);
+
+        const epsilon = 0.0001;
+        cosAngle = Math.abs(cosAngle) > epsilon ? cosAngle : 0
+        sinAngle = Math.abs(sinAngle) > epsilon ? sinAngle : 0
+
+        const offset = i*3;
+        vertexArray[offset+0] = radius * cosAngle
+        vertexArray[offset+1] = radius * sinAngle
+        vertexArray[offset+2] = 0;
+    }
+
+    const shape = triangulate(vertexArray, options);
+    const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }];
+
+    const normalArray = generateNormals(shape.vertex, shape.index);
+    const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
+
+    return {
+        vertex: { data: shape.vertex, attributes: vertexAttributes, stride: 0 },
+        normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
+        index:  { data: shape.index,  attributes: [], stride: 0, dataType: 'uint16' },
+    }
+}
+
 /** -------------------------------------- UTILITY FUNCTIONS -------------------------------------- */
+
+/**
+ * create a regular polyhedron by tesselating a 2D primitive
+ * @param {object} primitive the primitive shape to construct the polyhedron with (should include 'vertex' and 'index' properties, which are typed arrays)
+ * @param {Array<Quaternion>} rotations a array of quaternions representing the rotations needed
+ * @param {number} positionOffset value that is applied on the position vector of a primitive after rotating it, effively moving it along it's normal.
+ * @param {object} dimensions the dimensions of the constructed polyhedron (should include 'width', 'height', and 'depth' properties, which are positive numbers)
+ * @returns {object} an object containing the arrays and accompanying attributes
+ */
+function createRegularPolyhedron(primitive, rotations, positionOffset, dimensions) {
+    const transforms = [];
+    for (let i = 0; i < rotations.length; i++) {
+        const pos = rotations[i].rotateVector(Transform.localForward).mult(positionOffset);
+        transforms.push(new Transform({ position: pos, rotation: rotations[i] }));
+    }
+
+    const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }];
+    const polyhedron = tessellate(primitive.vertex, primitive.index, transforms);
+    for (let i = 0; i < polyhedron.vertex.length-2; i+=3) {
+        polyhedron.vertex[i+0] *= dimensions.width/2;
+        polyhedron.vertex[i+1] *= dimensions.height/2;
+        polyhedron.vertex[i+2] *= dimensions.depth/2;
+    }
+
+    const normalArray = generateNormals(polyhedron.vertex, polyhedron.index);
+    const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
+
+    return {
+        vertex: { data: normalizeVertices(polyhedron.vertex), attributes: vertexAttributes, stride: 0 },
+        normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
+        index:  { data: polyhedron.index,  attributes: [], stride: 0, dataType: 'uint16' },
+    }
+}
 
 /**
  * Generate vertex normals given a flat vertex array and a flat index array. These can be any kind of typed array.
@@ -589,17 +737,13 @@ export function normalizeVertices(vertexArray, options = {}) {
 /**
  * Performs fan triangulation on a set of vertices. The input vertices should form a convex shape for the best results.
  * @param {ArrayBufferLike} vertexArray a flat typed array of vertices. This function treats each three consecutive values as the three components for a vertex.
+ * @param {object} options options for triangulating the vertices
+ * @param {boolean} options.shareVertices if true, overlapping vertices will be shared (including the center), otherwise each triangle will be independent from eachother. Default is true.
+ * @param {number} options.centerOffset the offset along the shape's perpendicular axis for which the central vertex will be defined. Default is 0 (along same plane of other vertices).
  * @returns {object} an object containing the vertices (including center point) and index array. The vertex array is of the same type as the input array, and the index array is a Uint16Array
  */
-export function triangulate(vertexArray) {
+export function triangulate(vertexArray, options={}) {
     const numVertices = Math.trunc(vertexArray.length/3);
-
-    // handle shapes that have 3 or 4 vertices differently
-    if (numVertices === 3) {
-        return { vertex: vertexArray, index: new Uint16Array([0, 1, 2]) };
-    } else if (numVertices === 4) {
-        return { vertex: vertexArray, index: new Uint16Array([0, 1, 2, 0, 2, 3]) };
-    }
 
     let xSum = 0, ySum = 0, zSum = 0;
     for (let i = 0; i < vertexArray.length-2; i+=3) {
@@ -607,12 +751,33 @@ export function triangulate(vertexArray) {
         ySum += vertexArray[i+1];
         zSum += vertexArray[i+2];
     }
+    const x = xSum / numVertices;
+    const y = ySum / numVertices;
+    const z = zSum / numVertices + (options.centerOffset ?? 0);
+    const centerVertex = { x, y, z };
+
+    if (options.shareVertices ?? true) {
+        return triangulateShared(vertexArray, centerVertex);
+    } else {
+        return triangulateIndep(vertexArray, centerVertex);
+    }
+}
+
+/** Fan triangulation where adjacent vertices are shared */
+function triangulateShared(vertexArray, centerVertex) {
+    const numVertices = Math.trunc(vertexArray.length/3);
+    if (numVertices === 3) {
+        return { vertex: vertexArray, index: new Uint16Array([0, 1, 2]) };
+    } else if (numVertices === 4) {
+        return { vertex: vertexArray, index: new Uint16Array([0, 1, 2, 0, 2, 3])};
+    }
+
     const indexArray = new Uint16Array(numVertices*3);
     const newVertices = new (vertexArray.constructor)(vertexArray.length+3);
 
-    newVertices[0] = xSum / numVertices;
-    newVertices[1] = ySum / numVertices;
-    newVertices[2] = zSum / numVertices;
+    newVertices[0] = centerVertex.x;
+    newVertices[1] = centerVertex.y;
+    newVertices[2] = centerVertex.z;
 
     for (let i = 0; i < numVertices; i++) {
         let vOffset = 3 * (i+1);
@@ -625,6 +790,39 @@ export function triangulate(vertexArray) {
         indexArray[iOffset+1] = i+1;
         indexArray[iOffset+2] = i < numVertices-1 ? i+2 : 1;
     }
+
+    return { vertex: newVertices, index: indexArray };
+}
+
+/** Fan triangulation where triangles are independent (no shared vertices) */
+function triangulateIndep(vertexArray, centerVertex) {
+    const numVertices = Math.trunc(vertexArray.length/3);
+    if (numVertices === 3) {
+        return { vertex: vertexArray, index: new Uint16Array([0, 1, 2]) };
+    } else if (numVertices === 4) {
+        return { vertex: vertexArray, index: new Uint16Array([0, 1, 2, 0, 2, 3])};
+    }
+
+    const numNewVertices = numVertices * 3;
+    const newVertices = new (vertexArray.constructor)(numNewVertices*3);
+    for (let i = 0; i < numVertices; i++) {
+        const vOffset = i*9;
+        newVertices[vOffset+0] = centerVertex.x;
+        newVertices[vOffset+1] = centerVertex.y;
+        newVertices[vOffset+2] = centerVertex.z;
+
+        const initOffset1 = i*3;
+        newVertices[vOffset+3] = vertexArray[initOffset1+0];
+        newVertices[vOffset+4] = vertexArray[initOffset1+1];
+        newVertices[vOffset+5] = vertexArray[initOffset1+2];
+
+        const initOffset2 = i < numVertices-1 ? (i+1)*3 : 0;
+        newVertices[vOffset+6] = vertexArray[initOffset2+0];
+        newVertices[vOffset+7] = vertexArray[initOffset2+1];
+        newVertices[vOffset+8] = vertexArray[initOffset2+2];
+    }
+
+    const indexArray = Uint16Array.from({ length: numNewVertices }, (v, i) => i);
 
     return { vertex: newVertices, index: indexArray };
 }

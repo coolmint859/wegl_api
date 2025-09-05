@@ -27,7 +27,6 @@ export default class Shader {
         this.#vertexPath = vertex_path;
         this.#fragmentPath = fragment_path;
 
-        // only true
         if (!ResourceCollector.contains(shaderName)) {
             ResourceCollector.load(shaderName, this.#buildProgram.bind(this), this.#disposeProgram.bind(this), { category: "shader" })
             .then(programData => {
@@ -158,8 +157,8 @@ export default class Shader {
         if (this.isActive() && typeof bool === 'boolean') {            
             let location = this.#getUniformLocation(name);
             Shader.#gl.uniform1i(location, bool);
-        } else if (typeof value !== 'boolean') {
-            console.error(`[Shader @${this.#shaderName}] TypeError: Expected 'value' to be a boolean. Unable to set uniform.`);
+        } else if (typeof bool !== 'boolean') {
+            console.error(`[Shader @${this.#shaderName}] TypeError: Expected 'bool' to be a boolean. Unable to set uniform.`);
         } else {
             console.error(`[Shader @${this.#shaderName}] Cannot set boolean uniform as this shader is not yet loaded.`)
         }
@@ -292,6 +291,49 @@ export default class Shader {
             console.error(`[Shader @${this.#shaderName}] TypeError: Expected '${name}' to be an instance of Color. Unable to set uniform.`);
         } else {
             console.error(`[Shader @${this.#shaderName}] Cannot set vec3/vec4 uniform as this shader is not yet loaded.`)
+        }
+    }
+
+    /**
+    * Set the properties in an js object as properties of a struct. All object properties must be a known type.
+    */
+    setObject(name, object) {
+        if (this.isActive() && typeof object === 'object') {            
+            for (const propName in object) {
+                const shaderPropName = `${name}.${propName}`; // ~ waves[0].amp
+
+                const property = object[propName];
+                this.#setShaderProperty(shaderPropName, property);
+            }
+        } else if (typeof object !== 'object') {
+            console.error(`[Shader @${this.#shaderName}] TypeError: Expected '${name.split('.')[0]}' to be a javascript object. Unable to set uniforms.`);
+        } else {
+            console.error(`[Shader @${this.#shaderName}] Cannot set struct uniform as this shader is not yet loaded.`)
+        }
+    }
+
+    #setShaderProperty(name, property) {
+        if (property instanceof Vector2) {
+            this.setVector2(name, property);
+        } else if (property instanceof Vector3) {
+            this.setVector3(name, property);
+        } else if (property instanceof Vector4) {
+            this.setVector4(name, property);
+        } else if (property instanceof Matrix2) {
+            this.setMatrix2(name, property);
+        } else if (property instanceof Matrix3) {
+            this.setMatrix3(name, property);
+        } else if (property instanceof Matrix4) {
+            this.setMatrix4(name, property);
+        } else if (property instanceof Color) {
+            this.setColor(name, property);
+        } else if (typeof property === 'boolean') {
+            this.setBool(name, property);
+        } else if (typeof property === 'number') {
+            this.setFloat(name, property);
+        } else {
+            // property is some weird type! Theoretically this shouldn't happen if we check if the shader program supports it, but gotta be sure
+            console.warn(`[Shader @${this.#shaderName}]: Skipping uniform for property '${name}'. Value type '${typeof uniformValue}' not supported for automatic uniform setting.`);
         }
     }
 

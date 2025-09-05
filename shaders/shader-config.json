@@ -1,0 +1,351 @@
+{
+    "programs": [
+        {
+            "name": "basic",
+            "vertex_shader": "basic.vert",
+            "fragment_shader": "basic.frag"
+        },
+        {
+            "name": "blinn-phong",
+            "vertex_shader": "blinn-phong.vert",
+            "fragment_shader": "blinn-phong.frag"
+        },
+        {
+            "name": "bp-texture",
+            "vertex_shader": "bp-texture.vert",
+            "fragment_shader": "bp-texture.frag"
+        },
+        {
+            "name": "bp-flat-liquid",
+            "vertex_shader": "bp-flat-liquid.vert",
+            "fragment_shader": "blinn-phong.frag"
+        }
+    ],
+    "vertex_shaders": [
+        {
+            "path": "basic.vert",
+            "precisions": { "int": "mediump", "float": "lowp"},
+            "capabilities": ["aPosition", "uModel", "uView", "uProjection", "uCameraPos"],
+            "attributes": [
+                {
+                    "name": "aPosition",
+                    "location": 0,
+                    "type": "vec3"
+                }
+            ],
+            "blocks": [
+                {
+                    "name": "Scene",
+                    "binding": 0,
+                    "members": [
+                        { "name": "uModel", "type": "mat4" },
+                        { "name": "uView", "type": "mat4" },
+                        { "name": "uProjection", "type": "mat4" },
+                        { "name": "uCameraPos", "type": "vec3" }
+                    ]
+                }
+            ],
+            "outputs": [],
+            "uniforms": [],
+            "structs": []
+        },
+        {
+            "path": "blinn-phong.vert",
+            "precisions": { "int": "mediump", "float": "lowp"},
+            "capabilities": ["aPosition", "aNormal", "uModel", "uView", "uProjection", "uCameraPos", "PointLight"],
+            "attributes": [
+                {
+                    "name": "aPosition",
+                    "location": 0,
+                    "type": "vec3"
+                },
+                {
+                    "name": "aNormal",
+                    "location": 1,
+                    "type": "vec3"
+                }
+            ],
+            "blocks": [
+                {
+                    "name": "SceneData",
+                    "binding": 0,
+                    "members": [
+                        { "name": "uModel", "type": "mat4" },
+                        { "name": "uView", "type": "mat4" },
+                        { "name": "uProjection", "type": "mat4" },
+                        { "name": "uCameraPos", "type": "vec3" }
+                    ]
+                },
+                {
+                    "name": "LightData",
+                    "binding": 1,
+                    "members": [
+                        { "name": "pointLights", "type": "PointLight", "maxCount": 5 },
+                        { "name": "numPointLights", "type": "int" }
+                    ]
+                }
+            ],
+            "outputs": [
+                { "name": "vNormal", "type": "vec3" },
+                { "name": "vViewDir", "type": "vec3" },
+                { "name": "vPointLightVectors", "type": "vec3", "maxCount": 5 }
+            ],
+            "uniforms": [],
+            "structs": [
+                {
+                    "name": "PointLight",
+                    "members": [
+                        { "name": "position", "type": "vec3"},
+                        { "name": "emissiveColor", "type": "vec3"},
+                        { "name": "attenConst", "type": "float"},
+                        { "name": "attenLinear", "type": "float"},
+                        { "name": "attenQuad", "type": "float"}
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "bp-texture.vert",
+            "precisions": { "int": "mediump", "float": "lowp"},
+            "capabilities": ["aPosition", "aNormal", "aTexCoord", "uModel", "uView", "uProjection", "uCameraPos", "PointLight"],
+            "attributes": [
+                {
+                    "name": "aPosition",
+                    "location": 0,
+                    "type": "vec3"
+                },
+                {
+                    "name": "aNormal",
+                    "location": 1,
+                    "type": "vec3"
+                },
+                {
+                    "name": "aTexCoord",
+                    "location": 2,
+                    "type": "vec2"
+                }
+            ],
+            "blocks": [
+                {
+                    "name": "SceneData",
+                    "binding": 0,
+                    "members": [
+                        { "name": "uModel", "type": "mat4" },
+                        { "name": "uView", "type": "mat4" },
+                        { "name": "uProjection", "type": "mat4" },
+                        { "name": "uCameraPos", "type": "vec3" }
+                    ]
+                },
+                {
+                    "name": "LightData",
+                    "binding": 1,
+                    "members": [
+                        { "name": "pointLights", "type": "PointLight", "maxCount": 5 },
+                        { "name": "numPointLights", "type": "int" }
+                    ]
+                }
+            ],
+            "outputs": [
+                { "name": "vNormal", "type": "vec3" },
+                { "name": "vTexCoord", "type": "vec3" },
+                { "name": "vViewDir", "type": "vec3" },
+                { "name": "vPointLightVectors", "type": "vec3", "maxCount": 5 }
+            ],
+            "uniforms": [],
+            "structs": [
+                {
+                    "name": "PointLight",
+                    "members": [
+                        { "name": "position", "type": "vec3"},
+                        { "name": "emissiveColor", "type": "vec3"},
+                        { "name": "attenConst", "type": "float"},
+                        { "name": "attenLinear", "type": "float"},
+                        { "name": "attenQuad", "type": "float"}
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "bp-flat-liquid.vert",
+            "precisions": { "int": "mediump", "float": "lowp"},
+            "capabilities": ["aPosition", "aNormal", "uModel", "uView", "uProjection", "uCameraPos", "PointLight", "Wave"],
+            "attributes": [
+                {
+                    "name": "aPosition",
+                    "location": 0,
+                    "type": "vec3"
+                },
+                {
+                    "name": "aNormal",
+                    "location": 1,
+                    "type": "vec3"
+                }
+            ],
+            "blocks": [
+                {
+                    "name": "SceneData",
+                    "binding": 0,
+                    "members": [
+                        { "name": "uModel", "type": "mat4" },
+                        { "name": "uView", "type": "mat4" },
+                        { "name": "uProjection", "type": "mat4" },
+                        { "name": "uCameraPos", "type": "vec3" }
+                    ]
+                },
+                {
+                    "name": "LightData",
+                    "binding": 1,
+                    "members": [
+                        { "name": "pointLights", "type": "PointLight", "maxCount": 5 },
+                        { "name": "numPointLights", "type": "int" }
+                    ]
+                },
+                {
+                    "name": "WaveData",
+                    "binding": 2,
+                    "members": [
+                        { "name": "waves", "type": "Wave", "maxCount": 20 },
+                        { "name": "numWaves", "type": "int" }
+                    ]
+                }
+            ],
+            "outputs": [
+                { "name": "vNormal", "type": "vec3" },
+                { "name": "vViewDir", "type": "vec3" },
+                { "name": "vPointLightVectors", "type": "vec3", "maxCount": 5 }
+            ],
+            "uniforms": [],
+            "structs": [
+                {
+                    "name": "PointLight",
+                    "members": [
+                        { "name": "position", "type": "vec3"},
+                        { "name": "emissiveColor", "type": "vec3"},
+                        { "name": "attenConst", "type": "float"},
+                        { "name": "attenLinear", "type": "float"},
+                        { "name": "attenQuad", "type": "float"}
+                    ]
+                },
+                {
+                    "name": "Wave",
+                    "members": [
+                        { "name": "direction", "type": "vec2"},
+                        { "name": "wavelength", "type": "float"},
+                        { "name": "angularFreq", "type": "float"},
+                        { "name": "amplitude", "type": "float"},
+                        { "name": "phase", "type": "float"}
+                    ]
+                }
+            ]
+        }
+    ],
+    "fragment_shaders": [
+        {
+            "path": "basic.frag",
+            "precisions": { "int": "mediump", "float": "lowp"},
+            "capabilities": ["diffuseColor"],
+            "blocks": [],
+            "inputs": [],
+            "uniforms": [
+                { "name": "material", "type": "Material"}
+            ],
+            "structs": [
+                {
+                    "name": "Material",
+                    "members": [
+                        { "name": "diffuseColor", "type": "vec3"}
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "blinn-phong.frag",
+            "precisions": { "int": "mediump", "float": "lowp"},
+            "capabilities": ["ambientColor", "diffuseColor", "specularColor", "shininess", "PointLight"],
+            "blocks": [
+                {
+                    "name": "LightData",
+                    "binding": 1,
+                    "members": [
+                        { "name": "pointLights", "type": "PointLight", "maxCount": 5 },
+                        { "name": "numPointLights", "type": "int" }
+                    ]
+                }
+            ],
+            "inputs": [
+                { "name": "vNormal", "type": "vec3" },
+                { "name": "vViewDir", "type": "vec3" },
+                { "name": "vPointLightVectors", "type": "vec3", "maxCount": 5 }
+            ],
+            "uniforms": [
+                { "name": "material", "type": "Material"},
+                { "name": "ambientColor", "type": "vec3"}
+            ],
+            "structs": [
+                {
+                    "name": "Material",
+                    "members": [
+                        { "name": "diffuseColor", "type": "vec3"},
+                        { "name": "specularColor", "type": "vec3"},
+                        { "name": "shininess", "type": "float"}
+                    ]
+                },
+                {
+                    "name": "PointLight",
+                    "members": [
+                        { "name": "position", "type": "vec3"},
+                        { "name": "emissiveColor", "type": "vec3"},
+                        { "name": "attenConst", "type": "float"},
+                        { "name": "attenLinear", "type": "float"},
+                        { "name": "attenQuad", "type": "float"}
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "bp-texture.frag",
+            "precisions": { "int": "mediump", "float": "lowp", "sampler2D": "highp" },
+            "capabilities": ["ambientColor", "diffuseMap", "specularMap", "shininess", "PointLight"],
+            "blocks": [
+                {
+                    "name": "LightData",
+                    "binding": 1,
+                    "members": [
+                        { "name": "pointLights", "type": "PointLight", "maxCount": 5 },
+                        { "name": "numPointLights", "type": "int" }
+                    ]
+                }
+            ],
+            "inputs": [
+                { "name": "vNormal", "type": "vec3" },
+                { "name": "vTexCoord", "type": "vec3" },
+                { "name": "vViewDir", "type": "vec3" },
+                { "name": "vPointLightVectors", "type": "vec3", "maxCount": 5 }
+            ],
+            "uniforms": [
+                { "name": "material", "type": "Material"},
+                { "name": "ambientColor", "type": "vec3"}
+            ],
+            "structs": [
+                {
+                    "name": "Material",
+                    "members": [
+                        { "name": "diffuseMap", "type": "sampler2D"},
+                        { "name": "specularMap", "type": "sampler2D"},
+                        { "name": "shininess", "type": "float"}
+                    ]
+                },
+                {
+                    "name": "PointLight",
+                    "members": [
+                        { "name": "position", "type": "vec3"},
+                        { "name": "emissiveColor", "type": "vec3"},
+                        { "name": "attenConst", "type": "float"},
+                        { "name": "attenLinear", "type": "float"},
+                        { "name": "attenQuad", "type": "float"}
+                    ]
+                }
+            ]
+        }
+    ]
+}

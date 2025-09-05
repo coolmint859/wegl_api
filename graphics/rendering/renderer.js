@@ -5,6 +5,7 @@ import { Matrix4 } from "../../utilities/math/matrix.js";
 import EventScheduler from "../../utilities/scheduler.js";
 import Camera from "../cameras/camera.js";
 import ShaderManager from "../shading/shader_manager.js";
+import Light from "../lighting/light.js";
 
 /**
  * Core real-time 3D application renderer. 
@@ -17,7 +18,8 @@ export default class Graphics3D {
         PHONG: 'phong',
         BASIC: 'basic',
         LIGHT: 'light',
-        TEXTURE: 'texture'
+        TEXTURE: 'texture',
+        WATER: 'water'
     });
     static RenderMode = Object.freeze({
         POINTS: Graphics3D.#gl.POINTS,
@@ -63,7 +65,8 @@ export default class Graphics3D {
         this.aspectRatio = height / width;
 
         this.sceneObjects = [];
-        this.pointLights = [];
+        this.lights = [];
+        this.waves = [];
         this.shaders = new Map();
 
         this.renderMode = Graphics3D.RenderMode.TRIANGLES;
@@ -79,7 +82,7 @@ export default class Graphics3D {
         this.ambientColor = Color.BLACK;
         this.clearColor = Color.CF_BLUE;
 
-        const shaderNames = ["basic", "phong", 'texture'];
+        const shaderNames = ["basic", "phong", 'texture', 'water'];
         for (const name of shaderNames) {
             let vertexPath = "shaders/" + name + ".vert";
             let fragmentPath = "shaders/" + name + ".frag";
@@ -163,7 +166,7 @@ export default class Graphics3D {
 
         // reset scene objects to be empty
         this.sceneObjects = [];
-        this.pointLights = [];
+        this.lights = [];
 
         // set background color
         gl.clearColor(this.clearColor.r, this.clearColor.g, this.clearColor.b, this.clearColor.a);
@@ -175,89 +178,99 @@ export default class Graphics3D {
 
     /** draws an object */
     draw(object) {
-        if (object.renderType === null || !Object.values(Graphics3D.RenderType).includes(object.renderType)) {
-            object.renderType = this.RenderType.BASIC;
-        }
+        if (object instanceof Light) {
+            this.lights.push(object);
 
-        this.sceneObjects.push(object);
-        if (object.renderType === Graphics3D.RenderType.LIGHT) {
-            this.pointLights.push(object);
+            // if debug enabled, we should render the light's debug model
+            if (!object.debugEnabled) return;
+            this.sceneObjects.push(object.debugModel);
+        } else {
+            if (object.renderType === null || !Object.values(Graphics3D.RenderType).includes(object.renderType)) {
+                object.renderType = this.RenderType.BASIC;
+            }
+
+            this.sceneObjects.push(object);
         }
     }
 
     /** renders objects and lights to the screen. */
-    end(dt) {
-        const gl = Graphics3D.#gl;
+    end(dt, totalTime) {
         for (let i = 0; i < this.sceneObjects.length; i++) {
             const mesh = this.sceneObjects[i];
             
             // determine shader
-            const shaderName = mesh.renderType === Graphics3D.RenderType.LIGHT ? 'basic': mesh.renderType;
-            const shader = this.shaders.get(shaderName);
-            shader.use(); // VERY IMPORTANT LINE, this sets the current shader appropriately.
+            const shader = this.shaders.get(mesh.renderType);
+            shader.use();
 
-            // set up and bind object VAO
-            if (!mesh.VAO) {
-                mesh.VAO = this.#createMeshVAO(mesh);
-            }
-            gl.bindVertexArray(mesh.VAO);
+            this.#renderMesh(mesh, shader, dt, totalTime);
 
-            // set up shader uniforms && attributes
-            shader.setMatrix4("model", mesh.transform.worldMatrix);
-            shader.setMatrix4('view', this.currentCamera.viewMatrix);
-            shader.setMatrix4('projection', this.currentCamera.projectionMatrix);
-
-            let shouldUseTextures = false;
-            if (mesh.renderType === Graphics3D.RenderType.PHONG) {
-                shader.setColor('ambientColor', this.ambientColor);
-                this.#setLightingAttributes(shader);
-            } else if (mesh.renderType === Graphics3D.RenderType.TEXTURE) {
-                shader.setColor('ambientColor', this.ambientColor);
-                this.#setLightingAttributes(shader);
-                shouldUseTextures = true;
-            }
-            mesh.material.applyToShader(shader, shouldUseTextures); 
-
-            const indexArray = mesh.arrays.index;
-            const indexArrayType = Graphics3D.glTypeMap.get(indexArray.dataType);
-            const numIndices = indexArray.data.length;
-
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.buffers.index);
-            gl.drawElements(this.renderMode, numIndices, indexArrayType, 0);
-
-            // unbind material textures (if exist)
-            if (mesh.material) {
-                mesh.material.unbindTextures();
-            }
-            
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-            gl.bindVertexArray(null);
+            shader.unuse();
         }
         EventScheduler.update(dt);
     }
 
-    #setLightingAttributes(shader) {
-        shader.setInt("numLights", this.pointLights.length);
-        for (let i = 0; i < this.pointLights.length; i++) {
-            const currentLightName = "pointLights[" + i + "]";
-            const currentLight = this.pointLights[i];
+    #renderMesh(mesh, shader, dt, totalTime) {
+        const gl = Graphics3D.#gl;
 
-            // light colors
-            const diffuseColor = currentLight.material.getProperty('diffuseColor')
-            shader.setColor(currentLightName + ".diffuseColor", diffuseColor);
-
-            const specularColor = currentLight.material.getProperty('specularColor')
-            shader.setColor(currentLightName + ".specularColor", specularColor);
-            
-            // light attenuation factors
-            const attenuation = currentLight.material.getProperty('attenuation');
-            shader.setFloat(currentLightName + ".atten_const", attenuation.x);
-            shader.setFloat(currentLightName + ".atten_linear", attenuation.y);
-            shader.setFloat(currentLightName + ".atten_quad", attenuation.z);
-
-            // light position
-            shader.setVector3(currentLightName + ".position", currentLight.transform.position);
+        if (!mesh.VAO) {
+            mesh.VAO = this.#createMeshVAO(mesh);
         }
+        gl.bindVertexArray(mesh.VAO);
+
+        // set up shader uniforms && attributes
+        shader.setMatrix4("model", mesh.transform.worldMatrix);
+        shader.setMatrix4('view', this.currentCamera.viewMatrix);
+        shader.setMatrix4('projection', this.currentCamera.projectionMatrix);
+
+        let shouldUseTextures = this.#setShaderUniforms(shader, mesh.renderType, totalTime);
+        mesh.material.applyToShader(shader, shouldUseTextures); 
+
+        const indexArray = mesh.arrays.index;
+        const indexArrayType = Graphics3D.glTypeMap.get(indexArray.dataType);
+        const numIndices = indexArray.data.length;
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.buffers.index);
+        gl.drawElements(this.renderMode, numIndices, indexArrayType, 0);
+
+        // unbind material textures (if exist)
+        if (mesh.material) {
+            mesh.material.unbindTextures();
+        }
+        
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+        gl.bindVertexArray(null);
+    }
+
+    #setShaderUniforms(shader, renderType, totalTime) {
+        function setLightingAttribs(self, shader) {
+            shader.setInt("numLights", self.lights.length);
+            for (let i = 0; i < self.lights.length; i++) {
+                self.lights[i].applyToShader(shader, i);
+            }
+        }
+
+        let shouldUseTextures;
+        switch (renderType) {
+            case Graphics3D.RenderType.PHONG:
+                shader.setColor('ambientColor', this.ambientColor);
+                setLightingAttribs(this, shader);
+                shouldUseTextures = false;
+                break;
+            case Graphics3D.RenderType.TEXTURE:
+                shader.setColor('ambientColor', this.ambientColor);
+                setLightingAttribs(this, shader);
+                shouldUseTextures = true;
+                break;
+            case Graphics3D.RenderType.WATER:
+                shader.setColor('ambientColor', this.ambientColor);
+                shader.setFloat('totalTime', totalTime);
+                setLightingAttribs(this, shader);
+                shouldUseTextures = false;
+                break;
+            default:
+                shouldUseTextures = false;
+        }
+        return shouldUseTextures;
     }
 
     #createMeshVAO(mesh) {
