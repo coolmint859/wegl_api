@@ -3,7 +3,7 @@ import ResourceCollector from "../../utilities/containers/collector.js";
 import Transform from "../../utilities/containers/transform.js";
 import ShaderManager from "../shading/shader_manager.js"
 import Material from "./material.js";
-import StreamReader from "../../utilities/file_parsing/stream.js";
+import StreamReader from "../../utilities/file_parsing/stream-reader.js";
 
 export default class Mesh {
     static #ID_COUNTER = 0;

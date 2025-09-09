@@ -36,6 +36,26 @@ export default class Color {
     }
 
     /**
+     * Create a color instance from a hex code
+     * @param {string} hexCode the hexcode string.
+     * @returns a Color instance with the rgba values provided from the hexcode.
+     */
+    static fromHexCode(hexCode) {
+        const hexValues = hexCode.startsWith('#') ? hexCode.slice(1) : hexCode;
+
+        const r = parseInt(hexValues.slice(0, 2), 16);
+        const g = parseInt(hexValues.slice(2, 4), 16);
+        const b = parseInt(hexValues.slice(4, 6), 16);
+
+        let a = 1;
+        if (hexValues.length > 6) {
+            a = parseInt(hexValues.slice(6, 8), 16);
+        }
+
+        return new Color(r, g, b, a);
+    }
+
+    /**
      * Interpolates between two Colors
      * @param {Color} c1 the first color
      * @param {Color} c2 the second color
@@ -119,12 +139,28 @@ export default class Color {
      */
     toGrayscale() {
         // these are based on human perception of color. We view green as more vibrant, so it gets a higher value
-        const rScalar = 0.2126;
-        const gScalar = 0.7152;
-        const bScalar = 0.0722;
+        const rScalar = 0.2126, gScalar = 0.7152, bScalar = 0.0722;
 
         const luminance = rScalar*this.r + gScalar*this.g + bScalar*this.b;
         return new Color(luminance, luminance, luminance, this.a);
+    }
+
+    /**
+     * Get the hexcode of this color as a string
+     * @returns {string} the hexidecimal representation of this color
+     */
+    hexCode() {
+        const toHex = function(value) {
+            const hex = value.toString(16);
+            return hex.length === 1 ? '0' + hex : hex;
+        }
+
+        const hexR = toHex(this.r);
+        const hexG = toHex(this.g);
+        const hexB = toHex(this.b);
+        const hexA = toHex(this.a);
+
+        return '#' + hexR + hexG + hexB + hexA;
     }
 
     /**

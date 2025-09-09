@@ -42,7 +42,7 @@ export default class Parser {
      * Returns the final parsed/processed data. This method must be overridden.
      * @returns {any} The final parsed data.
      */
-    getDataWebGL() {
+    getData() {
         throw Error(`[Parser] A parser class derived from this one must implement the getParsedData method.`);
     }
 

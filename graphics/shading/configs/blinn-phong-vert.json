@@ -1,0 +1,54 @@
+{
+    "path": "blinn-phong.vert",
+    "precisions": { "int": "mediump", "float": "lowp"},
+    "attributes": [
+        {
+            "name": "aPosition",
+            "location": 0,
+            "type": "vec3"
+        },
+        {
+            "name": "aNormal",
+            "location": 1,
+            "type": "vec3"
+        }
+    ],
+    "blocks": [
+        {
+            "name": "SceneData",
+            "binding": 0,
+            "members": [
+                { "name": "uModel", "type": "mat4" },
+                { "name": "uView", "type": "mat4" },
+                { "name": "uProjection", "type": "mat4" },
+                { "name": "uCameraPos", "type": "vec3" }
+            ]
+        },
+        {
+            "name": "LightData",
+            "binding": 1,
+            "members": [
+                { "name": "pointLights", "type": "PointLight", "maxCount": 5 },
+                { "name": "numPointLights", "type": "int" }
+            ]
+        }
+    ],
+    "outputs": [
+        { "name": "vNormal", "type": "vec3" },
+        { "name": "vViewDir", "type": "vec3" },
+        { "name": "vPointLightVectors", "type": "vec3", "maxCount": 5 }
+    ],
+    "uniforms": [],
+    "structs": [
+        {
+            "name": "PointLight",
+            "members": [
+                { "name": "position", "type": "vec3"},
+                { "name": "emissiveColor", "type": "vec3"},
+                { "name": "attenConst", "type": "float"},
+                { "name": "attenLinear", "type": "float"},
+                { "name": "attenQuad", "type": "float"}
+            ]
+        }
+    ]
+}

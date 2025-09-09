@@ -9,18 +9,12 @@ export default class KeyBoardInput {
     #keyUpCommands = new Map();
 
     constructor() {
-        document.addEventListener('keydown', this.#handleKeyDown.bind(this));
-        document.addEventListener('keyup', this.#handleKeyUp.bind(this));
-    }
-
-    /** Adds a key to the currently pressed keys when the key is pressed */
-    #handleKeyDown(event) {
-        this.#currentPressedKeys.add(event.code);
-    }
-
-    /** Removes a key from the currently pressed keys when the key is released */
-    #handleKeyUp(event) {
-        this.#currentPressedKeys.delete(event.code);
+        document.addEventListener('keydown', event => {
+            this.#currentPressedKeys.add(event.code)
+        });
+        document.addEventListener('keyup', event => {
+            this.#currentPressedKeys.delete(event.code)
+        });
     }
 
     /**

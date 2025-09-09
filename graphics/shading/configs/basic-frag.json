@@ -1,0 +1,17 @@
+{
+    "path": "basic.frag",
+    "precisions": { "int": "mediump", "float": "lowp"},
+    "blocks": [],
+    "inputs": [],
+    "uniforms": [
+        { "name": "material", "type": "Material"}
+    ],
+    "structs": [
+        {
+            "name": "Material",
+            "members": [
+                { "name": "diffuseColor", "type": "vec3"}
+            ]
+        }
+    ]
+}

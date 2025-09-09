@@ -1,0 +1,22 @@
+[
+    {
+        "name": "basic",
+        "fragment_config": "basic-frag.json",
+        "vertex_config": "basic-vert.json"
+    },
+    {
+        "name": "blinn-phong",
+        "fragment_config": "blinn-phong-frag.json",
+        "vertex_config": "blinn-phong-vert.json"
+    },
+    {
+        "name": "bp-texture",
+        "fragment_config": "bp-texture-frag.json",
+        "vertex_config": "bp-texture-vert.json"
+    },
+    {
+        "name": "bp-waves",
+        "fragment_config": "blinn-phong-frag.json",
+        "vertex_config": "bp-waves-vert.json"
+    }
+]

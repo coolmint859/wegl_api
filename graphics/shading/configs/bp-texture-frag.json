@@ -1,0 +1,44 @@
+{
+    "path": "bp-texture.frag",
+    "precisions": { "int": "mediump", "float": "lowp", "sampler2D": "highp" },
+    "blocks": [
+        {
+            "name": "LightData",
+            "binding": 1,
+            "members": [
+                { "name": "pointLights", "type": "PointLight", "maxCount": 5 },
+                { "name": "numPointLights", "type": "int" }
+            ]
+        }
+    ],
+    "inputs": [
+        { "name": "vNormal", "type": "vec3" },
+        { "name": "vTexCoord", "type": "vec3" },
+        { "name": "vViewDir", "type": "vec3" },
+        { "name": "vPointLightVectors", "type": "vec3", "maxCount": 5 }
+    ],
+    "uniforms": [
+        { "name": "material", "type": "Material"},
+        { "name": "ambientColor", "type": "vec3"}
+    ],
+    "structs": [
+        {
+            "name": "Material",
+            "members": [
+                { "name": "diffuseMap", "type": "sampler2D"},
+                { "name": "specularMap", "type": "sampler2D"},
+                { "name": "shininess", "type": "float"}
+            ]
+        },
+        {
+            "name": "PointLight",
+            "members": [
+                { "name": "position", "type": "vec3"},
+                { "name": "emissiveColor", "type": "vec3"},
+                { "name": "attenConst", "type": "float"},
+                { "name": "attenLinear", "type": "float"},
+                { "name": "attenQuad", "type": "float"}
+            ]
+        }
+    ]
+}

@@ -1,0 +1,43 @@
+{
+    "path": "blinn-phong.frag",
+    "precisions": { "int": "mediump", "float": "lowp"},
+    "blocks": [
+        {
+            "name": "LightData",
+            "binding": 1,
+            "members": [
+                { "name": "pointLights", "type": "PointLight", "maxCount": 5 },
+                { "name": "numPointLights", "type": "int" }
+            ]
+        }
+    ],
+    "inputs": [
+        { "name": "vNormal", "type": "vec3" },
+        { "name": "vViewDir", "type": "vec3" },
+        { "name": "vPointLightVectors", "type": "vec3", "maxCount": 5 }
+    ],
+    "uniforms": [
+        { "name": "material", "type": "Material"},
+        { "name": "ambientColor", "type": "vec3"}
+    ],
+    "structs": [
+        {
+            "name": "Material",
+            "members": [
+                { "name": "diffuseColor", "type": "vec3"},
+                { "name": "specularColor", "type": "vec3"},
+                { "name": "shininess", "type": "float"}
+            ]
+        },
+        {
+            "name": "PointLight",
+            "members": [
+                { "name": "position", "type": "vec3"},
+                { "name": "emissiveColor", "type": "vec3"},
+                { "name": "attenConst", "type": "float"},
+                { "name": "attenLinear", "type": "float"},
+                { "name": "attenQuad", "type": "float"}
+            ]
+        }
+    ]
+}

@@ -424,7 +424,7 @@ export default class PLYParser extends Parser {
      * The intention with this format is to allow iteration over the objects to create the buffers, while also allowing easy access to the arrays without iteration.
      * @returns {object} a object containing the parsed data in the format described.
      */
-    getDataWebGL() {
+    getData() {
         let processedData = {};
         for (const elementSpec of this.#elementSpecs) {
             if (elementSpec.name in this.#listProperties) {

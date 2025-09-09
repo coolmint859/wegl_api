@@ -1,4 +1,5 @@
 import Parser from "./base_parser.js";
+import JSONParser from "./json-parser.js";
 import PLYParser from "./ply_parser.js";
 
 /**
@@ -7,12 +8,13 @@ import PLYParser from "./ply_parser.js";
 export default class StreamReader {
     static #parseMap = new Map([
         ['ply', PLYParser],
+        ['json', JSONParser],
         // ['obj', OBJParser],
     ]);
     static MAX_READER_DONE_COUNT = 3;
 
     /**
-     * set the default parser for files that contain the given extension. Replaces existing defaults.
+     * set the default parser for files that contain the given extension.
      * @param {string} extension the extension that this parser will be associated with. Files with this extension will use the given parser if not overriden when load() is called.
      * @param {Function} parserClass a constuctor function for a derived class of Parser. This will be instantiated with each load call.
      * @returns {boolean} true if the default parser was set, false otherwise.
@@ -46,7 +48,7 @@ export default class StreamReader {
             return Promise.reject(new Error("[StreamProcessor] Expected 'filePath' to be a non-empty string."));
         }
 
-        // try {
+        try {
             const stream = await StreamReader.#createStream(filePath, options);
             const streamState = { 
                 buffer: new Uint8Array(0), 
@@ -78,10 +80,10 @@ export default class StreamReader {
             }
 
             // return the data the parser generated
-            return stream.parser.getDataWebGL();
-        // } catch (error) {
-        //     return Promise.reject(new Error(`[StreamProcessor] An error occured while attempting to fetch/read stream data: ${error}`));
-        // }
+            return stream.parser.getData();
+        } catch (error) {
+            return Promise.reject(error);
+        }
     }
 
     /** creates the reader and parser used by the file streaming logic */
@@ -95,7 +97,7 @@ export default class StreamReader {
                 const ParserInstance = StreamReader.#parseMap.get(extension);
                 parser = new ParserInstance(options);
             } else {
-                return Promise.reject(new Error(`Expected type of file '${filePath}' to be a parsable file type.`))
+                return Promise.reject(new Error(`Expected type of file '${filePath}' to be a parsable file type or a valid parser instance to be given.`))
             }
         }
 

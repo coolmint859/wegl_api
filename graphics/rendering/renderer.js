@@ -15,11 +15,11 @@ export default class Graphics3D {
     static #gl = Graphics3D.#canvas.getContext('webgl2', { alpha: true, antialias: true, preserveDrawingBuffer: false });
 
     static RenderType = Object.freeze({
-        PHONG: 'phong',
+        PHONG: 'blinn-phong',
         BASIC: 'basic',
         LIGHT: 'light',
-        TEXTURE: 'texture',
-        WATER: 'water'
+        TEXTURE: 'bp-texture',
+        WAVES: 'bp-waves'
     });
     static RenderMode = Object.freeze({
         POINTS: Graphics3D.#gl.POINTS,
@@ -82,10 +82,10 @@ export default class Graphics3D {
         this.ambientColor = Color.BLACK;
         this.clearColor = Color.CF_BLUE;
 
-        const shaderNames = ["basic", "phong", 'texture', 'water'];
+        const shaderNames = ["basic", "blinn-phong", 'bp-texture', 'bp-waves'];
         for (const name of shaderNames) {
-            let vertexPath = "shaders/" + name + ".vert";
-            let fragmentPath = "shaders/" + name + ".frag";
+            let vertexPath = "./graphics/shading/programs/" + name + ".vert";
+            let fragmentPath = "./graphics/shading/programs/" + name + ".frag";
 
             let shader = new Shader(name, vertexPath, fragmentPath);
             this.shaders.set(name, shader);
@@ -186,7 +186,7 @@ export default class Graphics3D {
             this.sceneObjects.push(object.debugModel);
         } else {
             if (object.renderType === null || !Object.values(Graphics3D.RenderType).includes(object.renderType)) {
-                object.renderType = this.RenderType.BASIC;
+                object.renderType = Graphics3D.RenderType.BASIC;
             }
 
             this.sceneObjects.push(object);
@@ -261,7 +261,7 @@ export default class Graphics3D {
                 setLightingAttribs(this, shader);
                 shouldUseTextures = true;
                 break;
-            case Graphics3D.RenderType.WATER:
+            case Graphics3D.RenderType.WAVES:
                 shader.setColor('ambientColor', this.ambientColor);
                 shader.setFloat('totalTime', totalTime);
                 setLightingAttribs(this, shader);

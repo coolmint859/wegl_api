@@ -16,6 +16,7 @@ export default class ResourceCollector {
         LOADED: 'loaded',
         FAILED: 'failed',
         PENDING_DISPOSAL: 'pending_disposal',
+        UNKNOWN: 'unknown'
     });
     static #cache = new Map();
     static #categoryMap = new Map();
@@ -35,6 +36,7 @@ export default class ResourceCollector {
      * @param {Function | null} options.onLoadFailure function called if the resource failed to load after all load attempts are exhausted. Should accept the resourcePath and an error object as parameters.
      * @param {Function | null} options.disposalCallback a function which is called when this resource is deleted from the cache if it loaded successfully beforehand. Should accept the stored data as a parameter.
      * @param {number | null} options.disposalDelay the amount of time in seconds before the resource is disposed after all consumers have released it
+     * @param {number | null} options.loadData data that is sent to the loadFunction when called.
      * @returns {Promise<any>} a promise that resolves with the loaded resource data on success
      */
     static async load(resourcePath, loadFunction, options={}) {
@@ -220,6 +222,23 @@ export default class ResourceCollector {
             console.log(`[ResourceCollector] Successfully stored preloaded resource '${alias}'.`)
             return true;
         }
+    }
+
+    /**
+     * Get the current loading status of a resource
+     * @param {string} resourcePath the path/url to the resource
+     * @returns {ResourceCollector.State} The state of the resource. If not found, States.UNKNOWN is returned
+     */
+    static statusOf(resourcePath) {
+        if (typeof resourcePath !== 'string' || resourcePath.trim() === '') {
+            console.error(`[ResourceCollector] TypeError: Expected 'resourcePath' to be a non-empty string. Cannot check resource status.`);
+            return ResourceCollector.States.UNKNOWN;
+        }
+        if (ResourceCollector.#cache.has(resourcePath)) {
+            const resourceInfo = ResourceCollector.#cache.get(resourcePath);
+            return resourceInfo.currentState;
+        }
+        return ResourceCollector.States.UNKNOWN;
     }
 
     /**

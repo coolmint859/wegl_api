@@ -1,0 +1,26 @@
+{
+    "path": "basic.vert",
+    "precisions": { "int": "mediump", "float": "lowp"},
+    "attributes": [
+        {
+            "name": "aPosition",
+            "location": 0,
+            "type": "vec3"
+        }
+    ],
+    "blocks": [
+        {
+            "name": "Scene",
+            "binding": 0,
+            "members": [
+                { "name": "uModel", "type": "mat4" },
+                { "name": "uView", "type": "mat4" },
+                { "name": "uProjection", "type": "mat4" },
+                { "name": "uCameraPos", "type": "vec3" }
+            ]
+        }
+    ],
+    "outputs": [],
+    "uniforms": [],
+    "structs": []
+}

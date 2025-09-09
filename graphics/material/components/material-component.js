@@ -1,3 +1,5 @@
+import ShaderProgram from "../../shading/shader2.js";
+
 /** Abstract class representing components for a Material */
 export default class MaterialComponent {
     static #ID_COUNTER = 0;
@@ -5,6 +7,7 @@ export default class MaterialComponent {
     #name;
     #refCount;
     #ID;
+    _isDirty;
 
     /**
      * This class is meant to be abstract. Instantiate a derived type to use it with a Material instance.
@@ -12,6 +15,7 @@ export default class MaterialComponent {
      */
     constructor(name) {
         this.#name = name;
+        this.#refCount = 0;
         this.#ID = MaterialComponent.#ID_COUNTER++;
     }
 
@@ -39,6 +43,28 @@ export default class MaterialComponent {
     }
 
     /**
+     * Retreive the number of references on this material component
+     */
+    get refCount() {
+        return this.#refCount;
+    }
+     /**
+     * Set the value of this material component. This method should be overriden.
+     * @param {any} value 
+     */
+    set value(value) {
+        throw new Error(`[MaterialComponent] This is an abstract class. Use a derived class to set the component value.`);
+    }
+
+    /**
+     * Get the value of this material component. This method should be overriden.
+     * @returns {any} the value associated with this material component 
+     */
+    get value() {
+        throw new Error(`[MaterialComponent] This is an abstract class. Use a derived class to get the component value.`);
+    }
+
+    /**
      * Acquire this material component for use.
      * @returns {MaterialComponent} a reference to this material component
      */
@@ -55,15 +81,7 @@ export default class MaterialComponent {
     }
 
     /**
-     * Check if this material component is currently referenced by a material.
-     * @returns {boolean} true if this component has at least one reference, false otherwise
-     */
-    isReferenced() {
-        return this.#refCount > 0;
-    }
-
-    /**
-     * Clone this material component
+     * Clone this material component. This method should be overriden.
      * @returns {MaterialComponent} a new Material Component with the same properties as this one.
      */
     clone() {
@@ -71,27 +89,20 @@ export default class MaterialComponent {
     }
 
     /**
-     * Set the property of this material component.
-     * @param {any} property 
-     */
-    set(property) {
-        throw new Error(`[MaterialComponent] This is an abstract class. Use a derived class to set the component property.`);
-    }
-
-    /**
-     * Get the property of this material component.
-     * @param {any} property 
-     */
-    get() {
-        throw new Error(`[MaterialComponent] This is an abstract class. Use a derived class to get the component property.`);
-    }
-
-    /**
-     * Check if the provided property is valid for this material component
+     * Check if the provided property is valid for this material component. This method should be overriden.
      * @param {any} property the property to check
      * @returns {boolean} true if the property is a valid type, false otherwise
      */
     validProperty(property) {
-        throw new Error(`[MaterialComponent] This is an abstract class. Use a derived class to validate properties.`);
+        throw new Error(`[MaterialComponent] This is an abstract class. Use a derived class to validate component values.`);
+    }
+
+    /**
+     * Apply this material component to a shader program. This method should be overriden.
+     * @param {ShaderProgram} shaderProgram the shader to apply the component to. Should already be in use.
+     * @returns {boolean} true if the component was applied to the shader, false otherwise.
+     */
+    applyToShader(shaderProgram) {
+        throw new Error(`[MaterialComponent] This is an abstract class. Use a derived class to apply components to shaders.`);
     }
 }

@@ -124,7 +124,7 @@ export default class Light {
      * Set whether this light casts shadows.
      * @param {boolean} castsShadows true if this light casts shadows, false otherwise
      */
-    set castShadowsEnabled(castsShadows) {
+    set castsShadows(castsShadows) {
         this.#castsShadows = castsShadows;
     }
 
@@ -154,7 +154,7 @@ export default class Light {
     }
 
     /**
-     * Retrieve this light's shadow map's bias
+     * Set this light's shadow map's bias
      * @param {number} bias the new shadow bias
      * @returns true if the shadow bias was successfully set, false otherwise
      */
@@ -168,7 +168,7 @@ export default class Light {
     }
 
     /**
-     * Retrieve this light's shadow normal bias
+     * Set this light's shadow normal bias
      * @param {number} normalBias the new shadow normal bias
      * @returns true if the shadow normal bias was successfully set, false otherwise
      */
@@ -203,7 +203,7 @@ export default class Light {
      */
     get debugModel() {
         if (this._debugModel) {
-            return this._debugModel; // TODO: need to implement clone method in Model class
+            return this._debugModel;
         }
         console.error("Cannot retrieve debug model of abstract Light instance. Please instatiate a subclass to get the Light debug model. If this light is of type DIRECTIONAL, no model exists.");
         return null;
