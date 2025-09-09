@@ -1,7 +1,7 @@
-import ResourceCollector from "../../utilities/containers/collector.js";
-import JSONParser from "../../utilities/file_parsing/json-parser.js";
-import GLSLParser from "../../utilities/file_parsing/glsl-parser.js";
-import StreamReader from "../../utilities/file_parsing/stream-reader.js";
+import ResourceCollector from "../utilities/containers/collector.js";
+import JSONParser from "../utilities/file_parsing/json-parser.js";
+import GLSLParser from "../utilities/file_parsing/glsl-parser.js";
+import StreamReader from "../utilities/file_parsing/stream-reader.js";
 import ShaderProgram from "./shader2.js";
 import ShaderValidator from "./shader-validator.js";
 

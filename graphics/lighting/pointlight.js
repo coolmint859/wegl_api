@@ -1,10 +1,10 @@
-import { Vector3 } from "../../utilities/math/vector.js";
-import Color from "../../utilities/containers/color.js";
+import { Vector3 } from "../utilities/math/vector.js";
+import Color from "../utilities/containers/color.js";
 import Light from "./light.js";
 import Graphics3D from "../rendering/renderer.js";
 import { generateSphere } from "../modeling/model.js";
 import Material from "../modeling/material.js";
-import Transform from "../../utilities/containers/transform.js";
+import Transform from "../utilities/containers/transform.js";
 
 /**
  * Represents a pointlight

@@ -1,4 +1,4 @@
-import Quaternion from "../../../utilities/math/quaternion.js";
+import Quaternion from "../../utilities/math/quaternion.js";
 import MaterialComponent from "./material-component.js";
 
 export default class QuatComponent extends MaterialComponent {

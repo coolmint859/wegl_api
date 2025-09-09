@@ -1,5 +1,5 @@
-import Color from "../../utilities/containers/color.js";
-import { Vector2 } from "../../utilities/math/vector.js";
+import Color from "../utilities/containers/color.js";
+import { Vector2 } from "../utilities/math/vector.js";
 import Graphics3D from "../rendering/renderer.js";
 
 /**

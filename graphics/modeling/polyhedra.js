@@ -1,6 +1,6 @@
-import Transform from "../../utilities/containers/transform.js";
-import Quaternion, { EulerOrder } from "../../utilities/math/quaternion.js";
-import { Vector3, Vector4 } from "../../utilities/math/vector.js";
+import Transform from "../utilities/containers/transform.js";
+import Quaternion, { EulerOrder } from "../utilities/math/quaternion.js";
+import { Vector3, Vector4 } from "../utilities/math/vector.js";
 
 /** -------------------------------------- PLATONIC SOLIDS -------------------------------------- */
 

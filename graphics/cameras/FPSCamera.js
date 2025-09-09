@@ -1,8 +1,8 @@
 import MoveableCamera from "./mCamera.js";
-import Quaternion from "../../utilities/math/quaternion.js";
-import Transform from "../../utilities/containers/transform.js";
-import { Matrix4 } from "../../utilities/math/matrix.js";
-import { Vector3 } from "../../utilities/math/vector.js";
+import Quaternion from "../utilities/math/quaternion.js";
+import Transform from "../utilities/containers/transform.js";
+import { Matrix4 } from "../utilities/math/matrix.js";
+import { Vector3 } from "../utilities/math/vector.js";
 
 /**
  * FPS style camera, where the movements of such are directly controlled by the user

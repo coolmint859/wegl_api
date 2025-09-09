@@ -1,5 +1,5 @@
-import ResourceCollector from "../../utilities/containers/collector.js";
-import Color from "../../utilities/containers/color.js";
+import ResourceCollector from "../utilities/containers/collector.js";
+import Color from "../utilities/containers/color.js";
 import Graphics3D from "../rendering/renderer.js";
 
 export default class TextureManager {

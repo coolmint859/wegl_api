@@ -1,9 +1,9 @@
-import { Vector2, Vector3, Vector4 } from "../../utilities/math/vector.js";
-import { Matrix2, Matrix3, Matrix4 } from "../../utilities/math/matrix.js";
+import { Vector2, Vector3, Vector4 } from "../utilities/math/vector.js";
+import { Matrix2, Matrix3, Matrix4 } from "../utilities/math/matrix.js";
 import Texture from "./texture.js";
 import Shader from "../shading/shader.js";
-import Color from "../../utilities/containers/color.js";
-import EventScheduler from "../../utilities/scheduler.js";
+import Color from "../utilities/containers/color.js";
+import EventScheduler from "../utilities/scheduler.js";
 
 /**
  * Used to give renderable objects a 'look', with optional textures. Capable of being used by multiple consumers.

@@ -1,4 +1,4 @@
-import Color from "../../../utilities/containers/color.js";
+import Color from "../../utilities/containers/color.js";
 import MaterialComponent from "./material-component.js";
 
 export default class ColorComponent extends MaterialComponent {

@@ -1,4 +1,4 @@
-import ResourceCollector from "../../utilities/containers/collector.js";
+import ResourceCollector from "../utilities/containers/collector.js";
 import Graphics3D from "../rendering/renderer.js";
 
 export default class ShaderProgram {

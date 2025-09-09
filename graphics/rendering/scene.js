@@ -1,4 +1,4 @@
-import Color from "../../utilities/color.js";
+import Color from "../utilities/color.js";
 import Model from "../modeling/polyhedra.js";
 import Camera from "../cameras/camera.js";
 import Light from "../lighting/light.js";

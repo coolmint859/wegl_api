@@ -1,5 +1,5 @@
 import Graphics3D from '../rendering/renderer.js';
-import ResourceCollector from '../../utilities/containers/collector.js';
+import ResourceCollector from '../utilities/containers/collector.js';
 
 /**
  * Represents a WebGL texture with the specified path and options.

@@ -1,4 +1,4 @@
-import { Matrix4 } from "../../../utilities/math/matrix.js";
+import { Matrix4 } from "../../utilities/math/matrix.js";
 import MaterialComponent from "./material-component.js";
 
 export default class Mat4Component extends MaterialComponent {

@@ -1,5 +1,5 @@
-import { Vector3 } from "../../utilities/vector.js";
-import Color from "../../utilities/color.js";
+import { Vector3 } from "../utilities/vector.js";
+import Color from "../utilities/color.js";
 import Light from "./light.js";
 
 export default class DirectLight extends Light {

@@ -1,7 +1,7 @@
-import { Vector3 } from "../../utilities/math/vector.js";
-import { Matrix4 } from "../../utilities/math/matrix.js";
-import Transform from "../../utilities/containers/transform.js";
-import Quaternion from "../../utilities/math/quaternion.js";
+import { Vector3 } from "../utilities/math/vector.js";
+import { Matrix4 } from "../utilities/math/matrix.js";
+import Transform from "../utilities/containers/transform.js";
+import Quaternion from "../utilities/math/quaternion.js";
 
 /** Provides common attributes/methods for all camera types. This class is abstract and should not be instatiated directly */
 export default class Camera {

@@ -1,5 +1,5 @@
-import Color from "../../utilities/containers/color.js";
-import EventScheduler from "../../utilities/scheduler.js";
+import Color from "../utilities/containers/color.js";
+import EventScheduler from "../utilities/scheduler.js";
 import ShaderProgram from "../shading/shader2.js";
 import ColorComponent from "./components/color-component.js";
 import MaterialComponent from "./components/material-component.js";

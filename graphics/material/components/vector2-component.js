@@ -1,4 +1,4 @@
-import { Vector2 } from "../../../utilities/math/vector.js";
+import { Vector2 } from "../../utilities/math/vector.js";
 import MaterialComponent from "./material-component.js";
 
 export default class Vec2Component extends MaterialComponent {

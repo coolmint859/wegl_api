@@ -1,4 +1,4 @@
-import { Vector3 } from "../../utilities/math/vector.js";
+import { Vector3 } from "../utilities/math/vector.js";
 
 /**
  * Generates the final model arrays (Float32Array for vertices, normals, textureCoords; Uint16Array for indices)

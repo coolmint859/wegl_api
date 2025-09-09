@@ -1,8 +1,8 @@
 import Graphics3D from '../rendering/renderer.js';
-import { Vector2, Vector3, Vector4 } from '../../utilities/math/vector.js';
-import { Matrix2, Matrix3, Matrix4 } from '../../utilities/math/matrix.js';
-import Color from '../../utilities/containers/color.js';
-import ResourceCollector from '../../utilities/containers/collector.js';
+import { Vector2, Vector3, Vector4 } from '../utilities/math/vector.js';
+import { Matrix2, Matrix3, Matrix4 } from '../utilities/math/matrix.js';
+import Color from '../utilities/containers/color.js';
+import ResourceCollector from '../utilities/containers/collector.js';
 
 /**
  * Represents a generic shader program. Handling creation, linking, and setting uniforms.

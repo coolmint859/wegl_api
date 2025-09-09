@@ -1,8 +1,8 @@
 import FPSCamera from "../cameras/FPSCamera.js";
 import Shader from "../shading/shader.js";
-import Color from "../../utilities/containers/color.js";
-import { Matrix4 } from "../../utilities/math/matrix.js";
-import EventScheduler from "../../utilities/scheduler.js";
+import Color from "../utilities/containers/color.js";
+import { Matrix4 } from "../utilities/math/matrix.js";
+import EventScheduler from "../utilities/scheduler.js";
 import Camera from "../cameras/camera.js";
 import ShaderManager from "../shading/shader_manager.js";
 import Light from "../lighting/light.js";
