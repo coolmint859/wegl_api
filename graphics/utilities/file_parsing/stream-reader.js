@@ -1,4 +1,5 @@
 import Parser from "./base_parser.js";
+import GLSLParser from "./glsl-parser.js";
 import JSONParser from "./json-parser.js";
 import PLYParser from "./ply_parser.js";
 
@@ -9,6 +10,8 @@ export default class StreamReader {
     static #parseMap = new Map([
         ['ply', PLYParser],
         ['json', JSONParser],
+        ['vert', GLSLParser],
+        ['frag', GLSLParser],
         // ['obj', OBJParser],
     ]);
     static MAX_READER_DONE_COUNT = 3;

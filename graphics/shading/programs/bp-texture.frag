@@ -3,40 +3,37 @@ precision lowp float;
 precision mediump int;
 precision highp sampler2D;
 
-// material
-struct Material {
-    sampler2D diffuseMap;
-    sampler2D specularMap;
-    float shininess;
-};
-
-// pointlights
-struct PointLight {
-    vec3 position;
-    vec3 emmissiveColor;
-    float attenConst;
-    float attenLinear;
-    float attenQuad;
-};
-
-uniform Material material;
-
-uniform PointLight pointLights[5];
-uniform vec3 ambientColor;
-uniform int numLights;
-uniform mat4 view; 
-
 in vec2 vTexCoord;
 in vec3 frag_normal;
 in vec3 eyeSpace_vector;
 
 out vec4 outColor;
 
-float near = 0.1;
-float far = 100.0;
+// material
+struct Material {
+    sampler2D diffuseMap;
+    sampler2D specularMap;
+    float shininess;
+};
+uniform Material material;
+
+// pointlights
+struct PointLight {
+    vec3 position;
+    vec3 emissiveColor;
+    float attenConst;
+    float attenLinear;
+    float attenQuad;
+};
+uniform PointLight pointLights[5];
+uniform int numPointLights;
+
+uniform vec3 ambientColor;
+uniform mat4 uView;
 
 float linearizeDepth(float depth) 
 {
+    float near = 0.1; float far = 100.0;
     float z = depth * 2.0 - 1.0; // back to NDC 
     return (2.0 * near * far) / (far + near - z * (far - near));	
 }
@@ -50,7 +47,7 @@ vec3 calculatePointLight(vec3 diffMapColor, vec3 specMapColor, PointLight light,
 
     // diffuse
     float diffuse_impact = max(dot(N, L), 0.0);
-    vec3 diffuse = diffMapColor * light.emmissiveColor * diffuse_impact;
+    vec3 diffuse = diffMapColor * light.emissiveColor * diffuse_impact;
 
     // I use blinn-phong for specular instead, I think it looks nicer
     if (material.shininess >= 0.175) {
@@ -76,12 +73,12 @@ void main()
     vec3 N = normalize(frag_normal);
     vec3 V = normalize(-eyeSpace_vector);
     vec3 fragColor = vec3(0.0);
-    for (int i = 0; i < numLights; i++) 
+    for (int i = 0; i < numPointLights; i++) 
     {
         PointLight light = pointLights[i];
         vec4 lightPos = vec4(light.position, 1.0);
 
-        vec3 light_vector = (view * lightPos).xyz - eyeSpace_vector;
+        vec3 light_vector = (uView * lightPos).xyz - eyeSpace_vector;
         vec3 L = normalize(light_vector);
         float light_dist = length(light_vector);
 

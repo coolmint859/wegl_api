@@ -4,6 +4,7 @@ import Light from "./light.js";
 
 export default class DirectLight extends Light {
     #direction;
+    #name;
 
     /**
      * Create a new DirectionalLight instance
@@ -13,6 +14,7 @@ export default class DirectLight extends Light {
      */
     constructor(color, intensity, direction) {
         super(color, intensity);
+        this.#name = 'directionalLights';
 
         let directionVector;
         if (!(direction instanceof Vector3)) {
@@ -46,5 +48,10 @@ export default class DirectLight extends Light {
         }
         this.#direction = direction.clone().normal();
         return true;
+    }
+
+    applyToShader(shaderProgram, index) {
+        const elementPrefix = `${this.#name}[${index}].`;
+        shaderProgram.applyToShader(elementPrefix + 'direction', this.#direction);
     }
 }

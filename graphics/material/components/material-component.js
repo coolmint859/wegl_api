@@ -98,11 +98,12 @@ export default class MaterialComponent {
     }
 
     /**
-     * Apply this material component to a shader program. This method should be overriden.
+     * Apply this material component to a shader program. This method should be overidden.
      * @param {ShaderProgram} shaderProgram the shader to apply the component to. Should already be in use.
+     * @param {string} parentName the name of this component's parent container, default is an empty string
      * @returns {boolean} true if the component was applied to the shader, false otherwise.
      */
-    applyToShader(shaderProgram) {
+    applyToShader(shaderProgram, parentName = "") {
         throw new Error(`[MaterialComponent] This is an abstract class. Use a derived class to apply components to shaders.`);
     }
 }

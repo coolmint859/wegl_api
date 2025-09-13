@@ -13,32 +13,19 @@
             "type": "vec3"
         }
     ],
-    "blocks": [
-        {
-            "name": "SceneData",
-            "binding": 0,
-            "members": [
-                { "name": "uModel", "type": "mat4" },
-                { "name": "uView", "type": "mat4" },
-                { "name": "uProjection", "type": "mat4" },
-                { "name": "uCameraPos", "type": "vec3" }
-            ]
-        },
-        {
-            "name": "LightData",
-            "binding": 1,
-            "members": [
-                { "name": "pointLights", "type": "PointLight", "maxCount": 5 },
-                { "name": "numPointLights", "type": "int" }
-            ]
-        }
-    ],
+    "blocks": [],
     "outputs": [
         { "name": "vNormal", "type": "vec3" },
         { "name": "vViewDir", "type": "vec3" },
-        { "name": "vPointLightVectors", "type": "vec3", "maxCount": 5 }
+        { "name": "vPointLightVectors", "type": "vec3", "isArray": true, "maxSize": 5 }
     ],
-    "uniforms": [],
+    "uniforms": [
+        { "name": "uModel", "type": "mat4" },
+        { "name": "uView", "type": "mat4" },
+        { "name": "uProjection", "type": "mat4" },
+        { "name": "pointLights", "type": "PointLight", "isArray": true, "maxSize": 5 },
+        { "name": "numPointLights", "type": "int" }
+    ],
     "structs": [
         {
             "name": "PointLight",

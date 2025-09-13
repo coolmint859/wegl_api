@@ -10,10 +10,11 @@ import Transform from "../utilities/containers/transform.js";
  * Represents a pointlight
  */
 export default class PointLight extends Light {
+    #name;
+
     #attenConstant = 1;
     #attenLinear = 0;
     #attenQuadratic = 0;
-
     #position;
 
     /**
@@ -24,6 +25,7 @@ export default class PointLight extends Light {
      */
     constructor(color, intensity, position) {
         super(color, intensity);
+        this.#name = 'pointLights';
 
         let positionVector;
         if (!(position instanceof Vector3)) {
@@ -136,12 +138,12 @@ export default class PointLight extends Light {
         }
     }
 
-    applyToShader(shader, index) {
-        const currentLightName = "pointLights[" + index + "]";
-        shader.setColor(currentLightName + ".emissiveColor", this._color);
-        shader.setFloat(currentLightName + ".attenConst", this.#attenConstant);
-        shader.setFloat(currentLightName + ".attenLinear", this.#attenLinear);
-        shader.setFloat(currentLightName + ".attenQuad", this.#attenQuadratic);
-        shader.setVector3(currentLightName + ".position", this.#position);
+    applyToShader(shaderProgram, index) {
+        const elementPrefix = "pointLights[" + index + "].";
+        shaderProgram.setUniform(elementPrefix + "emissiveColor", this._color);
+        shaderProgram.setUniform(elementPrefix + "attenConst", this.#attenConstant);
+        shaderProgram.setUniform(elementPrefix + "attenLinear", this.#attenLinear);
+        shaderProgram.setUniform(elementPrefix + "attenQuad", this.#attenQuadratic);
+        shaderProgram.setUniform(elementPrefix + "position", this.#position);
     }
 }

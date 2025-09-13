@@ -1,3 +1,4 @@
+import ShaderProgram from "../../shading/shader2.js";
 import Color from "../../utilities/containers/color.js";
 import MaterialComponent from "./material-component.js";
 
@@ -6,10 +7,10 @@ export default class ColorComponent extends MaterialComponent {
 
     /**
      * Create a new material color component
-     * @param {string} name the name of the color component
      * @param {Color} color the color to store in the component (default = black)
+     * @param {string} name the name of the color component
      */
-    constructor(name, color) {
+    constructor(color, name) {
         super(name);
         this.value = color;
     }
@@ -54,12 +55,13 @@ export default class ColorComponent extends MaterialComponent {
 
     /**
      * Apply this material's components to a shader program.
-     * @param {Shader} shaderProgram the shader to apply the material to. Should already be in use.
+     * @param {ShaderProgram} shaderProgram the shader to apply the material to. Should already be in use.
+     * @param {string} parentName the name of this component's parent container, default is an empty string
      * @returns {boolean} true if the material was applied to the shader, false otherwise.
      */
-    applyToShader(shaderProgram) {
+    applyToShader(shaderProgram, parentName) {
         if (!this._isDirty) return;
-        shaderProgram.setUniform(this.name, this.#color);
+        shaderProgram.setUniform(parentName + this.name, this.#color);
         this._isDirty = false;
     } 
 }

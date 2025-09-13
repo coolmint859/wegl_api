@@ -4,13 +4,13 @@
     "blocks": [],
     "inputs": [],
     "uniforms": [
-        { "name": "material", "type": "Material"}
+        { "name": "material", "type": "Material", "aliases": ["u_Material"]}
     ],
     "structs": [
         {
             "name": "Material",
             "members": [
-                { "name": "diffuseColor", "type": "vec3"}
+                { "name": "diffuseColor", "type": "vec3", "aliases": ["baseColor", "albedoColor"]}
             ]
         }
     ]

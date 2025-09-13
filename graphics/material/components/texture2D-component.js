@@ -1,25 +1,18 @@
 import MaterialComponent from "./material-component.js";
 import TextureManager from "../texture-manager.js";
+import ShaderProgram from "../../shading/shader2.js";
 
 export default class TexComponent extends MaterialComponent {
-    static Type = Object.freeze({
-        'DIFFUSE': 'diffuse',
-        'SPECULAR': 'specular',
-        'NORMAL': 'normal',
-        'PARALLAX': 'parallax'
-    });
     #texturePath = "";
-    #textureType = "";
     #configOptions = null;
 
     /**
-     * Create a new material texture component
+     * Create a new texture component
      * @param {string} name the name of the texture component
      * @param {string} texturePath the path to the texture to store in the component
-     * @param {Texture2DComponent.Type} textureType the type of this texture.
      * @param {object} options webgl texture configuration options (see docs for possible values)
      */
-    constructor(name, texturePath, textureType, options={}) {
+    constructor(name, texturePath, options={}) {
         super(name);
         this.set(texturePath, textureType, options);
     }
@@ -30,12 +23,11 @@ export default class TexComponent extends MaterialComponent {
      * @param {Texture2DComponent.Type} textureType the type of this texture.
      * @param {object} options webgl texture configuration options (see docs for possible values)
      */
-    set(texturePath, textureType, options={}) {
+    set(texturePath, options={}) {
         if (!this.validTexture(texturePath, textureType)) {
             console.warn(`[TexComponent] Expected 'texturePath' to be a non-empty string and 'textureType' to be a valid texture type. Unable to load texture.`)
         } else {
             this.#texturePath = texturePath;
-            this.#textureType = textureType;
             this.#configOptions = options;
             
             if (TextureManager.contains(this.#texturePath)) {
@@ -76,16 +68,7 @@ export default class TexComponent extends MaterialComponent {
     }
 
     /**
-     * Acquire this texture for use.
-     * @returns {TexComponent} a reference to this texture component
-     */
-    acquire() {
-        super.acquire();
-        return this;
-    }
-
-    /**
-     * Release this texture from use.
+     * Release this material component from use.
      */
     release() {
         super.release();
@@ -115,8 +98,7 @@ export default class TexComponent extends MaterialComponent {
     clone() {
         return new TexComponent(
             this.name, 
-            this.#texturePath, 
-            this.#textureType, 
+            this.#texturePath,
             this.#configOptions
         );
     }
@@ -124,9 +106,10 @@ export default class TexComponent extends MaterialComponent {
     /**
      * Apply the texture to a shader program. If the texture has not yet loaded, a default is applied instead.
      * @param {ShaderProgram} shaderProgram the shader to apply the material to. Should already be in use.
+     * @param {string} parentName the name of this component's parent container, default is an empty string
      * @returns {boolean} true if the material was applied to the shader, false otherwise.
      */
-    applyToShader(shaderProgram) {
+    applyToShader(shaderProgram, parentName = "") {
         if (!this._isDirty) return;
 
         let glTexture;
@@ -136,7 +119,7 @@ export default class TexComponent extends MaterialComponent {
             glTexture = TextureManager.createDefault(this.#configOptions.defaultColor);
         }
 
-        shaderProgram.setSampler2D(this.name, glTexture);
+        shaderProgram.setSampler2D(parentName + this.name, glTexture);
         this._isDirty = false;
     }
 }

@@ -1,3 +1,4 @@
+import ShaderProgram from "../../shading/shader2.js";
 import { Matrix4 } from "../../utilities/math/matrix.js";
 import MaterialComponent from "./material-component.js";
 
@@ -6,10 +7,10 @@ export default class Mat4Component extends MaterialComponent {
 
     /**
      * Create a new material matrix component
-     * @param {string} name the name of the matrix component
      * @param {Matrix4} matrix the matrix to store in the component
+     * @param {string} name the name of the matrix component
      */
-    constructor(name, matrix) {
+    constructor(matrix, name) {
         super(name);
         this.value = matrix;
     }
@@ -55,11 +56,12 @@ export default class Mat4Component extends MaterialComponent {
     /**
      * Apply this material's components to a shader program.
      * @param {ShaderProgram} shaderProgram the shader to apply the material to. Should already be in use.
+     * @param {string} parentName the name of this component's parent container, default is an empty string
      * @returns {boolean} true if the material was applied to the shader, false otherwise.
      */
-    applyToShader(shaderProgram) {
+    applyToShader(shaderProgram, parentName = "") {
         if (!this._isDirty) return;
-        shaderProgram.setUniform(this.name, this.#matrix);
+        shaderProgram.setUniform(parentName + this.name, this.#matrix);
         this._isDirty = false;
     }
 }

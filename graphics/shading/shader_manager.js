@@ -1,32 +1,60 @@
 import ResourceCollector from "../utilities/containers/collector.js";
-import JSONParser from "../utilities/file_parsing/json-parser.js";
-import GLSLParser from "../utilities/file_parsing/glsl-parser.js";
 import StreamReader from "../utilities/file_parsing/stream-reader.js";
 import ShaderProgram from "./shader2.js";
 import ShaderValidator from "./shader-validator.js";
 
+/**
+ * Intitializes shader programs to be used throughout the runtime environment
+ */
 export default class ShaderManager {
     static ATTRIB_LOCATION_VERTEX = 0;
     static ATTRIB_LOCATION_NORMAL = 1;
     static ATTRIB_LOCATION_UV = 2;
 
-    static #shaderConfigPath = "./graphics/shading/configs/shader.json";
+    static shaderConfigDirectory = "./graphics/shading/configs/";
+    static shaderFileDirectory = "./graphics/shading/programs/";
+
     static #shaderPrograms = new Map();
     static #isReady = false;
     static #bestFitThreshold = 0.75;
+    static #inclusionWeight = 2;
+    static #exclusionWeight = 1; 
 
     /**
      * Initialize the shader manager to preload common shaders (only compiles the basic shader).
      */
-    static init() {
-        StreamReader.read(ShaderManager.#shaderConfigPath)
-        .then(shaderConfigs => {
-            for (const config of shaderConfigs) {
-                ShaderManager.#loadShaderConfigs(config).then(
-                    mergedConfig => ShaderManager.#loadShaderFiles(config.name, mergedConfig)
-                )
+    static async init() {
+        const shaderConfigs = await StreamReader.read(ShaderManager.shaderConfigDirectory + 'shader.json')
+        for (const configPair of shaderConfigs) {
+            const mergedConfig = await ShaderManager.#loadConfigPair(configPair);
+            const { vertexSource, fragmentSource } = await ShaderManager.#loadShaderFiles(mergedConfig)
+
+            let shaderProgram = ShaderManager.#shaderPrograms.get(mergedConfig.shaderName)
+            if (shaderProgram === undefined) {
+                shaderProgram = new ShaderProgram(mergedConfig.shaderName, vertexSource, fragmentSource, mergedConfig.config);
+                ShaderManager.#shaderPrograms.set(mergedConfig.shaderName, shaderProgram);
             }
-        });
+
+            shaderProgram.build().then(programID => {
+                if (mergedConfig.shaderName === 'basic') {
+                    // console.log(shaderProgram.capabilityMap);
+                    // console.log(shaderProgram.trueCapabilities);
+                }
+            })
+
+            // construct basic shader immediately.
+            // if (mergedConfig.shaderName === 'basic') {
+            //     shaderProgram.build().then(programID => {
+            //         if (programID) {
+            //             ShaderManager.#isReady = true
+
+            //             console.log(shaderProgram.capabilityMap);
+            //             console.log(shaderProgram.trueCapabilities);
+            //         }
+            //     });
+            // }
+        }
+        ShaderManager.#isReady = true
     }
 
     /**
@@ -49,11 +77,15 @@ export default class ShaderManager {
         this.#bestFitThreshold = threshold;
     }
 
+    static get bestFitWeights() {
+
+    }
+
     /**
      * Check if at least the basic shader is loaded and compiled.
      * @returns {boolean} true if the shader manager is ready, false otherwise
      */
-    static isReady() {
+    static get isReady() {
         return ShaderManager.#isReady;
     }
 
@@ -67,7 +99,7 @@ export default class ShaderManager {
             console.error(`[ShaderManager] Error: Could not find shader '${shaderName}' in set of registered shaders.`);
             return false;
         }
-        return ShaderManager.#shaderPrograms.get(shaderName).isReady;
+        return ShaderManager.#shaderPrograms.get(shaderName).isLinked;
     }
 
     /**
@@ -113,73 +145,147 @@ export default class ShaderManager {
         if (!ShaderManager.#shaderPrograms.has(shaderName)) {
             console.error(`[ShaderManager] Error: Could not find shader '${shaderName}' in set of registered shaders.`);
             return false;
+        } 
+        if (shaderName === 'basic') {
+            console.error(`[ShaderManager] Error: Cannot remove shader 'basic' as it is the default shader.`);
+            return false;
         }
         return ShaderManager.#shaderPrograms.delete(shaderName);
     }
 
     /**
-     * Find the best fit shader for a mesh given it's capabilities. 
+     * Find the best fit shader for an object in a scene given the combined capabilities. 
      * Shaders of which the compatibility score is less than the best fit threshold are always rejected, even if they are the best fit.
-     * @param {Array<string>} meshCapabilities an array of capabilities of a mesh. 
-     * @returns {Promise<string>} a promise that resolves with the name of the shader that best fits the given mesh capabilities
+     * @param {Array<string>} objectCapabilities an array of capabilities of a mesh. 
+     * @returns {string} the name of the shader that best fits the given mesh capabilities, if ready.
      */
-    static async bestFitShader(meshCapabilities) {
-        let bestFitShader = "basic", bestScore = 0;
+    static bestFitShader(objectCapabilities) {
+        let bestFitShader = ShaderManager.#shaderPrograms.get("basic");
+        let bestFitName = "basic", bestScore = 0;
+
         for (const [shaderName, shader] of ShaderManager.#shaderPrograms) {
-            // find number of supported capabilities
-            let numSupported = 0;
-            for (const meshCap of meshCapabilities) {
-                if (shader.capabilities.includes(meshCap)) {
-                    numSupported++;
+
+            const capabilityMap = shader.capabilityMap;
+            const shaderCapabilities = shader.trueCapabilities;
+
+            // find number of shader supported capabilities (inclusion)
+            let shaderSupported = 0;
+            const trueObjectNames = [];
+            for (const meshCap of objectCapabilities) {
+                const trueName = capabilityMap.get(meshCap);
+                if (trueName !== undefined) {
+                    shaderSupported += 1;
+                    trueObjectNames.push(trueName);
                 }
             }
+            const inclusionScore = shaderSupported / objectCapabilities.length;
 
-            // calculate and compare scores
-            const score = numSupported/meshCapabilities.length;
-            if (score > bestScore && score > ShaderManager.bestFitThreshold) {
-                bestFitShader = shaderName;
-                bestScore = score;
+            // find number of object supported capabilities (exclusion)
+            let objectSupported = 0;
+            for (const shaderCap of shaderCapabilities) {
+                if (trueObjectNames.includes(shaderCap)) {
+                    objectSupported +=1;
+                }
+            }
+            const exclusionScore = objectSupported / shaderCapabilities.length;
+
+            // calculate best fit score using weighted average
+            const inWeight = ShaderManager.#inclusionWeight;
+            const exWeight = ShaderManager.#exclusionWeight;
+            const weightSum = inWeight + exWeight;
+            const bestFitScore = (inWeight * inclusionScore + exWeight * exclusionScore) / weightSum;
+
+            console.log("shaderName: ", shaderName);
+            console.log("capabilityMap: ", capabilityMap);
+            console.log("objectCapabilities: ", trueObjectNames);
+            console.log("shaderCapabilities: ", shaderCapabilities);
+            console.log("inclusionScore: ", inclusionScore);
+            console.log("exclusionScore: ", exclusionScore);
+            console.log("bestFitScore: ", bestFitScore);
+
+            // compare best scores
+            if (bestFitScore > bestScore && bestFitScore > ShaderManager.bestFitThreshold) {
+                bestFitName = shaderName;
+                bestFitShader = shader;
+                bestScore = bestFitScore;
             }
         }
 
-        // wait for the shader to build the program before returning
-        if (!ShaderManager.#shaderPrograms.get(bestFitShader).isReady()) {
-            const programID = await ShaderManager.#shaderPrograms.get(bestFitShader).build();
-            // if the programID is null, this means shader compilation failed - default to basic shader
-            if (programID === null) {
-                bestFitShader = "basic";
-            }
-        }
+        // // if the shader isn't linked yet and isn't being built yet, build it, and set the best fit shader to 'basic',
+        // if (!bestFitShader.isReady) {
+        //     bestFitName = 'basic';
+        //     if (!bestFitShader.isLoading) bestFitShader.build(); 
+        // }
 
-        return bestFitShader;
+        return bestFitName;
     }
 
-    /** loads and stores shader config files in ResourceCollector. Returns the merged, validated shader config */
-    static async #loadShaderConfigs(shaderConfig) {
+    /** loads and merges shader configs and creates shader programs from them */
+    static async #setupShaders(shaderConfig) {
+        ShaderManager.#loadConfigPair(shaderConfig.name, shaderConfig.vertex_config, shaderConfig.fragment_config)
+        .then(mergedConfig => {
+            ShaderManager.#loadShaderFiles(mergedConfig)
+            .then(shaderSources => {
+                const { vertexSource, fragmentSource } = shaderSources;
+
+                let shaderProgram = ShaderManager.#shaderPrograms.get(mergedConfig.shaderName)
+                if (!shaderProgram) {
+                    shaderProgram = new ShaderProgram(mergedConfig.shaderName, vertexSource, fragmentSource, mergedConfig.config);
+                    ShaderManager.#shaderPrograms.set(mergedConfig.shaderName, shaderProgram);
+                }
+
+                shaderProgram.build().then(programID => {
+                    if (programID) {
+                        ShaderManager.#isReady = true
+
+                        console.log(shaderProgram.capabilityMap);
+                        console.log(shaderProgram.trueCapabilities);
+                    }
+                })
+
+                // construct basic shader immediately.
+                // if (mergedConfig.shaderName === 'basic') {
+                //     shaderProgram.build().then(programID => {
+                //         if (programID) {
+                //             ShaderManager.#isReady = true
+
+                //             console.log(shaderProgram.capabilityMap);
+                //             console.log(shaderProgram.trueCapabilities);
+                //         }
+                //     });
+                // }
+            });
+        })
+    }
+
+    /** loads and stores shader config pairs in ResourceCollector. Returns the merged, validated shader config */
+    static async #loadConfigPair(configPair) {
         try {
             const category = 'shader-config';
             const loadTimeout = 5; // seconds
 
             // load in vertex config
-            const vertConfigPath = `./graphics/shading/configs/${shaderConfig.vertex_config}`;
+            const vertConfigPath = ShaderManager.shaderConfigDirectory + configPair.vertex_config;
             let vertexConfig;
             if (ResourceCollector.contains(vertConfigPath)) {
                 vertexConfig = await ResourceCollector.getWhenLoaded(vertConfigPath);
+                ResourceCollector.acquire(vertConfigPath);
             } else {
                 vertexConfig = await ResourceCollector.load(vertConfigPath, StreamReader.read, { category, loadTimeout });
             }
 
             // load in fragment config
-            const fragConfigPath = `./graphics/shading/configs/${shaderConfig.fragment_config}`;
+            const fragConfigPath = ShaderManager.shaderConfigDirectory + configPair.fragment_config;
             let fragmentConfig;
             if (ResourceCollector.contains(fragConfigPath)) {
                 fragmentConfig = await ResourceCollector.getWhenLoaded(fragConfigPath);
+                ResourceCollector.acquire(fragConfigPath);
             } else {
                 fragmentConfig = await ResourceCollector.load(fragConfigPath, StreamReader.read, { category, loadTimeout });
             }
 
             // return the validated and merged configs
-            return ShaderValidator.validate(shaderConfig.name, vertexConfig, fragmentConfig);
+            return ShaderValidator.validate(configPair.name, vertexConfig, fragmentConfig);
         } catch (error) {
             console.error(`[ShaderManager] An error occurred during shader config loading:\n${error}`);
             throw error;
@@ -187,38 +293,36 @@ export default class ShaderManager {
     }
 
     /** loads and stores shader source code in ResourceCollector, creates a new shader program from them, and stores it in the shader map*/
-    static #loadShaderFiles(shaderName, shaderConfig) {
-        console.log(shaderConfig);
+    static async #loadShaderFiles(shaderConfig) {
+        // console.log(shaderConfig);
         try {
             const category = 'shader-source';
             const loadTimeout = 5; // seconds
 
-            const vertexPath = `./graphics/shading/programs/${shaderConfig.vertexPath}`;
-            if (!ResourceCollector.contains(vertexPath)) {
-                ResourceCollector.load(
-                    vertexPath, StreamReader.read, 
-                    { category, loadTimeout, parser: new GLSLParser() }
-                );
+            const pollTimeout = 3;
+            const pollInterval = 0.2;
+
+            // load in vertex source
+            const vertexPath = ShaderManager.shaderFileDirectory + shaderConfig.vertexPath;
+            let vertexSource;
+            if (ResourceCollector.contains(vertexPath)) {
+                vertexSource = await ResourceCollector.getWhenLoaded(vertexPath, { pollTimeout, pollInterval });
+                ResourceCollector.acquire(vertexPath);
+            } else {
+                vertexSource = await ResourceCollector.load(vertexPath, StreamReader.read, { category, loadTimeout });
             }
 
-            const fragmentPath = `./graphics/shading/programs/${shaderConfig.fragmentPath}`;
-            if (!ResourceCollector.contains(fragmentPath)) {
-                ResourceCollector.load(
-                    fragmentPath, StreamReader.read, 
-                    { category, loadTimeout, parser: new GLSLParser() }
-                );
+            // load in fragment source
+            const fragmentPath = ShaderManager.shaderFileDirectory + shaderConfig.fragmentPath;
+            let fragmentSource;
+            if (ResourceCollector.contains(fragmentPath)) {
+                fragmentSource = await ResourceCollector.getWhenLoaded(fragmentPath, { pollTimeout, pollInterval });
+                ResourceCollector.acquire(fragmentPath);
+            } else {
+                fragmentSource = await ResourceCollector.load(fragmentPath, StreamReader.read, { category, loadTimeout });
             }
 
-            // when a shader instance is made, it is assumed that the shader sources are loading/loaded.
-            const shaderProgram = new ShaderProgram(shaderName, shaderConfig);
-            ShaderManager.#shaderPrograms.set(shaderName, shaderProgram);
-
-            // construct basic shader immediately.
-            if (shaderName === 'basic') {
-                shaderProgram.build().then(programID => ShaderManager.#isReady = true);
-            }
-
-            ShaderManager.#shaderPrograms.set(shaderName, shaderProgram);
+            return { vertexSource, fragmentSource };
         } catch (error) {
             console.error(`[ShaderManager] An error occurred during shader file loading:\n${error}`);
             throw error;

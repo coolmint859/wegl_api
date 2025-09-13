@@ -1,26 +1,28 @@
 export default class ShaderValidator {
     static validate(shaderName, vertexConfig, fragmentConfig) {
-
         // check 1: vertex outputs match the fragment inputs
         if (!ShaderValidator.#validateVaryings(vertexConfig, fragmentConfig)) {
-            console.warn(`[ShaderValidator] Invalid Shader Program '${shaderName}'; vertex shader output variables do not mach fragment shader input variables.`);
+            console.warn(`[ShaderValidator] Invalid Shader Program '${shaderName}'; vertex shader output variables do not match fragment shader input variables.`);
             return null;
         }
 
         // check 2: uniform blocks with same binding are exactly the same
         if (!ShaderValidator.#validateBindings(vertexConfig, fragmentConfig)) {
-            console.warn(`[ShaderValidator] Invalid Shader Program '${shaderName}'; vertex shader block bindings do not mach fragment shader block bindings.`);
+            console.warn(`[ShaderValidator] Invalid Shader Program '${shaderName}'; vertex shader block bindings do not match fragment shader block bindings.`);
             return null;
         }
 
         // check 3: uniforms with same location are exactly the same
         if (!ShaderValidator.#validateLocations(vertexConfig, fragmentConfig)) {
-            console.warn(`[ShaderValidator] Invalid Shader Program '${shaderName}'; vertex shader uniform locations do not mach fragment shader uniform locations.`);
+            console.warn(`[ShaderValidator] Invalid Shader Program '${shaderName}'; vertex shader uniform locations do not match fragment shader uniform locations.`);
             return null;
         }
 
         // check 4: all uniform names are unique
-        // TODO
+        if (!ShaderValidator.#validateNames(vertexConfig, fragmentConfig)) {
+            console.warn(`[ShaderValidator] Invalid Shader Program '${shaderName}'; vertex/fragment shader uniform names are not unique for each shader.`);
+            return null;
+        }
 
         // all checks pass, merge configs and create shader info object
         return {
@@ -104,7 +106,7 @@ export default class ShaderValidator {
                 } else if (vert_uniform.location === frag_uniform.location) {
                     // if one or either locations weren't specified, then this is okay as they dont have the same name. 
                     // But if both locations are specified, then this is invalid, as the locations are the same but their names aren't. 
-                    if (!(vert_uniform.location === undefined && frag_uniform.location === undefined)) {
+                    if (vert_uniform.location === undefined || frag_uniform.location === undefined) {
                         continue;
                     } else {
                         return false;
@@ -112,6 +114,11 @@ export default class ShaderValidator {
                 }
             }
         }
+        return true;
+    }
+
+    static #validateNames(vertexConfig, fragmentConfig) {
+        // TODO: write logic to validate vertex and fragment names are unique
         return true;
     }
 

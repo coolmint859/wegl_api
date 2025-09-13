@@ -164,6 +164,18 @@ export default class Color {
     }
 
     /**
+     * Get this colors values as integers between 0 and 255.
+     * @return {object} an object containing the color's values as integers 
+     */
+    getInts() {
+        const r = this.r * 255;
+        const g = this.g * 255;
+        const b = this.b * 255;
+        const a = this.a * 255;
+        return { r, g, b, a };
+    }
+
+    /**
      * Compare whether this color is equal to the other color within a tolerance. 
      * 
      * If it is equal, returns true, false otherwise.

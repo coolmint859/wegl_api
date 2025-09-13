@@ -116,4 +116,10 @@ export default class Camera {
         // this is an 'abstract' class, where update() is a method base classes need to implement.
         console.error("Cannot update abstract Camera instance. Please instatiate a subclass to use update method.");
     }
+
+    applyToShader(shader) {
+        if (this._isViewDirty) {
+            shader.setUniform()
+        }
+    }
 }

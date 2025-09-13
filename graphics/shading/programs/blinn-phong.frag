@@ -2,14 +2,19 @@
 precision lowp float;
 precision mediump int;
 
-// material
+in vec3 frag_normal;
+in vec3 view_dir;
+in vec3 light_vectors[5];
+
+out vec4 outColor;
+
 struct Material {
     vec3 diffuseColor;
     vec3 specularColor;
     float shininess;
 };
+uniform Material material;
 
-// pointlights
 struct PointLight {
     vec3 position;
     vec3 emissiveColor;
@@ -17,25 +22,14 @@ struct PointLight {
     float attenLinear;
     float attenQuad;
 };
-
-uniform Material material;
-
 uniform PointLight pointLights[5];
+uniform int numPointLights;
+
 uniform vec3 ambientColor;
-uniform int numLights;
-
-in vec3 frag_normal;
-in vec3 view_dir;
-in vec3 light_vectors[5];
-
-// output color
-out vec4 outColor;
-
-float near = 0.1;
-float far = 100.0;
 
 float linearizeDepth(float depth) 
 {
+    float near = 0.1; float far = 100.0;
     float z = depth * 2.0 - 1.0; // back to NDC 
     return (2.0 * near * far) / (far + near - z * (far - near));	
 }
@@ -69,7 +63,7 @@ void main()
     vec3 V = normalize(view_dir);
 
     vec3 fragColor = vec3(0.0);
-    for (int i = 0; i < numLights; i++) 
+    for (int i = 0; i < numPointLights; i++) 
     {
         vec3 L = normalize(light_vectors[i]);
         float light_dist = length(light_vectors[i]);

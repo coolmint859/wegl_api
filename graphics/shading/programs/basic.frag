@@ -4,19 +4,16 @@ precision mediump int;
 
 // used to draw things without shading
 
+out vec4 outColor;
+
 struct Material {
     vec3 diffuseColor;
 };
-
 uniform Material material;
-
-out vec4 outColor;
-
-float near = 0.1;
-float far = 100.0;
 
 float linearizeDepth(float depth) 
 {
+    float near = 0.1; float far = 100.0;
     float z = depth * 2.0 - 1.0; // back to NDC 
     return (2.0 * near * far) / (far + near - z * (far - near));	
 }

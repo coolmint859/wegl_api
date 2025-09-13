@@ -7,21 +7,21 @@ layout(location = 0) in vec3 aPosition;
 layout(location = 1) in vec3 aNormal;
 layout(location = 2) in vec2 aTexCoord;
 
-// transformation matrices
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
-
 out vec3 frag_normal;
 out vec3 eyeSpace_vector;
 out vec2 vTexCoord;
 
+// transformation matrices
+uniform mat4 uModel;
+uniform mat4 uView;
+uniform mat4 uProjection;
+
 void main()
 {
     // vertex model to projected position
-    mat4 modelView = view * model;
+    mat4 modelView = uView * uModel;
     vec4 eyeSpace_vertex = modelView * vec4(aPosition, 1.0);
-    gl_Position = projection * eyeSpace_vertex;
+    gl_Position = uProjection * eyeSpace_vertex;
     
     // pipeline interpolates the vertex normal
     mat4 modelViewInverseTranspose = transpose(inverse(modelView));

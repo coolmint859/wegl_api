@@ -8,10 +8,8 @@ export default class TextureManager {
     /**
      * Initialize the texture manager for use.
      */
-    static init() {
-        if (TextureManager.#gl === null)  {
-            TextureManager.#gl = Graphics3D.getGLContext()
-        }
+    static init(gl) {
+        TextureManager.#gl = gl;
     }
 
     /**
@@ -31,11 +29,11 @@ export default class TextureManager {
         const textureInfo = await ResourceCollector.load(
             texturePath, TextureManager.#loadTexture,
             { 
-                maxRetries: 3,
+                maxRetries: options.maxRetries ?? 3,
                 disposalCallback: TextureManager.#deleteTexture,
-                disposalDelay: 0.5,
+                disposalDelay: options.disposalDelay ?? 0.5,
                 category: 'texture',
-                loadData: options 
+                loadData: options
             }
         )
         return textureInfo;
@@ -44,7 +42,7 @@ export default class TextureManager {
     /**
      * Get the texture info associated with the given path
      * @param {string} texturePath the path to the texture
-     * @returns {object | null} an object containing the texture info
+     * @returns {object | null} an object containing the texture info, if it loaded successfully. null is returned otherwise
      */
     static get(texturePath) {
         if (ResourceCollector.isLoaded(texturePath)) {
@@ -105,7 +103,7 @@ export default class TextureManager {
         try {
             const imageData = await ResourceCollector.fetchImageFile(texturePath, options);
             return {
-                glTexture: TextureManager.#defineTexture(imageData, options.loadData),
+                glTexture: TextureManager.#defineTexture(texturePath, imageData, options.loadData),
                 name: texturePath,
                 width: imageData.width,
                 height: imageData.height,
@@ -118,8 +116,8 @@ export default class TextureManager {
 
     /** create a new default color and store it in the resource collector */
     static #createDefault(color) {
-        const width = 64;
-        const height = 64;
+        const hexCode = color.hexCode();
+        const width = 64, height = 64;
         const imageData = new Uint8Array(width * height * 4)
 
         for (let y = 0; y < height; y++) {
@@ -128,17 +126,13 @@ export default class TextureManager {
                 
                 const topLeft = x < width / 2 && y < height / 2;
                 const bottomRight = x > width / 2 - 1 && y > height / 2 - 1;
-                let r, g, b;
-                if (topLeft || bottomRight) {
-                    r = color.r, g = 0, b = color.b;
-                } else {
-                    r = 0, g = 0, b = 0;
-                }
+                const coloredCorner = topLeft || bottomRight;
 
-                imageData[index] = r;
-                imageData[index + 1] = g;
-                imageData[index + 2] = b;
-                imageData[index + 3] = 255;
+                const colorInts = color.getInts();
+                imageData[index+0] = coloredCorner ? colorInts.r : 0;
+                imageData[index+1] = coloredCorner ? colorInts.g : 0;
+                imageData[index+2] = coloredCorner ? colorInts.b : 0;
+                imageData[index+3] = colorInts.a;
             }
         }
 
@@ -153,17 +147,24 @@ export default class TextureManager {
             height: height
         }
         const textureInfo = {
-            glTexture: TextureManager.#defineTexture(imageData, imageOptions),
-            name: color.hexCode(),
+            glTexture: TextureManager.#defineTexture(hexCode, imageData, imageOptions),
+            name: hexCode,
             width: imageData.width,
             height: imageData.height,
         }
-        ResourceCollector.store(color.hexCode(), textureInfo);
+        ResourceCollector.store(
+            hexCode, textureInfo,
+            { 
+                disposalCallback: TextureManager.#deleteTexture,
+                disposalDelay: 0.5,
+                category: 'texture',
+            }
+        );
         return textureInfo;
     }
 
     /** define a new webgl texture */
-    static #defineTexture(image, options) {
+    static #defineTexture(path, image, options) {
         const gl = TextureManager.#gl;
         let glTexture = null;
         try {
@@ -209,8 +210,10 @@ export default class TextureManager {
         }
     }
 
-    /** delete a webgl texture */
+    /** delete a webgl texture if exists */
     static #deleteTexture(textureInfo) {
-        TextureManager.#gl.deleteTexture(textureInfo.glTexture);
+        if (TextureManager.#gl.isTexture(textureInfo.glTexture)) {
+            TextureManager.#gl.deleteTexture(textureInfo.glTexture);
+        }
     }
 }

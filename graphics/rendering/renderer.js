@@ -6,6 +6,7 @@ import EventScheduler from "../utilities/scheduler.js";
 import Camera from "../cameras/camera.js";
 import ShaderManager from "../shading/shader_manager.js";
 import Light from "../lighting/light.js";
+import TextureManager from "../material/texture-manager.js";
 
 /**
  * Core real-time 3D application renderer. 
@@ -82,28 +83,13 @@ export default class Graphics3D {
         this.ambientColor = Color.BLACK;
         this.clearColor = Color.CF_BLUE;
 
-        const shaderNames = ["basic", "blinn-phong", 'bp-texture', 'bp-waves'];
-        for (const name of shaderNames) {
-            let vertexPath = "./graphics/shading/programs/" + name + ".vert";
-            let fragmentPath = "./graphics/shading/programs/" + name + ".frag";
-
-            let shader = new Shader(name, vertexPath, fragmentPath);
-            this.shaders.set(name, shader);
-        }
+        TextureManager.init(gl);
+        ShaderManager.init();
     }
 
     /** Returns the current WebGl context. */
     static getGLContext() {
         return Graphics3D.#gl;
-    }
-
-    /** Go through all active shaders and check if they're loaded */
-    activeShadersLoaded() {
-        let shadersLoaded = true;
-        for (const shader of this.shaders.values()) {
-            if (!shader.isLoaded()) shadersLoaded = false;
-        }
-        return shadersLoaded;
     }
 
     /** sets the width/height of the viewport */
@@ -161,9 +147,6 @@ export default class Graphics3D {
         // update current camera
         this.currentCamera.update(dt, this.aspectRatio);
 
-        // this is to make sure a shader is always in use.
-        this.shaders.get(Graphics3D.RenderType.BASIC).use();
-
         // reset scene objects to be empty
         this.sceneObjects = [];
         this.lights = [];
@@ -195,11 +178,16 @@ export default class Graphics3D {
 
     /** renders objects and lights to the screen. */
     end(dt, totalTime) {
+        if (!ShaderManager.isReady) return;
         for (let i = 0; i < this.sceneObjects.length; i++) {
             const mesh = this.sceneObjects[i];
+            // if (!mesh.isReady) continue;
             
-            // determine shader
-            const shader = this.shaders.get(mesh.renderType);
+            // const bestFitShader = ShaderManager.bestFitShader(mesh.capabilities);
+            const shader = ShaderManager.getShaderProgram(mesh.currentShader);
+            if (!shader || !shader.isReady) return;
+            // console.log(shader.name);
+            // console.log(shader.isReady);
             shader.use();
 
             this.#renderMesh(mesh, shader, dt, totalTime);
@@ -218,59 +206,52 @@ export default class Graphics3D {
         gl.bindVertexArray(mesh.VAO);
 
         // set up shader uniforms && attributes
-        shader.setMatrix4("model", mesh.transform.worldMatrix);
-        shader.setMatrix4('view', this.currentCamera.viewMatrix);
-        shader.setMatrix4('projection', this.currentCamera.projectionMatrix);
+        shader.setUniform("uModel", mesh.transform.worldMatrix);
+        shader.setUniform('uView', this.currentCamera.viewMatrix);
+        shader.setUniform('uProjection', this.currentCamera.projectionMatrix);
 
-        let shouldUseTextures = this.#setShaderUniforms(shader, mesh.renderType, totalTime);
-        mesh.material.applyToShader(shader, shouldUseTextures); 
+        this.#setShaderUniforms(shader, mesh.renderType, totalTime);
+        // mesh.applyToShader(shader);
+        mesh.material.applyToShader(shader); 
 
         const indexArray = mesh.arrays.index;
         const indexArrayType = Graphics3D.glTypeMap.get(indexArray.dataType);
         const numIndices = indexArray.data.length;
 
+        shader.flush();
+
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.buffers.index);
         gl.drawElements(this.renderMode, numIndices, indexArrayType, 0);
-
-        // unbind material textures (if exist)
-        if (mesh.material) {
-            mesh.material.unbindTextures();
-        }
         
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
         gl.bindVertexArray(null);
     }
 
     #setShaderUniforms(shader, renderType, totalTime) {
-        function setLightingAttribs(self, shader) {
-            shader.setInt("numLights", self.lights.length);
-            for (let i = 0; i < self.lights.length; i++) {
-                self.lights[i].applyToShader(shader, i);
+        function setLightingAttribs(lights, shader) {
+            shader.setUniform("numPointLights", self.lights.length);
+            for (let i = 0; i < lights.length; i++) {
+                lights[i].applyToShader(shader, i);
             }
         }
 
-        let shouldUseTextures;
         switch (renderType) {
             case Graphics3D.RenderType.PHONG:
-                shader.setColor('ambientColor', this.ambientColor);
-                setLightingAttribs(this, shader);
-                shouldUseTextures = false;
+                shader.setUniform('ambientColor', this.ambientColor);
+                setLightingAttribs(this.lights, shader);
                 break;
             case Graphics3D.RenderType.TEXTURE:
-                shader.setColor('ambientColor', this.ambientColor);
-                setLightingAttribs(this, shader);
-                shouldUseTextures = true;
+                shader.setUniform('ambientColor', this.ambientColor);
+                setLightingAttribs(this.lights, shader);
                 break;
             case Graphics3D.RenderType.WAVES:
-                shader.setColor('ambientColor', this.ambientColor);
-                shader.setFloat('totalTime', totalTime);
-                setLightingAttribs(this, shader);
-                shouldUseTextures = false;
+                shader.setUniform('ambientColor', this.ambientColor);
+                shader.setUniform('totalTime', totalTime);
+                setLightingAttribs(this.lights, shader);
                 break;
             default:
-                shouldUseTextures = false;
+                break; // nothing for basic shader
         }
-        return shouldUseTextures;
     }
 
     #createMeshVAO(mesh) {

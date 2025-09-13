@@ -7,11 +7,11 @@ precision mediump int;
 layout(location = 0) in vec3 aPosition;
 
 // transformation matrices
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
+uniform mat4 uModel;
+uniform mat4 uView;
+uniform mat4 uProjection;
 
 void main() 
 {
-    gl_Position = projection * view * model * vec4(aPosition, 1.0);
+    gl_Position = uProjection * uView * uModel * vec4(aPosition, 1.0);
 }

@@ -1,25 +1,18 @@
 {
     "path": "bp-texture.frag",
     "precisions": { "int": "mediump", "float": "lowp", "sampler2D": "highp" },
-    "blocks": [
-        {
-            "name": "LightData",
-            "binding": 1,
-            "members": [
-                { "name": "pointLights", "type": "PointLight", "maxCount": 5 },
-                { "name": "numPointLights", "type": "int" }
-            ]
-        }
-    ],
+    "blocks": [],
     "inputs": [
         { "name": "vNormal", "type": "vec3" },
         { "name": "vTexCoord", "type": "vec3" },
         { "name": "vViewDir", "type": "vec3" },
-        { "name": "vPointLightVectors", "type": "vec3", "maxCount": 5 }
+        { "name": "vPointLightVectors", "type": "vec3", "isArray": true, "maxSize": 5 }
     ],
     "uniforms": [
         { "name": "material", "type": "Material"},
-        { "name": "ambientColor", "type": "vec3"}
+        { "name": "ambientColor", "type": "vec3"},
+        { "name": "pointLights", "type": "PointLight", "isArray": true, "maxSize": 5 },
+        { "name": "numPointLights", "type": "int" }
     ],
     "structs": [
         {

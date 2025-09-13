@@ -68,6 +68,10 @@ export default class Light {
         return this._lightID;
     }
 
+    get currentShader() {
+        return 'basic';
+    }
+
     /**
      * Set the emissive color of this light.
      * @param {Color} color the light's new color
@@ -251,7 +255,13 @@ export default class Light {
         return '';
     }
 
-    applyToShader(shader) {
+    /**
+     * Apply this light to a shader program
+     * @param {ShaderProgram} shader the shader to apply the light to. Should already be in use.
+     * @param {number} index the index that this light is. A negative number indicates that this light is a single shader uniform and not in an array
+     * @returns {boolean} true if the light was applied to the shader, false otherwise.
+     */
+    applyToShader(shader, index = -1) {
         console.error(`[Light] Unable to apply light attributes for abstract light class. Create a concrete subclass to apply attributes.`);
     }
 }

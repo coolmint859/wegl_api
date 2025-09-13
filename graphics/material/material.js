@@ -7,15 +7,21 @@ import MaterialComponent from "./components/material-component.js";
 export default class Material {
     static #ID_COUNTER = 0;
     static #defaultColorName = 'baseColor';
-    static #defaultColor = new ColorComponent(Material.#defaultColorName, Color.WHITE);
+    static #defaultColor = new ColorComponent(Color.WHITE, Material.#defaultColorName);
 
+    #name;
     #refCount;
     #components;
     #materialID;
 
+    /**
+     * Create a new material instance
+     * @param {Array<MaterialComponent>} components list of initial components that this material should have
+     */
     constructor(components=[]) {
         this.#refCount = 0;
         this.#materialID = Material.#ID_COUNTER++;
+        this.#name = 'material';
 
         this.#components = new Map();
         components.forEach(comp => this.addComponent(comp));
@@ -26,6 +32,26 @@ export default class Material {
      */
     get ID() {
         return this.#materialID;
+    }
+
+    /**
+     * Get the name of this Material
+     * @returns {string} the name of this material
+     */
+    get name() {
+        return this.#name;
+    }
+
+    /** 
+     * Set the name of this material
+     * @param {string} the new name of this material
+     */
+    set name(newName) {
+        if (typeof newName !== 'string' || newName.trim() === '') {
+            console.error(`[Material @ID${this.#materialID}] Expected 'newName' to be a string. Cannot change name of this Material.`);
+            return false;
+        }
+        this.#name = newName;
     }
 
     /**
@@ -113,8 +139,7 @@ export default class Material {
      * @returns {Array<string>} an array of the names of the components.
      */
     get capabilities() {
-        const componentNames = [];
-        this.#components.values().forEach(comp => {componentNames.push(comp.name)});
+        const componentNames = this.#components.keys()
 
         if (componentNames.length === 0) {
             componentNames.push(Material.#defaultColorName);
@@ -149,11 +174,13 @@ export default class Material {
             return false;
         }
         // if there are no components attached, then send the default
+        const materialName = this.name + '.';
         if (this.#components.size === 0) {
-            Material.#defaultColor.applyToShader(shaderProgram)
+            Material.#defaultColor.applyToShader(shaderProgram, materialName)
         } else {
-            this.#components.values().forEach(comp => comp.applyToShader(shaderProgram));
+            this.#components.values()
+            .forEach(comp => comp.applyToShader(shaderProgram, materialName));
         }
         return true;
-    } 
+    }
 }
