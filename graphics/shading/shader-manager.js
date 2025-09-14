@@ -1,6 +1,6 @@
 import ResourceCollector from "../utilities/containers/collector.js";
-import StreamReader from "../utilities/file_parsing/stream-reader.js";
-import ShaderProgram from "./shader2.js";
+import StreamReader from "../utilities/file-parsing/stream-reader.js";
+import ShaderProgram from "./shader-program.js";
 import ShaderValidator from "./shader-validator.js";
 
 /**

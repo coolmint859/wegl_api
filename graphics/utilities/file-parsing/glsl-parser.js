@@ -1,4 +1,4 @@
-import Parser from "./base_parser.js";
+import Parser from "./base-parser.js";
 
 /** Parses a raw glsl file. Designed to work directly with StreamReader. */
 export default class GLSLParser extends Parser {

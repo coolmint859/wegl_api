@@ -230,13 +230,18 @@ export class Matrix4 {
     /**
      * Returns true if all elements in the given Matrix4 are equal to the elements in this Matrix4, false otherwise.
      */
-    equals(other) {
+    equals(other, EPSILON = 0.0001) {
         if (!(other instanceof Matrix4)) return false;
+        if (typeof EPSILON !== 'number' || EPSILON < 0) {
+            console.warn("ValueError: Expected 'EPSILON' to be a number greater than or equal to 0. Using default tolerance of 0.00001.");
+            EPSILON = 0.00001;
+        }
 
         const otherValues = other.asList();
         for (let i = 0; i < this.#size * this.#size; i++) {
-            if (otherValues[i] !== this.#values[i])
+            if (Math.abs(otherValues[i] - this.#values[i]) > EPSILON) {
                 return false;
+            }
         }
         return true;
     }
@@ -555,15 +560,20 @@ export class Matrix3 {
     }
 
     /**
-     * Returns true if all elements in the given Matrix3 are equal to the elements in this Matrix3, false otherwise.
+     * Returns true if all elements in the given Matrix4 are equal to the elements in this Matrix4, false otherwise.
      */
-    equals(other) {
+    equals(other, EPSILON = 0.0001) {
         if (!(other instanceof Matrix3)) return false;
+        if (typeof EPSILON !== 'number' || EPSILON < 0) {
+            console.warn("ValueError: Expected 'EPSILON' to be a number greater than or equal to 0. Using default tolerance of 0.00001.");
+            EPSILON = 0.00001;
+        }
 
         const otherValues = other.asList();
         for (let i = 0; i < this.#size * this.#size; i++) {
-            if (otherValues[i] !== this.#values[i])
+            if (Math.abs(otherValues[i] - this.#values[i]) > EPSILON) {
                 return false;
+            }
         }
         return true;
     }
@@ -811,15 +821,20 @@ export class Matrix2 {
     }
 
     /**
-     * Returns true if all elements in the given Matrix2 are equal to the elements in this Matrix2, false otherwise.
+     * Returns true if all elements in the given Matrix4 are equal to the elements in this Matrix4, false otherwise.
      */
-    equals(other) {
+    equals(other, EPSILON = 0.0001) {
         if (!(other instanceof Matrix2)) return false;
+        if (typeof EPSILON !== 'number' || EPSILON < 0) {
+            console.warn("ValueError: Expected 'EPSILON' to be a number greater than or equal to 0. Using default tolerance of 0.00001.");
+            EPSILON = 0.00001;
+        }
 
         const otherValues = other.asList();
         for (let i = 0; i < this.#size * this.#size; i++) {
-            if (otherValues[i] !== this.#values[i])
+            if (Math.abs(otherValues[i] - this.#values[i]) > EPSILON) {
                 return false;
+            }
         }
         return true;
     }

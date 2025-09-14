@@ -1,12 +1,12 @@
 import FPSCamera from "../cameras/FPSCamera.js";
-import Shader from "../shading/shader.js";
+import Shader from "../shading/shader-program.js";
 import Color from "../utilities/containers/color.js";
 import { Matrix4 } from "../utilities/math/matrix.js";
 import EventScheduler from "../utilities/scheduler.js";
 import Camera from "../cameras/camera.js";
-import ShaderManager from "../shading/shader_manager.js";
+import ShaderManager from "../shading/shader-manager.js";
 import Light from "../lighting/light.js";
-import TextureManager from "../material/texture-manager.js";
+import TextureManager from "../modeling/texture-manager.js";
 
 /**
  * Core real-time 3D application renderer. 

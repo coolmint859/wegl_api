@@ -1,7 +1,7 @@
-import ShaderProgram from "../../shading/shader2.js";
+import ShaderProgram from "../shading/shader-program.js";
 
 /** Abstract class representing components for a Material */
-export default class MaterialComponent {
+export default class Component {
     static #ID_COUNTER = 0;
 
     #name;
@@ -16,7 +16,7 @@ export default class MaterialComponent {
     constructor(name) {
         this.#name = name;
         this.#refCount = 0;
-        this.#ID = MaterialComponent.#ID_COUNTER++;
+        this.#ID = Component.#ID_COUNTER++;
     }
 
     /**
@@ -66,7 +66,7 @@ export default class MaterialComponent {
 
     /**
      * Acquire this material component for use.
-     * @returns {MaterialComponent} a reference to this material component
+     * @returns {Component} a reference to this material component
      */
     acquire() {
         this.#refCount++;
@@ -82,9 +82,10 @@ export default class MaterialComponent {
 
     /**
      * Clone this material component. This method should be overriden.
-     * @returns {MaterialComponent} a new Material Component with the same properties as this one.
+     * @param {boolean} deepCopy if true, will clone the properties of this component, otherwise only the component itself will be cloned.
+     * @returns {Component} a new Material Component with the same properties as this one.
      */
-    clone() {
+    clone(deepCopy = false) {
         throw new Error(`[MaterialComponent] This is an abstract class. Use a derived class to clone a component.`);
     }
 
@@ -100,10 +101,11 @@ export default class MaterialComponent {
     /**
      * Apply this material component to a shader program. This method should be overidden.
      * @param {ShaderProgram} shaderProgram the shader to apply the component to. Should already be in use.
-     * @param {string} parentName the name of this component's parent container, default is an empty string
-     * @returns {boolean} true if the component was applied to the shader, false otherwise.
+     * @param {object} options options for how to the apply the component to the shader
+     * @param {string} options.parentName the name of this component's parent container, default is an empty string
+     * @param {number} options.index the index to the glsl array of which this uniform is a value of. If this is not specified, it's assumed the uniform is not an array type.
      */
-    applyToShader(shaderProgram, parentName = "") {
+    applyToShader(shaderProgram, options={}) {
         throw new Error(`[MaterialComponent] This is an abstract class. Use a derived class to apply components to shaders.`);
     }
 }

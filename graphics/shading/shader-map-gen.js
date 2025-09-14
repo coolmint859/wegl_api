@@ -1,4 +1,4 @@
-import TextureManager from "../material/texture-manager.js";
+import TextureManager from "../modeling/texture-manager.js";
 import Color from "../utilities/containers/color.js";
 import { Matrix2, Matrix3, Matrix4 } from "../utilities/math/matrix.js";
 import { Vector2, Vector3, Vector4 } from "../utilities/math/vector.js";
@@ -9,182 +9,58 @@ export default class ShaderMapGenerator {
      * @returns {object} an object containing maps between uniform names and aliases to uniform properties
      */
     static generate(shaderConfig) {
-        // this is a temporary map that is created by 'flattening' the config object.
-        // it's further split into three maps the shader can use.
-        const uniformMap = ShaderMapGenerator.#generateUniformMap(shaderConfig);
+        const mapGenerator = new PropertyMapGenerator(shaderConfig);
+        const propertyMap = mapGenerator.generateMap();
 
-        // create the alias map
+        return { 
+            aliasMap: ShaderMapGenerator.#generateAliasMap(propertyMap), 
+            dataMap: ShaderMapGenerator.#generateDataMap(propertyMap), 
+            capabilityMap: ShaderMapGenerator.#generateCapabilityMap(propertyMap), 
+            capabilityList: ShaderMapGenerator.#generateCapabilityList(propertyMap) 
+        };
+    }
+
+    static #generateAliasMap(propertyMap) {
         const aliasMap = new Map() 
-        for (const [name, uniformInfo] of uniformMap) {
-            if (uniformInfo.isAttr) {
-                aliasMap.set(name, { trueName: uniformInfo.trueName, isAttr: true });
-            } else {
-                aliasMap.set(name, { trueName: uniformInfo.trueName, isAttr: false });
-            }
+        for (const [name, property] of propertyMap) {
+            aliasMap.set(name, property.trueName);
         }
+        return aliasMap;
+    }
 
-        // construct data map from uniform map
+    static #generateDataMap(propertyMap) {
         const dataMap = new Map()
-        for (const uniformInfo of uniformMap.values()) {
-            if (dataMap.has(uniformInfo.trueName) || uniformInfo.isAttr) continue;
+        for (const property of propertyMap.values()) {
+            if (dataMap.has(property.trueName)) continue;
 
-            const value = ShaderMapGenerator.#initialUniformValue(uniformInfo.type)
-            dataMap.set(uniformInfo.trueName, { value, type: uniformInfo.type, isDirty: true });
+            dataMap.set(property.trueName, {
+                value: ShaderMapGenerator.#initialPropertyValue(property.type),
+                type: property.type,
+                isAttr: property.isAttr ?? false,
+                location: property.location
+            });
         }
+        return dataMap;
+    }
 
-        // construct location lookup map from uniform Map
-        const locationConfigMap = new Map();
-        for (const uniformInfo of uniformMap.values()) {
-            if (uniformInfo.location === undefined) continue;
-
-            locationConfigMap.set(uniformInfo.trueName, uniformInfo.location);
-        }
-
-        // construct capability map and array from uniform map
+    static #generateCapabilityMap(propertyMap) {
         const capabilityMap = new Map();
-        const trueCapabilities = new Set();
-        for (const [name, uniformInfo] of uniformMap) {
-            if (uniformInfo.isArray) {
-                trueCapabilities.add(uniformInfo.arrayType);
-            } else {
-                trueCapabilities.add(name);
-                capabilityMap.set(name, uniformInfo.trueName)
-            }
+        for (const [name, property] of propertyMap) {
+            capabilityMap.set(name, property.parentType);
         }
-        const capabilityList = Array.from(trueCapabilities);
-
-        return { aliasMap, dataMap, locationConfigMap, capabilityMap, capabilityList };
+        return capabilityMap;
     }
 
-    static #generateUniformMap(shaderConfig) {
-        const uniformMap = new Map();
-
-        // construct uniform map from config
-        for (const uniform of shaderConfig.uniforms) {
-            const result = ShaderMapGenerator.#processUniform(uniform, '', shaderConfig.structs, 0, uniform.type);
-            for (const uniformInfo of result) {
-                // uniformInfo.isAttr = false;
-                uniformMap.set(uniformInfo.name, uniformInfo.data);
-            }
+    static #generateCapabilityList(propertyMap) {
+        const capabilities = new Set();
+        for (const property of propertyMap.values()) {
+            capabilities.add(property.parentType);
         }
-
-        // add attributes to alias map
-        const setAttribute = function(attrName, attrInfo) {
-            if (attrInfo.location !== undefined) {
-                uniformMap.set(attrName, { trueName: attrInfo.name, location: attrInfo.location, isArray: false, isAttr: true });
-            } else {
-                uniformMap.set(attrName, { trueName: attrInfo.name, isArray: false, isAttr: true });
-            }
-        }
-        for (const attribute of shaderConfig.attributes) {
-            setAttribute(attribute.name, attribute);
-
-            if (Array.isArray(attribute.aliases)) {
-                for (const alias of attribute.aliases) {
-                    setAttribute(alias, attribute);
-                }
-            }
-        }
-
-        return uniformMap;
+        return Array.from(capabilities);
     }
 
-    /** recursively constucts a uniforms' full name and aliases */
-    static #processUniform(uniform, parentName, structs, arrayType) {
-        const struct = structs.find(struct => struct.name === uniform.type);
-
-        if (struct === undefined) {
-            if (uniform.isArray) {
-                return ShaderMapGenerator.#processArrayUniform(uniform, parentName, arrayType);
-            } else {
-                return ShaderMapGenerator.#processPrimitiveUniform(uniform, parentName);
-            }
-        } else {
-            return ShaderMapGenerator.#processStruct(struct, uniform, parentName, structs);
-        }
-    }
-
-    /** creates uniform map entries for an array of primitive uniforms */
-    static #processArrayUniform(uniform, parentName, arrayType) {
-        const mapEntries = [];
-        for (let i = 0; i < uniform.maxSize; i++) {
-            const elementPrefix = parentName + '[' + i + ']' + '.';
-            const trueName = elementPrefix + uniform.name;
-            let data;
-            if (uniform.location !== undefined) {
-                data = { trueName, arrayType, type: uniform.type, isArray: true, location: uniform.location }
-            } else {
-                data = { trueName, arrayType, type: uniform.type, isArray: true }
-            }
-            mapEntries.push({ name: elementPrefix + uniform.name, data });
-
-            if (Array.isArray(uniform.aliases)) {
-                for (const alias of uniform.aliases) {
-                    let data;
-                    if (uniform.location !== undefined) {
-                        data = { trueName, arrayType, type: uniform.type, isArray: true, location: uniform.location }
-                    } else {
-                        data = { trueName, arrayType, type: uniform.type, isArray: true }
-                    }
-                    mapEntries.push({ name: elementPrefix + alias, data });
-                }
-            }
-        }
-        return mapEntries;
-    }
-
-    /** creates uniform map entries for a primitive uniform */
-    static #processPrimitiveUniform(uniform, parentName) {
-        const mapEntries = [];
-
-        const trueName = parentName + uniform.name;
-        let data;
-        if (uniform.location !== undefined) {
-            data = { trueName, type: uniform.type, isArray: false, location: uniform.location }
-        } else {
-            data = { trueName, type: uniform.type, isArray: false }
-        }
-        mapEntries.push({ name: parentName + uniform.name, data });
-
-        if (Array.isArray(uniform.aliases)) {
-            for (const alias of uniform.aliases) {
-                let data;
-                if (uniform.location !== undefined) {
-                    data = { trueName, type: uniform.type, isArray: false, location: uniform.location }
-                } else {
-                    data = { trueName, type: uniform.type, isArray: false }
-                }
-                mapEntries.push({ name: parentName + alias, data })
-            }
-        }
-        return mapEntries;
-    }
-
-    /** creates uniform map entries for struct member uniforms */
-    static #processStruct(struct, uniform, parentName, structs) {
-        const mapEntries = []
-        for (const member of struct.members) {
-            // struct of an array
-            if (uniform.isArray) {
-                for (let i = 0; i < uniform.maxSize; i++) {
-                    const combinedName = parentName + uniform.name + '[' + i + ']'  + '.';
-                    const result = ShaderMapGenerator.#processUniform(member, combinedName, structs, struct.name);
-
-                    // assume no nested glsl arrays for now
-                    mapEntries.push({name: result[0].name, data: result[0].data});
-                }
-            // single struct member
-            } else {
-                const combinedName = parentName + uniform.name + '.';
-                const result = ShaderMapGenerator.#processUniform(member, combinedName, structs, struct.name);
-                mapEntries.push(...result);
-            }
-        }
-        return mapEntries;
-    }
-
-    /** creates a initial uniform value given it's type */
-    static #initialUniformValue(dataType) {
+        /** creates a initial uniform value given it's type */
+    static #initialPropertyValue(dataType) {
         switch (dataType) {
             case 'mat2': return new Matrix2();
             case 'mat3': return new Matrix3();
@@ -195,8 +71,140 @@ export default class ShaderMapGenerator {
             case 'bool': return false;
             case 'int': return 0;
             case 'float': return 0.0;
-            case 'sampler2D': return TextureManager.createDefault(Color.RED);
+            case 'sampler2D': return TextureManager.getDefault(Color.RED);
             default: return 0;
+        }
+    }
+}
+
+/**
+ * Helper class that handles flattening the shader config into a property map.
+ */
+class PropertyMapGenerator {
+    constructor(shaderConfig) {
+        this.shaderConfig = shaderConfig;
+        this.structs = new Map(shaderConfig.structs.map(s => [s.name, s]));
+        this.propertyMap = new Map();
+    }
+
+    generateMap() {
+        // add uniforms to property map
+        for (const uniform of this.shaderConfig.uniforms) {
+            this.#processUniform(uniform, "", uniform.name, "");
+        }
+
+        // add attributes to property map
+        for (const attribute of this.shaderConfig.attributes) {
+            this.#processAttribute(attribute);
+        }
+
+        return this.propertyMap;
+    }
+
+    /** recursively constucts a uniforms' full name and aliases */
+    #processUniform(uniform, parentName, parentType, truePath) {
+        const struct = this.structs.get(uniform.type);
+
+        if (struct === undefined) {
+            if (uniform.isArray) {
+                this.#processArrayUniform(uniform, parentName, parentType);
+            } else {
+                this.#processPrimitiveUniform(uniform, parentName, parentType, truePath);
+            }
+        } else {
+            this.#processStruct(struct, uniform, parentName);
+        }
+    }
+
+    #processAttribute(attribute) {
+        let attribData = {
+            trueName: attribute.name,
+            type: attribute.type,
+            location: attribute.location ?? null,
+            isAttr: true,
+            parentType: attribute.name,
+        };
+        this.propertyMap.set(attribute.name, attribData);
+
+        if (Array.isArray(attribute.aliases)) {
+            for (const alias of attribute.aliases) {
+                this.propertyMap.set(alias, attribData);
+            }
+        }
+    }
+
+    /** creates uniform map entries for an array of primitive uniforms */
+    #processArrayUniform(uniform, parentName, parentType) {
+        for (let i = 0; i < uniform.maxSize; i++) {
+            const fullName = `${parentName}${uniform.name}[${i}]`;
+            let data = {
+                trueName: fullName,
+                type: uniform.type,
+                location: uniform.location ?? undefined,
+                isAttr: false,
+                parentType: parentType
+            };
+
+            if (Array.isArray(uniform.aliases)) {
+                for (const alias of [uniform.name, ...uniform.aliases]) {
+                    const aliasedName = `${parentName}${alias}[${i}]`;
+                    this.propertyMap.set(aliasedName, data);
+                }
+            } else {
+                this.propertyMap.set(fullName, data);
+            }
+        }
+    }
+
+    /** creates uniform map entries for a primitive uniform */
+    #processPrimitiveUniform(uniform, parentName, parentType, trueName) {
+        const canonicalName = trueName + uniform.name;
+        let data = {
+            trueName: canonicalName,
+            type: uniform.type,
+            location: uniform.location ?? undefined,
+            isAttr: false,
+            parentType: parentType === "" ? canonicalName : parentType
+        };
+
+        if (Array.isArray(uniform.aliases)) {
+            for (const alias of [uniform.name, ...uniform.aliases]) {
+                const aliasedName = parentName + alias;
+                this.propertyMap.set(aliasedName, data);
+            }
+        } else {
+            this.propertyMap.set(canonicalName, data);
+        }
+    }
+
+    /** creates uniform map entries for struct member uniforms */
+    #processStruct(struct, uniform, parentName) {
+        for (const member of struct.members) {
+            // struct of an array
+            if (uniform.isArray) {
+                for (let i = 0; i < uniform.maxSize; i++) {
+                    const canonicalName = `${parentName}${uniform.name}[${i}].`;
+                    this.#processUniform(member, canonicalName, uniform.type, canonicalName);
+
+                    if (Array.isArray(uniform.aliases)) {
+                        for (const alias of uniform.aliases) {
+                            const aliasedName = `${parentName}${alias}[${i}].`;
+                            this.#processUniform(member, aliasedName, uniform.type, canonicalName);
+                        }
+                    }
+                }
+            // single struct member
+            } else {
+                const canonicalName = `${parentName}${uniform.name}.`;
+                this.#processUniform(member, canonicalName, "", canonicalName);
+
+                if (Array.isArray(uniform.aliases)) {
+                    for (const alias of uniform.aliases) {
+                        const aliasedName = `${parentName}${alias}.`;
+                        this.#processUniform(member, aliasedName, "", canonicalName);
+                    }
+                }
+            }
         }
     }
 }

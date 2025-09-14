@@ -1,8 +1,8 @@
-import MaterialComponent from "./material-component.js";
-import TextureManager from "../texture-manager.js";
-import ShaderProgram from "../../shading/shader2.js";
+import Component from "./component.js";
+import TextureManager from "../modeling/texture-manager.js";
+import ShaderProgram from "../shading/shader-program.js";
 
-export default class TexComponent extends MaterialComponent {
+export default class TexComponent extends Component {
     #texturePath = "";
     #configOptions = null;
 
@@ -92,34 +92,34 @@ export default class TexComponent extends MaterialComponent {
     }
 
     /**
-     * Create an exact copy of this texture component
-     * @returns {TexComponent} a new Texture2DComponent with the same properties as this one.
+     * Clone this component.
+     * @param {boolean} deepCopy Textures are not cloned to save memory.
+     * @returns {TexComponent} a new TexComponent with the same value as this one.
      */
-    clone() {
-        return new TexComponent(
-            this.name, 
-            this.#texturePath,
-            this.#configOptions
-        );
+    clone(deepCopy = false) {
+        return new TexComponent(this.name, this.#texturePath, this.#configOptions);
     }
 
     /**
-     * Apply the texture to a shader program. If the texture has not yet loaded, a default is applied instead.
-     * @param {ShaderProgram} shaderProgram the shader to apply the material to. Should already be in use.
-     * @param {string} parentName the name of this component's parent container, default is an empty string
-     * @returns {boolean} true if the material was applied to the shader, false otherwise.
+     * Apply this material component to a shader program.
+     * @param {ShaderProgram} shaderProgram the shader to apply the component to. Should already be in use.
+     * @param {object} options options for how to the apply the component to the shader
+     * @param {string} options.parentName the name of this component's parent container, default is an empty string
+     * @param {number} options.index the index to the glsl array of which this uniform is a value of. If this is not specified, it's assumed the uniform is not an array type.
      */
-    applyToShader(shaderProgram, parentName = "") {
+    applyToShader(shaderProgram, options={}) {
         if (!this._isDirty) return;
+        
+        const indexToken = typeof options.index === 'number' ? `[${options.index}]` : '';
+        const parentToken = typeof options.parentName === 'string' ? options.parentName : '';
+        const uniformName = parentToken + this.name + indexToken;
 
-        let glTexture;
-        if (this.isReady) {
-            glTexture = this.glTexture;
-        } else {
-            glTexture = TextureManager.createDefault(this.#configOptions.defaultColor);
+        if (shaderProgram.supports(uniformName)) {
+            let glTexture = this.isReady ? 
+                            this.glTexture : 
+                            TextureManager.getDefault(this.#configOptions.defaultColor);
+            shaderProgram.setUniform(uniformName, glTexture);
         }
-
-        shaderProgram.setSampler2D(parentName + this.name, glTexture);
         this._isDirty = false;
     }
 }

@@ -1,6 +1,5 @@
 import ResourceCollector from "../utilities/containers/collector.js";
 import Color from "../utilities/containers/color.js";
-import Graphics3D from "../rendering/renderer.js";
 
 export default class TextureManager {
     static #gl;
@@ -90,7 +89,7 @@ export default class TextureManager {
      * @param {Color} color the color of the texture.
      * @returns {object} an object that contains the hexcode (under name), image width and height, and glTexture.
      */
-    static createDefault(color) {
+    static getDefault(color) {
         const colorHex = color.hexCode();
         if (ResourceCollector.contains(colorHex)) {
             return ResourceCollector.get(colorHex);

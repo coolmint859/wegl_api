@@ -1,7 +1,7 @@
-import Parser from "./base_parser.js";
+import Parser from "./base-parser.js";
 import GLSLParser from "./glsl-parser.js";
 import JSONParser from "./json-parser.js";
-import PLYParser from "./ply_parser.js";
+import PLYParser from "./ply-parser.js";
 
 /**
  * Reads a file and processes it in chunks, using a parser for parsing the data in the file. Useful for very large files.

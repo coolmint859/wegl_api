@@ -1,4 +1,4 @@
-import Parser from "./base_parser.js";
+import Parser from "./base-parser.js";
 
 export default class JSONParser extends Parser {
     static State = Object.freeze({

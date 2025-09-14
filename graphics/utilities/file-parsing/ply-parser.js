@@ -1,4 +1,4 @@
-import Parser from "./base_parser.js";
+import Parser from "./base-parser.js";
 
 /**
  * Parses PLY files via a data stream, converting the data into a mesh object.

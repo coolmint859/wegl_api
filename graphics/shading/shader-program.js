@@ -20,11 +20,10 @@ export default class ShaderProgram {
 
     // shader lookup maps
     #aliasMap;                  // maps uniform/attribute aliases to true names
-    #dataMap;                   // maps true uniform names to data storage objects
+    #dataMap;                   // maps true uniform/attribute names to data storage objects
     #capabilityMap;             // a filtered version of the alias map that doesn't include array types
     #capabilityList;            // list of standalone uniform names and uniform array types, used for best fit logic
-    #locationConfigMap;         // temp map for location map generation after shader linking
-    #locationMap;               // maps true uniform/attribute names to WebGL locations
+    #dirtyUnfiorms;             // maps true uniform names to uniforms whose values have changed
 
     /**
      * Create a new ShaderProgram instance.
@@ -50,9 +49,8 @@ export default class ShaderProgram {
         this.#dataMap = shaderMaps.dataMap;
         this.#capabilityMap = shaderMaps.capabilityMap;
         this.#capabilityList = shaderMaps.capabilityList;
-        this.#locationConfigMap = shaderMaps.locationConfigMap;
 
-        this.#locationMap = new Map();
+        this.#dirtyUnfiorms = new Map();
     }
 
     /**
@@ -150,13 +148,23 @@ export default class ShaderProgram {
     }
 
     /**
+     * Check if this shader supports the given property (uniform/attribute)
+     * @param {string} propertyName the name of the property
+     * @returns {boolean} true if this shader supports the property, false otherwise
+     */
+    supports(propertyName) {
+        return this.#aliasMap.has(propertyName);
+    }
+
+    /**
      * get the location of a vertex attribute
      * @param {string} attributeName the name of the attribute
      * @returns {number} the location of the given attribute
      */
     getAttributeLocation(attributeName) {
-        if (this.#locationMap.has(attributeName)) {
-            return this.#locationMap.get(attributeName);
+        if (this.#aliasMap.has(attributeName)) {
+            const trueName = this.#aliasMap.get(attributeName).trueName;
+            return this.#dataMap.get(trueName).location;
         } else {
             console.error(`[ShaderProgram @${this.#name}] Expected 'attributeName' to be a vertex attribute supported by this shader. Cannot get attribute location.`)
             return undefined;
@@ -164,7 +172,7 @@ export default class ShaderProgram {
     }
 
     /**
-     * Set the value of a uniform (does not include textures)
+     * Set the value of a uniform
      * @param {string} uniformName the name of the uniform
      * @param {object} uniformData the value to store. Must match the data type specified in the config
      * @param {number} index if the uniform is stored in array, the index can be used to access which element it is
@@ -173,19 +181,18 @@ export default class ShaderProgram {
         if (!this.isActive) {
             console.error(`[ShaderProgram @${this.#name}] Cannot set uniform '${uniformName}' for this program as it is currently inactive.`)
         }
-
         if (this.#aliasMap.has(uniformName)) {
-            const trueName = this.#aliasMap.get(uniformName).trueName;
+            const trueName = this.#aliasMap.get(uniformName);
             const uniformInfo = this.#dataMap.get(trueName);
             uniformInfo.value = uniformData;
-            uniformInfo.isDirty = true;
+            this.#dirtyUnfiorms.set(trueName, uniformInfo);
         } else {
             console.error(`[ShaderProgram @${this.#name}] Expected uniform '${uniformName}' to be supported by this shader. Cannot set uniform.`)
         }
     }
 
     /**
-     * Send any pending uniform data to the shader program. Should be called every frame.
+     * Send any pending uniform data to the shader program. Designed to be called every frame.
      */
     flush() {
         if (!this.isActive) {
@@ -195,47 +202,36 @@ export default class ShaderProgram {
 
         let textureBindUnit = 0;
         const gl = ShaderProgram.#gl;
-        for (const [name, uniformInfo] of this.#dataMap) {
-            const trueName = this.#aliasMap.get(name).trueName;
-            const location = this.#locationMap.get(trueName);
-
+        for (const [name, uniform] of this.#dirtyUnfiorms) {
             // separate logic for sampler types
-            if (uniformInfo.type === 'sampler2D' || uniformInfo.type === 'sampler3D') {
-                if (uniformInfo.isDirty) {
-                    const glTextureType = uniformInfo.type === 'sampler2D' ? gl.TEXTURE_2D : gl.TEXTURE_3D;
+            if (uniform.type === 'sampler2D' || uniform.type === 'sampler3D') {
+                const glTextureType = uniform.type === 'sampler2D' ? gl.TEXTURE_2D : gl.TEXTURE_3D;
 
-                    gl.activeTexture(gl.TEXTURE0 + textureBindUnit);
-                    gl.bindTexture(glTextureType, uniformInfo.value);
-                    gl.unform1i(location, textureBindUnit);
+                gl.activeTexture(gl.TEXTURE0 + textureBindUnit);
+                gl.bindTexture(glTextureType, uniform.value);
+                gl.unform1i(uniform.location, textureBindUnit);
 
-                    uniformInfo.isDirty = false;
-                }
-                // always incremement bind unit to ensure textures are set consistently between flush calls
                 textureBindUnit++;
                 continue;
             }
 
-            // skip the uniform if it's not dirty
-            if (!uniformInfo.isDirty) continue;
-
-            switch (uniformInfo.type) {
-                case 'vec2': gl.uniform2fv(location, uniformInfo.value.asList()); break;
-                case 'vec3': gl.uniform3fv(location, uniformInfo.value.asList()); break;
-                case 'vec4': gl.uniform4fv(location, uniformInfo.value.asList()); break;
-                case 'mat2': gl.uniformMatrix2fv(location, false, uniformInfo.value.transpose().asList()); break;
-                case 'mat3': gl.uniformMatrix3fv(location, false, uniformInfo.value.transpose().asList()); break;
-                case 'mat4': gl.uniformMatrix4fv(location, false, uniformInfo.value.transpose().asList()); break;
-                case 'int': gl.uniform1i(location, uniformInfo.value); break;
-                case 'float': gl.uniform1f(location, uniformInfo.value); break;
-                case 'bool': gl.uniform1i(location, uniformInfo.value); break;
-                default: console.warn(`[Shader @${this.#name}]: Cannot apply uniform '${name}' to shader. Value type '${uniformInfo.type}' not supported.`);
+            switch (uniform.type) {
+                case 'vec2':  gl.uniform2fv(uniform.location, uniform.value.asList()); break;
+                case 'vec3':  gl.uniform3fv(uniform.location, uniform.value.asList()); break;
+                case 'vec4':  gl.uniform4fv(uniform.location, uniform.value.asList()); break;
+                case 'mat2':  gl.uniformMatrix2fv(uniform.location, false, uniform.value.transpose().asList()); break;
+                case 'mat3':  gl.uniformMatrix3fv(uniform.location, false, uniform.value.transpose().asList()); break;
+                case 'mat4':  gl.uniformMatrix4fv(uniform.location, false, uniform.value.transpose().asList()); break;
+                case 'float': gl.uniform1f(uniform.location, uniform.value); break;
+                case 'int':
+                case 'bool':  gl.uniform1i(uniform.location, uniform.value); break;
+                default: console.warn(`[Shader @${this.#name}]: Cannot apply uniform '${name}' to shader. Value type '${uniform.type}' not supported.`);
             }
-
-            uniformInfo.isDirty = false;
         }
         
-        // set the bound texture to null to refresh for next flush() call
+        // refresh state for next frame
         gl.bindTexture(gl.TEXTURE_2D, null);
+        this.#dirtyUnfiorms.clear();
     }
 
     /**
@@ -260,16 +256,25 @@ export default class ShaderProgram {
         }
 
         try {
-            const shaderInfo = await ResourceCollector.load(this.#name, this.#buildFromSources.bind(this));
+            const shaderInfo = await ResourceCollector.load(
+                this.#name, 
+                this.#buildFromSources.bind(this),
+                {
+                    disposalCallback: this.#deleteShaderProgram.bind(this),
+                    disposalDelay: 3, // wait three seconds after program is unacquired to officially delete.
+                }
+            );
             console.log(`[ShaderProgram @${this.#name}] Compiled and linked shader successfully.`);
 
             this.#generateLocationMap();
 
-            console.log('Shader Name:', this.#name);
-            console.log('AliasMap:', this.#aliasMap);
-            console.log('DataMap:', this.#dataMap);
-            console.log('LocationConfigMap:', this.#locationConfigMap);
-            console.log('LocationMap:', this.#locationMap);
+            console.log({
+                name: this.#name,
+                aliasMap: this.#aliasMap,
+                dataMap: this.#dataMap,
+                capabilityMap: this.#capabilityMap,
+                capabilityList: this.#capabilityList
+            })
             
             return shaderInfo.programID;
         } catch (error) {
@@ -278,7 +283,7 @@ export default class ShaderProgram {
         }
     }
 
-    /** builds the shader program once the source files are loaded */
+    /** builds the shader program from the source files */
     async #buildFromSources(shaderName) {
         const gl = ShaderProgram.#gl;
 
@@ -341,16 +346,22 @@ export default class ShaderProgram {
     }
 
     #generateLocationMap() {
-        for (const propertyInfo of this.#aliasMap.values()) {
-            let location;
-            if (this.#locationConfigMap.has(propertyInfo.trueName)) {
-                location = this.#locationConfigMap.get(propertyInfo.trueName);
-            } else if (propertyInfo.isAttr) {
-                location = ShaderProgram.#gl.getAttribLocation(this.programID, propertyInfo.trueName);
+        for (const [name, property] of this.#dataMap) {
+            if (property.location !== undefined)
+                continue;
+
+            if (property.isAttr) {
+                property.location = ShaderProgram.#gl.getAttribLocation(this.programID, name);
             } else {
-                location = ShaderProgram.#gl.getUniformLocation(this.programID, propertyInfo.trueName);
+                property.location = ShaderProgram.#gl.getUniformLocation(this.programID, name);
             }
-            this.#locationMap.set(propertyInfo.trueName, location);
+        }
+    }
+
+    #deleteShaderProgram(shaderInfo) {
+        const gl = ShaderProgram.#gl;
+        if (gl.isProgram(shaderInfo.programID)) {
+            gl.deleteProgram(shaderInfo.programID);
         }
     }
 }

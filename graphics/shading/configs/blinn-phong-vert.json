@@ -24,7 +24,8 @@
         { "name": "uView", "type": "mat4" },
         { "name": "uProjection", "type": "mat4" },
         { "name": "pointLights", "type": "PointLight", "isArray": true, "maxSize": 5 },
-        { "name": "numPointLights", "type": "int" }
+        { "name": "numPointLights", "type": "int" },
+        { "name": "testArray", "type": "float", "isArray": true, "maxSize": 5 }
     ],
     "structs": [
         {

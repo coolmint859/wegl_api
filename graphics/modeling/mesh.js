@@ -1,9 +1,9 @@
 import Graphics3D from "../rendering/renderer.js";
 import ResourceCollector from "../utilities/containers/collector.js";
 import Transform from "../utilities/containers/transform.js";
-import ShaderManager from "../shading/shader_manager.js"
+import ShaderManager from "../shading/shader-manager.js"
 import Material from "./material.js";
-import StreamReader from "../utilities/file_parsing/stream-reader.js";
+import StreamReader from "../utilities/file-parsing/stream-reader.js";
 
 export default class Mesh {
     static #ID_COUNTER = 0;
