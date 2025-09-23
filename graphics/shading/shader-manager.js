@@ -1,5 +1,5 @@
-import ResourceCollector from "../utilities/containers/collector.js";
-import StreamReader from "../utilities/file-parsing/stream-reader.js";
+import ResourceCollector from "../utilities/collector.js";
+import { StreamReader } from "../utilities/index.js";
 import ShaderProgram from "./shader-program.js";
 import ShaderValidator from "./shader-validator.js";
 
@@ -156,10 +156,10 @@ export default class ShaderManager {
     /**
      * Find the best fit shader for an object in a scene given the combined capabilities. 
      * Shaders of which the compatibility score is less than the best fit threshold are always rejected, even if they are the best fit.
-     * @param {Array<string>} objectCapabilities an array of capabilities of a mesh. 
+     * @param {Array<string>} sceneCapabilities an array of capabilities of a mesh. 
      * @returns {string} the name of the shader that best fits the given mesh capabilities, if ready.
      */
-    static bestFitShader(objectCapabilities) {
+    static bestFitShader(sceneCapabilities) {
         let bestFitShader = ShaderManager.#shaderPrograms.get("basic");
         let bestFitName = "basic", bestScore = 0;
 
@@ -170,38 +170,41 @@ export default class ShaderManager {
 
             // find number of shader supported capabilities (inclusion)
             let shaderSupported = 0;
-            const trueObjectNames = [];
-            for (const meshCap of objectCapabilities) {
+            const trueSceneCapabilities = new Set()
+            for (const meshCap of sceneCapabilities) {
                 const trueName = capabilityMap.get(meshCap);
                 if (trueName !== undefined) {
                     shaderSupported += 1;
-                    trueObjectNames.push(trueName);
+                    trueSceneCapabilities.add(trueName);
                 }
             }
-            const inclusionScore = shaderSupported / objectCapabilities.length;
+            const inclusivityScore = shaderSupported / sceneCapabilities.length;
 
-            // find number of object supported capabilities (exclusion)
-            let objectSupported = 0;
+            // find number of scene supported capabilities (exclusion)
+            let sceneSupported = 0;
             for (const shaderCap of shaderCapabilities) {
-                if (trueObjectNames.includes(shaderCap)) {
-                    objectSupported +=1;
+                if (trueSceneCapabilities.has(shaderCap)) {
+                    sceneSupported +=1;
                 }
             }
-            const exclusionScore = objectSupported / shaderCapabilities.length;
+            const exclusivityScore = sceneSupported / shaderCapabilities.length;
 
             // calculate best fit score using weighted average
             const inWeight = ShaderManager.#inclusionWeight;
             const exWeight = ShaderManager.#exclusionWeight;
             const weightSum = inWeight + exWeight;
-            const bestFitScore = (inWeight * inclusionScore + exWeight * exclusionScore) / weightSum;
+            const bestFitScore = (inWeight * inclusivityScore + exWeight * exclusivityScore) / weightSum;
 
-            console.log("shaderName: ", shaderName);
-            console.log("capabilityMap: ", capabilityMap);
-            console.log("objectCapabilities: ", trueObjectNames);
-            console.log("shaderCapabilities: ", shaderCapabilities);
-            console.log("inclusionScore: ", inclusionScore);
-            console.log("exclusionScore: ", exclusionScore);
-            console.log("bestFitScore: ", bestFitScore);
+            console.log({
+                shaderName, 
+                capabilityMap, 
+                objectCapabilities: sceneCapabilities,
+                trueObjectCapabilities: trueSceneCapabilities, 
+                shaderCapabilities, 
+                inclusivityScore, 
+                exclusivityScore, 
+                bestFitScore
+            });
 
             // compare best scores
             if (bestFitScore > bestScore && bestFitScore > ShaderManager.bestFitThreshold) {
@@ -218,44 +221,6 @@ export default class ShaderManager {
         // }
 
         return bestFitName;
-    }
-
-    /** loads and merges shader configs and creates shader programs from them */
-    static async #setupShaders(shaderConfig) {
-        ShaderManager.#loadConfigPair(shaderConfig.name, shaderConfig.vertex_config, shaderConfig.fragment_config)
-        .then(mergedConfig => {
-            ShaderManager.#loadShaderFiles(mergedConfig)
-            .then(shaderSources => {
-                const { vertexSource, fragmentSource } = shaderSources;
-
-                let shaderProgram = ShaderManager.#shaderPrograms.get(mergedConfig.shaderName)
-                if (!shaderProgram) {
-                    shaderProgram = new ShaderProgram(mergedConfig.shaderName, vertexSource, fragmentSource, mergedConfig.config);
-                    ShaderManager.#shaderPrograms.set(mergedConfig.shaderName, shaderProgram);
-                }
-
-                shaderProgram.build().then(programID => {
-                    if (programID) {
-                        ShaderManager.#isReady = true
-
-                        console.log(shaderProgram.capabilityMap);
-                        console.log(shaderProgram.trueCapabilities);
-                    }
-                })
-
-                // construct basic shader immediately.
-                // if (mergedConfig.shaderName === 'basic') {
-                //     shaderProgram.build().then(programID => {
-                //         if (programID) {
-                //             ShaderManager.#isReady = true
-
-                //             console.log(shaderProgram.capabilityMap);
-                //             console.log(shaderProgram.trueCapabilities);
-                //         }
-                //     });
-                // }
-            });
-        })
     }
 
     /** loads and stores shader config pairs in ResourceCollector. Returns the merged, validated shader config */

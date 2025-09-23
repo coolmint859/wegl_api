@@ -13,7 +13,7 @@
     "uniforms": [
         { "name": "uModel", "type": "mat4", "aliases": ["model", "u_Model", "modelMatrix"] },
         { "name": "uView", "type": "mat4", "aliases": ["view", "u_View", "viewMatrix"] },
-        { "name": "uProjection", "type": "mat4", "aliases": ["projection", "u_Projection", "projectionMatrix"]  }
+        { "name": "uProjection", "type": "mat4", "aliases": ["projection", "u_Projection", "projectionMatrix"] }
     ],
     "structs": []
 }

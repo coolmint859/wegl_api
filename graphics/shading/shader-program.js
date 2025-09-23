@@ -1,5 +1,5 @@
-import ResourceCollector from "../utilities/containers/collector.js";
-import Graphics3D from "../rendering/renderer.js";
+import { Graphics3D } from "../rendering/index.js";
+import ResourceCollector from "../utilities/collector.js";
 import ShaderMapGenerator from "./shader-map-gen.js";
 
 /**
@@ -23,7 +23,7 @@ export default class ShaderProgram {
     #dataMap;                   // maps true uniform/attribute names to data storage objects
     #capabilityMap;             // a filtered version of the alias map that doesn't include array types
     #capabilityList;            // list of standalone uniform names and uniform array types, used for best fit logic
-    #dirtyUnfiorms;             // maps true uniform names to uniforms whose values have changed
+    #dirtyUniforms;             // maps true uniform names to uniforms whose values have changed
 
     /**
      * Create a new ShaderProgram instance.
@@ -44,13 +44,13 @@ export default class ShaderProgram {
         this.#fragmentSource = fragmentSource;
         this.#config = config;
 
-        const shaderMaps = ShaderMapGenerator.generate(config);
-        this.#aliasMap = shaderMaps.aliasMap;
-        this.#dataMap = shaderMaps.dataMap;
-        this.#capabilityMap = shaderMaps.capabilityMap;
-        this.#capabilityList = shaderMaps.capabilityList;
+        const { aliasMap, dataMap, capabilityMap } = ShaderMapGenerator.generate(config);
+        this.#aliasMap = aliasMap;
+        this.#dataMap = dataMap;
+        this.#capabilityMap = capabilityMap;
+        this.#capabilityList = Array.from(new Set(this.#capabilityMap.values())) ;
 
-        this.#dirtyUnfiorms = new Map();
+        this.#dirtyUniforms = new Map();
     }
 
     /**
@@ -163,31 +163,39 @@ export default class ShaderProgram {
      */
     getAttributeLocation(attributeName) {
         if (this.#aliasMap.has(attributeName)) {
-            const trueName = this.#aliasMap.get(attributeName).trueName;
+            const trueName = this.#aliasMap.get(attributeName);
             return this.#dataMap.get(trueName).location;
         } else {
-            console.error(`[ShaderProgram @${this.#name}] Expected 'attributeName' to be a vertex attribute supported by this shader. Cannot get attribute location.`)
+            console.error(`[ShaderProgram @${this.#name}] Expected '${attributeName}' to be a vertex attribute supported by this shader. Cannot get attribute location.`)
             return undefined;
         }
     }
 
     /**
      * Set the value of a uniform
-     * @param {string} uniformName the name of the uniform
-     * @param {object} uniformData the value to store. Must match the data type specified in the config
-     * @param {number} index if the uniform is stored in array, the index can be used to access which element it is
+     * @param {string} name the name of the uniform. Must be the full name or a known alias of such.
+     * @param {any} newValue the value to store. Must match the data type specified in the config
      */
-    setUniform(uniformName, uniformData) {
+    setUniform(name, newValue) {
         if (!this.isActive) {
-            console.error(`[ShaderProgram @${this.#name}] Cannot set uniform '${uniformName}' for this program as it is currently inactive.`)
+            console.error(`[ShaderProgram @${this.#name}] Cannot set uniform '${name}' for this program as it is currently inactive.`)
         }
-        if (this.#aliasMap.has(uniformName)) {
-            const trueName = this.#aliasMap.get(uniformName);
-            const uniformInfo = this.#dataMap.get(trueName);
-            uniformInfo.value = uniformData;
-            this.#dirtyUnfiorms.set(trueName, uniformInfo);
+        if (this.#aliasMap.has(name)) {
+            const trueName = this.#aliasMap.get(name);
+            const uniform = this.#dataMap.get(trueName);
+
+            // comparison check is different depending on whether it's a primitive or a class object
+            if (['float', 'int', 'bool'].includes(uniform.type)) {
+                if (uniform.value !== newValue) {
+                    uniform.value = newValue;
+                    this.#dirtyUniforms.set(trueName, uniform);
+                }
+            } else if (!uniform.value.equals(newValue)) {
+                uniform.value = newValue;
+                this.#dirtyUniforms.set(trueName, uniform);
+            }
         } else {
-            console.error(`[ShaderProgram @${this.#name}] Expected uniform '${uniformName}' to be supported by this shader. Cannot set uniform.`)
+            console.error(`[ShaderProgram @${this.#name}] Expected uniform '${name}' to be supported by this shader. Cannot set uniform.`)
         }
     }
 
@@ -202,7 +210,7 @@ export default class ShaderProgram {
 
         let textureBindUnit = 0;
         const gl = ShaderProgram.#gl;
-        for (const [name, uniform] of this.#dirtyUnfiorms) {
+        for (const [name, uniform] of this.#dirtyUniforms) {
             // separate logic for sampler types
             if (uniform.type === 'sampler2D' || uniform.type === 'sampler3D') {
                 const glTextureType = uniform.type === 'sampler2D' ? gl.TEXTURE_2D : gl.TEXTURE_3D;
@@ -231,7 +239,7 @@ export default class ShaderProgram {
         
         // refresh state for next frame
         gl.bindTexture(gl.TEXTURE_2D, null);
-        this.#dirtyUnfiorms.clear();
+        this.#dirtyUniforms.clear();
     }
 
     /**
@@ -268,13 +276,13 @@ export default class ShaderProgram {
 
             this.#generateLocationMap();
 
-            console.log({
-                name: this.#name,
-                aliasMap: this.#aliasMap,
-                dataMap: this.#dataMap,
-                capabilityMap: this.#capabilityMap,
-                capabilityList: this.#capabilityList
-            })
+            // console.log({
+            //     name: this.#name,
+            //     aliasMap: this.#aliasMap,
+            //     dataMap: this.#dataMap,
+            //     capabilityMap: this.#capabilityMap,
+            //     capabilityList: this.#capabilityList
+            // })
             
             return shaderInfo.programID;
         } catch (error) {

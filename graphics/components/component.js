@@ -1,72 +1,111 @@
-import ShaderProgram from "../shading/shader-program.js";
-
-/** Abstract class representing components for a Material */
+/** Abstract class representing components */
 export default class Component {
     static #ID_COUNTER = 0;
+
+    static Modifier = Object.freeze({
+        SHADEABLE: 'shadeable',
+        UPDATABLE: 'updatable'
+    })
 
     #name;
     #refCount;
     #ID;
-    _isDirty;
+
+    _parent;
+    _modifiers;
 
     /**
-     * This class is meant to be abstract. Instantiate a derived type to use it with a Material instance.
-     * @param {string} name the name of the material component.
+     * This class is meant to be abstract. Instantiate a derived type to use it.
+     * @param {string} name the name of the component.
      */
-    constructor(name) {
+    constructor(name, modifiers=[]) {
+        this.#ID = Component.#ID_COUNTER++;
         this.#name = name;
         this.#refCount = 0;
-        this.#ID = Component.#ID_COUNTER++;
+        this._modifiers = modifiers;
     }
 
     /**
-     * Get this material component's id.
+     * Get this component's id.
      */
     get ID() {
         return this.#ID;
     }
 
     /**
-     * Get the name of this material component
-     * @returns {string} the name of the material component
+     * Get the name of this component
+     * @returns {string} the name of the component
      */
     get name() {
         return this.#name;
     }
 
     /**
-     * Set the name of this material component
-     * @param newName the new name of the material component
+     * Set the name of this component
+     * @param newName the new name of the component
      */
     set name(newName) {
         this.#name = newName;
     }
 
     /**
-     * Retreive the number of references on this material component
+     * Retreive the number of references on this component
      */
     get refCount() {
         return this.#refCount;
     }
      /**
-     * Set the value of this material component. This method should be overriden.
+     * Set the value of this component. This method should be overriden.
      * @param {any} value 
      */
     set value(value) {
-        throw new Error(`[MaterialComponent] This is an abstract class. Use a derived class to set the component value.`);
+        throw new Error(`[Component] This is an abstract class. Use a derived class to set the component value.`);
     }
 
     /**
-     * Get the value of this material component. This method should be overriden.
-     * @returns {any} the value associated with this material component 
+     * Get the value of this component. This method should be overriden.
+     * @returns {any} the value associated with this component 
      */
     get value() {
-        throw new Error(`[MaterialComponent] This is an abstract class. Use a derived class to get the component value.`);
+        throw new Error(`[Component] This is an abstract class. Use a derived class to get the component value.`);
     }
 
     /**
-     * Acquire this material component for use.
-     * @returns {Component} a reference to this material component
+     * Set the parent container for this component
+     * @param {any} parent the parent object.
+     */
+    set parentContainer(parent) {
+        this._parent = parent;
+    }
+
+    /**
+     * Get the parent container for this component
+     * @param {any} parent the parent object.
+     */
+    get parentContainer() {
+        return this._parent
+    }
+
+    /**
+     * Check if this component has an modifier and therefore is capable of that modifier's behavior
+     * @param {Component.Modifier} modifier the modifier type to check for
+     * @returns {boolean} true if the component has the modifier, false otherwise
+     */
+    hasModifier(modifier) {
+        return this._modifiers.includes(modifier);
+    }
+
+    /**
+     * Get a list of the supporting modifiers of this component
+     * @returns {Array<string>} a list of modifiers of this component
+     */
+    getModifiers() {
+        return this._modifiers;
+    }
+
+    /**
+     * Acquire this component for use.
+     * @returns {Component} a reference to this component
      */
     acquire() {
         this.#refCount++;
@@ -74,7 +113,7 @@ export default class Component {
     }
 
     /**
-     * Release this material component from use.
+     * Release this component from use.
      */
     release() {
         this.#refCount--;
@@ -82,30 +121,19 @@ export default class Component {
 
     /**
      * Clone this material component. This method should be overriden.
-     * @param {boolean} deepCopy if true, will clone the properties of this component, otherwise only the component itself will be cloned.
+     * @param {string} canvasID if the component is context-bound, this can be used to change the context of the new component instance
      * @returns {Component} a new Material Component with the same properties as this one.
      */
-    clone(deepCopy = false) {
-        throw new Error(`[MaterialComponent] This is an abstract class. Use a derived class to clone a component.`);
+    clone(canvasID='') {
+        throw new Error(`[Component] This is an abstract class. Use a derived class to clone a component.`);
     }
 
     /**
-     * Check if the provided property is valid for this material component. This method should be overriden.
+     * Check if the provided property is valid for this component. This method should be overriden.
      * @param {any} property the property to check
      * @returns {boolean} true if the property is a valid type, false otherwise
      */
     validProperty(property) {
-        throw new Error(`[MaterialComponent] This is an abstract class. Use a derived class to validate component values.`);
-    }
-
-    /**
-     * Apply this material component to a shader program. This method should be overidden.
-     * @param {ShaderProgram} shaderProgram the shader to apply the component to. Should already be in use.
-     * @param {object} options options for how to the apply the component to the shader
-     * @param {string} options.parentName the name of this component's parent container, default is an empty string
-     * @param {number} options.index the index to the glsl array of which this uniform is a value of. If this is not specified, it's assumed the uniform is not an array type.
-     */
-    applyToShader(shaderProgram, options={}) {
-        throw new Error(`[MaterialComponent] This is an abstract class. Use a derived class to apply components to shaders.`);
+        throw new Error(`[Component] This is an abstract class. Use a derived class to validate component values.`);
     }
 }

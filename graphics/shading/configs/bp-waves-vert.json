@@ -11,30 +11,17 @@
     "blocks": [],
     "outputs": [
         { "name": "vNormal", "type": "vec3" },
-        { "name": "vViewDir", "type": "vec3" },
-        { "name": "vPointLightVectors", "type": "vec3", "isArray": true, "maxSize": 5 }
+        { "name": "vViewDir", "type": "vec3" }
     ],
     "uniforms": [
         { "name": "uModel", "type": "mat4" },
         { "name": "uView", "type": "mat4" },
         { "name": "uProjection", "type": "mat4" },
-        { "name": "pointLights", "type": "PointLight", "isArray": true, "maxSize": 5 },
-        { "name": "numPointLights", "type": "int" },
         { "name": "waves", "type": "Wave", "isArray": true, "maxSize": 20 },
         { "name": "numWaves", "type": "int" },
         { "name": "totalTime", "type": "float" }
     ],
     "structs": [
-        {
-            "name": "PointLight",
-            "members": [
-                { "name": "position", "type": "vec3"},
-                { "name": "emissiveColor", "type": "vec3"},
-                { "name": "attenConst", "type": "float"},
-                { "name": "attenLinear", "type": "float"},
-                { "name": "attenQuad", "type": "float"}
-            ]
-        },
         {
             "name": "Wave",
             "members": [

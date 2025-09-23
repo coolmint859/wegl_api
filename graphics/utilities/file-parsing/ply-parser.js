@@ -56,7 +56,7 @@ export default class PLYParser extends Parser {
      */
     constructor(options={}) {
         super();
-        this.#genNormals = options.generateNormals ?? true; // default is to always generate normals
+        this.#genNormals = options.generateNormals ?? true;
         this.#interleaved = options.interleaveArrays ?? true;
         this.#normalizeVertices = options.normalizeVertices ?? false;
         this.#elementDataViews = {};

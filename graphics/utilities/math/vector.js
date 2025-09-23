@@ -1,4 +1,5 @@
-import { EasingFunc, interpolate } from './blend.js'; 
+import Color from '../misc/color.js';
+import { EasingFunc, interpolate } from '../misc/blend.js'; 
 
 /**
  * Represents a 2D mathematical vector.
@@ -692,7 +693,9 @@ export class Vector4 {
      * @returns {boolean} true if they are equal, false otherwise.
      */
     equals(other, EPSILON = 0.00001) {
-        if (!(other instanceof Vector4)) return false;
+        if (!(other instanceof Vector4) || !(other instanceof Color)) {
+            return false;
+        }
         if (typeof EPSILON !== 'number' || EPSILON < 0) {
             console.warn("ValueError: Expected 'EPSILON' to be a number greater than or equal to 0. Using default tolerance of 0.00001.");
             EPSILON = 0.00001;

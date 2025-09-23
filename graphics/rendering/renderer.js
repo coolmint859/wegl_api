@@ -1,19 +1,15 @@
-import FPSCamera from "../cameras/FPSCamera.js";
-import Shader from "../shading/shader-program.js";
-import Color from "../utilities/containers/color.js";
-import { Matrix4 } from "../utilities/math/matrix.js";
-import EventScheduler from "../utilities/scheduler.js";
-import Camera from "../cameras/camera.js";
-import ShaderManager from "../shading/shader-manager.js";
-import Light from "../lighting/light.js";
-import TextureManager from "../modeling/texture-manager.js";
+import { TextureManager } from "../components/index.js";
+import { Camera, FPSCamera, Light } from "../scene/index.js";
+import { ShaderManager } from "../shading/index.js";
+import { Color } from "../utilities/index.js";
+import EventScheduler from "../utilities/misc/scheduler.js";
 
 /**
  * Core real-time 3D application renderer. 
  */
 export default class Graphics3D {
-    static #canvas = document.getElementById("canvas-main");
-    static #gl = Graphics3D.#canvas.getContext('webgl2', { alpha: true, antialias: true, preserveDrawingBuffer: false });
+    static canvas = document.getElementById("canvas-main");
+    static #gl = Graphics3D.canvas.getContext('webgl2', { alpha: true, antialias: true, preserveDrawingBuffer: false });
 
     static RenderType = Object.freeze({
         PHONG: 'blinn-phong',
@@ -43,7 +39,7 @@ export default class Graphics3D {
 
     constructor(width, height) {
         const gl = Graphics3D.#gl;
-        const canvas = Graphics3D.#canvas;
+        const canvas = Graphics3D.canvas;
         canvas.width = width;
         canvas.height = height;
 
@@ -71,8 +67,6 @@ export default class Graphics3D {
         this.shaders = new Map();
 
         this.renderMode = Graphics3D.RenderMode.TRIANGLES;
-        
-        this.scenes = new Map();
 
         // setup camera information
         this.cameras = new Map();
@@ -94,7 +88,7 @@ export default class Graphics3D {
 
     /** sets the width/height of the viewport */
     setViewport(width, height) {
-        const canvas = Graphics3D.#canvas;
+        const canvas = Graphics3D.canvas;
         canvas.width = width;
         canvas.height = height;
         this.aspectRatio = width/height;
@@ -168,8 +162,8 @@ export default class Graphics3D {
             if (!object.debugEnabled) return;
             this.sceneObjects.push(object.debugModel);
         } else {
-            if (object.renderType === null || !Object.values(Graphics3D.RenderType).includes(object.renderType)) {
-                object.renderType = Graphics3D.RenderType.BASIC;
+            if (object.currentShader === null || !Object.values(Graphics3D.RenderType).includes(object.currentShader)) {
+                object.currentShader = Graphics3D.RenderType.BASIC;
             }
 
             this.sceneObjects.push(object);
@@ -207,10 +201,9 @@ export default class Graphics3D {
 
         // set up shader uniforms && attributes
         shader.setUniform("uModel", mesh.transform.worldMatrix);
-        shader.setUniform('uView', this.currentCamera.viewMatrix);
-        shader.setUniform('uProjection', this.currentCamera.projectionMatrix);
+        this.currentCamera.applyToShader(shader);
 
-        this.#setShaderUniforms(shader, mesh.renderType, totalTime);
+        this.#setShaderUniforms(shader, mesh.currentShader, totalTime);
         // mesh.applyToShader(shader);
         mesh.material.applyToShader(shader); 
 
@@ -227,27 +220,27 @@ export default class Graphics3D {
         gl.bindVertexArray(null);
     }
 
-    #setShaderUniforms(shader, renderType, totalTime) {
-        function setLightingAttribs(lights, shader) {
-            shader.setUniform("numPointLights", self.lights.length);
+    #setShaderUniforms(shader, currentShader, totalTime) {
+        function setLightingAttribs(lights) {
+            shader.setUniform("numPointLights", lights.length);
             for (let i = 0; i < lights.length; i++) {
                 lights[i].applyToShader(shader, i);
             }
         }
 
-        switch (renderType) {
+        switch (currentShader) {
             case Graphics3D.RenderType.PHONG:
                 shader.setUniform('ambientColor', this.ambientColor);
-                setLightingAttribs(this.lights, shader);
+                setLightingAttribs(this.lights);
                 break;
             case Graphics3D.RenderType.TEXTURE:
                 shader.setUniform('ambientColor', this.ambientColor);
-                setLightingAttribs(this.lights, shader);
+                setLightingAttribs(this.lights);
                 break;
             case Graphics3D.RenderType.WAVES:
                 shader.setUniform('ambientColor', this.ambientColor);
                 shader.setUniform('totalTime', totalTime);
-                setLightingAttribs(this.lights, shader);
+                setLightingAttribs(this.lights);
                 break;
             default:
                 break; // nothing for basic shader

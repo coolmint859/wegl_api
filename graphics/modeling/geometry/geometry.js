@@ -1,0 +1,329 @@
+import * as platonic from "./procedural/platonic-solids.js";
+import * as radial from "./procedural/radial-geometry.js";
+import * as planar from "./procedural/planar-geometry.js";
+import * as miscgeo from "./procedural/misc-geometry.js";
+import ContextManager from "../../utilities/misc/context-manager.js";
+import { ResourceCollector } from "../../utilities/index.js";
+
+/**
+ * Represents mesh data - vertices, normals, and texture coordinates
+ */
+export default class Geometry {
+    #name;
+    #canvasID;
+    #handler;
+
+    #data;
+
+    /**
+     * Create a new geometry instance
+     * @param {string} name the name of the geometry, used as a unique indentifier for storage
+     * @param {object} data the raw data to be used by this Geometry instance. See docs for format
+     */
+    constructor(name, data, canvasID='') {
+        if (typeof canvasID === 'string' && canvasID.trim() !== '' && ContextManager.isValidContext(canvasID)) {
+            this.#canvasID = canvasID;
+            this.#handler = ContextManager.getHandler(canvasID, ContextManager.HandlerType.GEOMETRY);
+        } else {
+            this.#canvasID = ContextManager.currentCanvasID;
+            this.#handler = ContextManager.getCurrentHandler(ContextManager.HandlerType.GEOMETRY);
+        }
+
+        this.#name = name;
+        this.#data = data;
+
+        if (ResourceCollector.contains(name)) {
+            ResourceCollector.acquire(name);
+        } else {
+            ResourceCollector.store(name, data);
+        }
+    }
+
+    get name() {
+        return this.#name;
+    }
+
+    /**
+     * get the parent context this geometry instance was created in
+     */
+    get parentContext() {
+        return this.#canvasID;
+    }
+
+    /**
+     * Get the raw data associated with this geometry
+     */
+    get data() {
+        return this.#data
+    }
+
+    /**
+     * Get the capabililities of this geometry as a list of strings.
+     */
+    get capabilities() {
+        const geoCapabilities = new Set();
+
+        function addCapability(searchKey, keyword, cap) {
+            if (searchKey === keyword) {
+                geoCapabilities.add(cap);
+            }
+        }
+
+        for (const arrayName in this.#data) {
+            addCapability(arrayName, 'vertex', 'aPosition');
+            addCapability(arrayName, 'normal', 'aNormal');
+            addCapability(arrayName, 'uv', 'aTexCoord');
+
+            for (const attrib of this.#data[arrayName].attributes) {
+                addCapability(attrib.name, 'vertex', 'aPosition');
+                addCapability(attrib.name, 'normal', 'aNormal');
+                addCapability(attrib.name, 'uv', 'aTexCoord');
+            }
+        }
+        return Array.from(geoCapabilities);
+    }
+
+    /**
+     * Create a VAO for the given shader
+     * @param {ShaderProgram} shaderProgram the shader program the VAO should be created with
+     * @param {object} shaderProgram the shader program the VAO should be created with
+     */
+    generateVAO(shaderProgram, options={}) {
+        this.#handler.createVAO(this, shaderProgram, options)
+    }
+
+    /**
+     * Check if a VAO has been created with the given shader.
+     * @param {string} shaderName the name of the shader the VAO was created with
+     * @returns {boolean} true if the VAO for this geometry has been created, false otherwise
+     */
+    isReadyFor(shaderName) {
+        return this.#handler.isVAO_Ready(this.#name, shaderName)
+    }
+    
+    /**
+     * Get the arrays and VAO for the geometry instance, if ready
+     * @param {string} shaderName the name of the shader the VAO was created with
+     * @returns {object | null} an object with the array data and VAO object, if ready. If the VAO data is not ready, null is returned
+     */
+    getDataFor(shaderName) {
+        if (!this.isReadyFor(shaderName)) return null;
+        return { 
+            arrays: this.#data, 
+            VAO: this.#handler.getVAO(this.#name, shaderName)
+        }
+    }
+
+    /**
+     * Create an exact replica of this geometry instance.
+     * @param {string} canvasID optional context to create the new instance in. If not provided, the new instance will be created in the current context (Even if that's not the parent context)
+     */
+    clone(canvasID = '') {
+        return new Geometry(this.#name, this.#data, canvasID);
+    }
+
+    /**
+     * Generates a tetahredon, centered at the origin. Normalized to fit within a unit cube.
+     * @returns {Geometry} a new Geometry instance with tetrahedron data
+     */
+    static tetrahedron(canvasID = '') {
+        const name = 'tetrahedron';
+        if (ResourceCollector.contains(name)) {
+            const tetrahedron = ResourceCollector.get(name);
+            return new Geometry(name, tetrahedron, canvasID);
+        }
+        
+        const tetrahedron = platonic.generateTetrahedron();
+        ResourceCollector.store(name, tetrahedron);
+        return new Geometry(name, tetrahedron, canvasID);
+    }
+
+    /** 
+     * Generates a cube, centered at the origin. Normalized to fit within a unit cube.
+     * @returns {Geometry} a new Geometry instance with cube data
+     */
+    static cube(canvasID = '') {
+        const name = 'cube';
+        if (ResourceCollector.contains(name)) {
+            const cube = ResourceCollector.get(name);
+            return new Geometry(name, cube, canvasID);
+        }
+
+        const cube = platonic.generateCube();
+        ResourceCollector.store(name, cube);
+        return new Geometry(name, cube, canvasID);
+    }
+
+    /**
+     * Generates an octahedron, centered at the origin. Normalized to fit within a unit cube.
+     * @returns {Geometry} a new Geometry instance with octahedron data
+     */
+    static octahedron(canvasID = '') {
+        const name = 'octahedron';
+        if (ResourceCollector.contains(name)) {
+            const octahedron = ResourceCollector.get(name);
+            return new Geometry(name, octahedron, canvasID);
+        }
+
+        const octahedron = platonic.generateOctahedron();
+        ResourceCollector.store(name, octahedron)
+        return new Geometry(name, octahedron, canvasID);
+    }
+
+    /**
+     * Generates a dodecahedron, centered at the origin. Normalized to fit within a unit cube.
+     * @returns {Geometry} a new Geometry instance with dodecahedron data
+     */
+    static dodecahedron(canvasID = '') {
+        const name = 'dodecahedron';
+        if (ResourceCollector.contains(name)) {
+            const dodecahedron = ResourceCollector.get(name);
+            return new Geometry(name, dodecahedron, canvasID);
+        }
+
+        const dodecahedron = platonic.generateDodecahedron();
+        ResourceCollector.store(name, dodecahedron);
+        return new Geometry(name, dodecahedron, canvasID);
+    }
+
+    /**
+     * Generates an icosahedron, centered at the origin. Normalized to fit within a unit cube.
+     * @returns {Geometry} a new Geometry instance with icosahedron data
+     */
+    static icosahedron(canvasID = '') {
+        const name = 'icosahedron';
+        if (ResourceCollector.contains(name)) {
+            const icosahedron = ResourceCollector.get(name);
+            return new Geometry(name, icosahedron, canvasID);
+        }
+
+        const icosahedron = platonic.generateIcosahedron();
+        ResourceCollector.store(name, icosahedron);
+        return new Geometry(name, icosahedron, canvasID);
+    }
+
+    /**
+     * Generates a pyramid, centered at the origin. Normalized to fit within a unit cube.
+     * @returns {object} an object containing the arrays and accompanying attributes
+     */
+    static pyramid(canvasID = '') {
+        const name = 'pyramid';
+        if (ResourceCollector.contains(name)) {
+            const pyramid = ResourceCollector.get(name);
+            return new Geometry(name, pyramid, canvasID);
+        }
+
+        const pyramid = miscgeo.generatePyramid();
+        ResourceCollector.store(name, pyramid);
+        return new Geometry(name, pyramid, canvasID);
+    }
+
+    /**
+     * Generates a cube, centered at the origin. Normalized to fit within a unit cube.
+     * @param {number} numBands the number of bands around the cone. Must be at least 3.
+     * @returns {object} an object containing the arrays and accompanying attributes
+     */
+    static cone(numBands, canvasID = '') {
+        if (numBands < 3) {
+            console.warn(`[Geometry] Generating a cone must have 'numBands' to be greater than 2. Assigning default (numBands=5).`);
+            numBands = 5;
+        }
+
+        const name = `cone#b${numBands}`;
+        if (ResourceCollector.contains(name)) {
+            const cone = ResourceCollector.get(name);
+            return new Geometry(name, cone, canvasID);
+        }
+
+        const cone = radial.generateCone(numBands);
+        ResourceCollector.store(name, cone);
+        return new Geometry(name, cone, canvasID);
+    }
+
+    /**
+     * Generates a cylinder, centered at the origin. Normalized to fit within a unit cube.
+     * @param {number} numBands the number of bands around the cylinder. Must be at least 3.
+     * @returns {object} an object containing the arrays and accompanying attributes
+     */
+    static cylinder(numBands, canvasID = '') {
+        if (numBands < 3) {
+            console.warn(`[Geometry] Generating a cylinder must have 'numBands' to be greater than 2. Assigning default (numBands=10).`);
+            numBands = 10;
+        }
+
+        const name = `cylinder#b${numBands}`;
+        if (ResourceCollector.contains(name)) {
+            const cylinder = ResourceCollector.get(name);
+            return new Geometry(name, cylinder, canvasID);
+        }
+    
+        const cylinder = radial.generateCylinder(numBands);
+        ResourceCollector.store(name, cylinder);
+        return new Geometry(name, cylinder, canvasID);
+    }
+
+    // ------------ 2D GEOMETRY ------------ //
+
+    /**
+     * Generates a plane, centered at the origin.
+     * @param {number} rows the number of rows on the plane. a higher value means more triangles
+     * @param {number} cols the number of columns on the plane. a higher value means more triangles
+     * @param {number} width the width (x-axis) of the plane
+     * @param {number} depth the depth (z-axis) of the plane
+     * @returns {object} an object containing the arrays and accompanying attributes
+     */
+    static plane(rows, cols, width, depth, canvasID = '') {
+        if (rows <= 0) {
+            console.warn(`[GeneratePlane] 'rows' must be greater than 0. Assigning default (rows=1).`);
+            numSides = 1;
+        }
+        if (cols <= 0) {
+            console.warn(`[GeneratePlane] 'cols' must be greater than 0. Assigning default (cols=1).`);
+            cols = 1;
+        }
+        if (width <= 0) {
+            console.warn(`[GeneratePlane] 'width' must be greater than 0. Assigning default (width=1).`);
+            width = 1;
+        }
+        if (depth <= 0) {
+            console.warn(`[GeneratePlane] 'depth' must be greater than 0. Assigning default (depth=1).`);
+            depth = 1;
+        }
+
+        const name = `plane#r${rows}c${cols}w${width}d${depth}`;
+        if (ResourceCollector.contains(name)) {
+            const plane = ResourceCollector.get(name);
+            return new Geometry(name, plane, canvasID);
+        }
+    
+        const plane = planar.generatePlane(rows, cols, width, depth);
+        ResourceCollector.store(name, plane);
+        return new Geometry(name, plane, canvasID);
+    }
+
+    /**
+     * Generates a regular polygon, centered at the origin. Normalized to fit within a unit cube.
+     * @param {number} numSides the number of sides of the polygon. Must be at least 3.
+     * @param {object} options options for determining how the polygon should be made
+     * @param {number} options.initRotation initial rotation about central axis. default is 0.
+     * @param {boolean} options.shareVertices if true, the vertices around the perimeter will be shared, otherwise each triangle will be independent from eachother. Default is true.
+     * @param {number} options.centerOffset the offset along the polygon's perpendicular axis for which the central vertex will be defined. Default is 0.
+     * @returns {object} an object containing the new vertex and index array. The size of each is proportional to the number of polygon sides
+     */
+    static regularPolygon(numSides, options={}) {
+        if (numSides < 3) {
+            console.warn(`[GenerateRegularPolygon] numSides must be at least 3. Assigning default (numSides=3).`);
+            numSides = 3;
+        }
+
+        const name = `reg-pol#s${numBands}`;
+        if (ResourceCollector.contains(name)) {
+            const regpoly = ResourceCollector.get(name);
+            return new Geometry(name, regpoly, options.canvasID);
+        }
+    
+        const regpoly = planar.generateRegularPolygon(numSides);
+        ResourceCollector.store(name, regpoly);
+        return new Geometry(name, regpoly, options.canvasID);
+    }
+}

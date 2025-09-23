@@ -1,338 +1,175 @@
-import Graphics3D from "../rendering/renderer.js";
-import ResourceCollector from "../utilities/containers/collector.js";
-import Transform from "../utilities/containers/transform.js";
-import ShaderManager from "../shading/shader-manager.js"
-import Material from "./material.js";
-import StreamReader from "../utilities/file-parsing/stream-reader.js";
+import Component from "../components/component.js";
+import ShaderProgram from "../shading/shader-program.js";
+import Geometry from "./geometry/geometry.js";
+import Material from "./materials/material.js";
+import Transform from "./transform.js";
 
+/**
+ * Represents a renderable entity
+ */
 export default class Mesh {
     static #ID_COUNTER = 0;
-    static #gl;
+    #ID;
 
-    // mesh properties
-    #meshID;
-    #meshPath;
-    #meshOptions;
-    #meshCapabilities;
+    #geometry;
+    material;
+    transform;
 
-    // material properties
-    #material;
-    #currentMaterialCapabilities;
-
-    // shader information
-    #currentShaderName;
-    #preferredShaderName;
-    #shaderSelectionPromise;
+    #components; // components are additional abilities a mesh can have to affect it's behavior
 
     /**
-     * Create a new Mesh object
-     * @param {string} meshPath the path to the mesh file on disk
-     * @param {Material} material the material this mesh should use.
-     * @param {object} options options for mesh and buffer definitions (e.g initialTransform, drawMode, etc...)
+     * Create a new Mesh instance
+     * @param {Geometry} geometry a geometry instance specifying the vertex data of this mesh
+     * @param {Material} material a material instance specifying the 'look' of this mesh
+     * @param {Transform} transform optional transform instance specifying the orientation of this mesh.
      */
-    constructor(meshPath, material, options={}) {
-        if (!Mesh.#gl) Mesh.#gl = Graphics3D.getGLContext();
-        this.#meshPath = meshPath;
-        this.#meshID = Mesh.#ID_COUNTER++;
-        this.#meshOptions = options;
-        this.#meshCapabilities = ['model']; // list of mesh capabilities - all meshes have a model matrix, rest determined by VAO
-
-        this.#preferredShaderName = options.preferredShaderName || null;
-        this.#shaderSelectionPromise = null;
-
-        // create transform object
-        if (!options.initialTransform) {
-            this.transform = new Transform(); // give default transform values
-        } else if (!(options.initialTransform instanceof Transform)) {
-            console.warn(`[Mesh ID#${this.#meshID}] TypeError: Expected 'options.initialTransform' to be an instance of Transform. Assigning default Transform.`);
-            this.transform = new Transform(); // give default transform values
-        } else {
-            this.transform = options.initialTransform;
+    constructor(geometry, material, transform=null) {
+        if (!(geometry instanceof Geometry)) {
+            console.error(`[Mesh ID#${this.#ID}] Expected 'geometry' to be an instance of Geometry.`);
+            return;
         }
-
-        // check if the material is valid within the context
-        if (!(material instanceof Material) ) {
-            console.error(`[Mesh ID#${this.#meshID}] TypeError: Expected 'material' to be an instance of Material. Assigning default Material`);
-            this.#material = new Material(contextName, Color.WHITE); // basic material
-        } else { 
-            this.#material = material;
+        if (!(material instanceof Material)) {
+            console.error(`[Mesh ID#${this.#ID}] Expected 'material' to be an instance of Material.`);
+            return;
         }
-        // initialize material capabilities to empty arrays
-        this.#currentMaterialCapabilities = { 'properties': [], 'textures': [] };
-        
-        if (typeof meshPath === 'string' && meshPath.trim() !== '') {
-            ResourceCollector.load(meshPath, this.#generateMesh.bind(this), this.#disposeMesh.bind(this))
-            .then(meshData => {
-                this.refreshShaderEvaluation(); 
-                console.log(`[Mesh ID#${this.#meshID}] Created new mesh '${meshPath}'.`);
-            }).catch(error => {
-                console.error(`[Mesh ID#${this.#meshID}] Failed to create mesh '${meshPath}': ${error}`);
-            })
-        } else {
-            console.error(`[Mesh ID#${this.#meshID}] TypeError: Expected 'meshPath' to be a non-empty string. Cannot load mesh into memory.`);
+        this.#ID = Mesh.#ID_COUNTER++;
+
+        this.#geometry = geometry;
+        this.material = material;
+        this.material.parentContainer = this;
+
+        this.transform = (transform instanceof Transform) ? transform : new Transform();
+        this.#components = new Map();
+    }
+
+    /**
+     * Get the capabilities of this mesh
+     * @returns {Array<string>} an array of strings representing the capabilities of this mesh
+     */
+    get capabilities() {
+        const capabilities = [];
+        capabilities.push(...this.#geometry.capabilities);
+        capabilities.push(...this.material.capabilities);
+        capabilities.push(...this.transform.capabilities);
+
+        for (const component of this.#components.values()) {
+            if (component.hasModifer(Component.Modifier.SHADEABLE)) {
+                capabilities.push(...component.capabilities);
+            }
+        }
+        return capabilities;
+    }
+
+    /**
+     * Attach a component to this mesh.
+     * @param {string} alias an indentifier for the component
+     * @param {Component} component the component instance to attach
+     */
+    addComponent(component) {
+        if (!component instanceof Component) {
+            console.error(`[Mesh ID#${this.#ID}] Expected 'component' to be an instance of Component. Cannot add component to mesh.`);
+            return;
+        }
+        this.#components.set(component.name, component);
+        component.parentContainer = this;
+    }
+
+    /**
+     * remove a component from this mesh
+     * @param {string} name the identifier for the component
+     */
+    removeComponent(componentName) {
+        if (typeof componentName !== 'string' || componentName.trim() === '') {
+            console.error(`[Mesh ID#${this.#ID}] Expected 'componentName' to be a non-empty string. Cannot remove component from mesh.`);
+            return;
+        }
+        this.#components.delete(componentName);
+    }
+
+    /**
+     * Check if a component with the given name is attached to this mesh
+     * @param {string} componentName the name of the component to check against
+     * @returns {boolean} true if at least one component with the name exists on this material, false otherwise
+     */
+    contains(componentName) {
+        return this.#components.some(comp => comp.name === componentName);
+    }
+
+    /**
+     * Check if the VAO for the given shader name has been created.
+     * @param {string} shaderName 
+     * @returns 
+     */
+    isReadyFor(shaderName) {
+        return this.#geometry && this.#geometry.isReadyFor(shaderName);
+    }
+
+    /**
+     * Prepare this mesh for rendering by creating a VAO.
+     * @param {ShaderProgram} shaderProgram the shader program instance the mesh should be prepared for
+     * @param {object} options options for generating and storing the VAO. See docs for possible properties.
+     */
+    prepareForShader(shaderProgram, options={}) {
+        this.#geometry.generateVAO(shaderProgram, options);
+    }
+
+    /**
+     * Update any updateable components attached to this mesh
+     * @param {number} dt the elapsed time in seconds since the last update
+     */
+    updateComponents(dt) {
+        const updatableComps = this.#components.values().filter(comp => {
+            comp.hasModifer(Component.Modifier.UPDATABLE);
+        })
+
+        for (const component of updatableComps) {
+            component.update(dt);
         }
     }
 
     /**
-     * Get the current best-fit shader name for this mesh
-     * @returns {string} the name of the shader
+     * Get the raw vertex data and VAO from this mesh's geometry
+     * @param {string} shaderName the name of the shader
+     * @returns {object} as object containing the vertex data and VAO as properties, if ready. Returns null otherwise.
      */
-    getShaderName() {
-        return this.#currentShaderName;
-    }
-    
-    /**
-     * Checks if the mesh has a material, has a shader, and that the mesh has been loaded
-     * @returns {boolean} true if the checks pass, false otherwise
-     */
-    isValid() {
-        if (!this.#material || this.#currentShaderName === null) {
-            return false;
+    getGeometryData(shaderName) {
+        if (this.isReadyFor(shaderName)) {
+            return this.#geometry.getDataFor(shaderName);
         }
-        return this.isLoaded();
+        return null;
     }
 
-    /** 
-     * Checks if this mesh was successfully loaded into GPU memory.
+    /**
      * 
-     * Note: a loaded Mesh may not be a valid Mesh (but, its very likely)
-     * @returns {boolean} true if successfully loaded, false otherwise
-     * */
-    isLoaded() {
-        return ResourceCollector.isLoaded(this.#meshPath);
+     * @param {string} canvasID optional id to change the context for which the new mesh is bound to
+     * @returns {Mesh} a new mesh instance
+     */
+    clone(canvasID='') {
+        const newGeometry = this.#geometry.clone(canvasID);
+        const newMaterial = this.material.clone(canvasID);
+        const newTransform = this.transform.clone();
+        const newMesh = new Mesh(newGeometry, newMaterial, newTransform);
+
+        for (const component of this.#components.values()) {
+            newMesh.addComponent(component);
+        }
+        return newMesh;
     }
 
     /**
-     * Reload the mesh data this mesh represents.
-     * @returns {Promise} a promise indicating success or failure on reloading the mesh.
+     * Apply this mesh to a shader program.
+     * @param {ShaderProgram} shaderProgram the shader to apply the mesh to. Should already be in use.
      */
-    async reload() {
-        try {
-            reloadedData = await ResourceCollector.reload(this.#meshPath);
-            console.log(`[Mesh ID#${this.#meshID}]: Successfully reloaded '${this.#meshPath}'.`);
-            return reloadedData;
-        } catch (error) {
-            console.log(`[Mesh ID#${this.#meshID}]: Failed to reload '${this.#meshPath}'.`);
-            throw error;
+    applyToShader(shaderProgram, options={}) {
+        this.transform.applyToShader(shaderProgram);
+        this.material.applyToShader(shaderProgram);
+
+        const shadeableComponents = this.#components.values().filter(comp => {
+            comp.hasModifer(Component.Modifier.SHADEABLE);
+        })
+
+        for (const component of shadeableComponents) {
+            component.applyToShader(shaderProgram);
         }
-    }
-
-    /** 
-     * Binds this mesh to it's WebGL context.
-     * @returns {boolean} true if this mesh was successfully bound, false otherwise
-     * */
-    bind() {
-        if (this.isValid()) {
-            const meshData = ResourceCollector.get(this.#meshPath);
-            Mesh.#gl.bindVertexArray(meshData.VAO);
-            return true;
-        } else {
-            console.warn(`[Mesh ID#${this.#meshID}] Warning: Mesh '${this.#meshPath}' is not yet loaded or is invalid. Cannot bind this mesh to GPU memory.`)
-            return false;
-        }
-    }
-
-    /** 
-     * Unbinds this mesh from it's WebGL context.
-     * @returns {boolean} true if this mesh was successfully unbound, false otherwise
-     * */
-    unbind() {
-        if (this.isValid()) {
-            Mesh.#gl.bindVertexArray(null);
-            return true;
-        } else {
-            console.warn(`[Mesh ID#${this.#meshID}] Warning: Mesh '${this.#meshPath}' is not yet loaded or is invalid. Cannot unbind this mesh to GPU memory.`)
-            return false;
-        }
-    }
-
-    /**
-     * Get an exact replica of the material associated with this mesh
-     * @returns {Material} a copy of this Mesh's material
-     */
-    getMaterial() {
-        return this.#material.clone();
-    }
-
-    /**
-     * Set this Mesh's material
-     * @param {Material} material 
-     * @returns {boolean} true if the material was successfully set, false otherwise
-     */
-    setMaterial(material) {
-        if (!(material instanceof Material) ) {
-            console.error(`[Mesh ID#${this.#meshID}] TypeError: Expected 'material' to be an instance of Material. Cannot set Material.`);
-            return false;
-        }
-        this.#material = material.clone();
-        this.refreshShaderEvaluation();
-        return true;
-    }
-
-    /**
-     * Apply this Mesh's properties and material (and textures) to the given Shader instance. 
-     * 
-     * NOTE: The shader program given must ALREADY be active. 
-     * @param {Shader} shaderProgram the shader program istance to set the uniforms for
-     */
-    applyToShader(shaderProgram) {
-        if (!(shaderProgram instanceof Shader && shaderProgram.isActive())) {
-            console.error(`[Mesh ID#${this.#meshID}] TypeError: Expected 'shaderProgram' to be an active instance of Shader. Cannot set mesh uniforms.`);
-        }
-        shaderProgram.setMatrix4('model', this.transform.getWorldMatrix());
-
-        // apply material uniforms, skip textures if texture coords are not present
-        const meshData = ResourceCollector.get(this.#meshPath);
-        this.#material.applyToShader(shaderProgram, meshData.hasTexCoords);
-    }
-
-    /**
-     * Reevaluate this mesh's currently set shader. Only triggers best-fit algorithm if the Material's capabilities have changed.
-     * This is safe to call every frame, as best-fit is an asyncronous process. This Mesh's shader is only updated when best-fit finishes execution.
-     */
-    refreshShaderEvaluation() {
-        const materialCapabilities = this.#material.getCapabilities();
-        const sameCapabilities = this.#sameMaterialCapabilities(this.#currentMaterialCapabilities, materialCapabilities);   
-        if (this.#currentShaderName !== null && sameCapabilities) {
-            return; // current shader is accurate, do nothing
-        }
-
-        // otherwise, shader evaluation is required - make sure one is not already in progress (prevents race conditions)
-        if (this.#shaderSelectionPromise === null) {
-            const capabilities = this.#meshCapabilities.concat(materialCapabilities).sort();
-
-            this.#shaderSelectionPromise = ShaderManager.bestFitShader(capabilities, this.#preferredShaderName)
-            .then(newShaderName => {
-                if (this.#currentShaderName !== newShaderName) {
-                    ShaderManager.release(this.#currentShaderName);
-                    console.log(`[Mesh ID#${this.#meshID}] Mesh: Switched best-fit shader for mesh ${this.#meshPath} from ${this.#currentShaderName} to ${newShaderName}.`);
-                    this.#currentShaderName = newShaderName;
-                }
-                this.#currentMaterialCapabilities = materialCapabilities;
-                this.#shaderSelectionPromise = null;
-            })
-            .catch(error => { 
-                console.error(`[Mesh ID#${this.#meshID}] Mesh: Error selecting best-fit shader for @${this.#meshPath}: `, error);
-                this.#currentShaderName = null;
-                this.#shaderSelectionPromise = null
-            });
-        }
-    }
-
-    /** compares material capabilities. Returns true if they're the same, false otherwise */
-    #sameMaterialCapabilities(oldCapabilities, newCapabilities) {
-        if (!oldCapabilities || !newCapabilities) {
-            return oldCapabilities === newCapabilities;
-        }
-
-        const oldProps = [...oldCapabilities.properties].sort();
-        const newProps = [...newCapabilities.properties].sort();
-        if (oldProps.length !== newProps.length || oldProps.join(',') !== newProps.join(',')) {
-            return false;
-        }
-
-        const oldTextures = [...oldCapabilities.textures].sort();
-        const newTextures = [...newCapabilities.textures].sort();
-        if (oldTextures.length !== newTextures.length || oldTextures.join(',') !== newTextures.join(',')) {
-            return false;
-        }
-
-        return true;
-    }
-
-    /** 
-     * Release this Mesh's VAO, buffer, material, and shader references.
-     * @returns {boolean} true if the shader, mesh, and material were all successfully released, false otherwise
-     * */
-    dispose() {
-        let shaderReleased = true;
-        if (this.#currentShaderName !== null) {
-            shaderReleased = ShaderManager.release(this.#currentShaderName);
-        }
-        let meshReleased = ResourceCollector.release(this.#meshPath);
-
-        let materialDisposed = this.#material.dispose();
-        this.#material = null;
-        this.#currentShaderName = null;
-
-        return shaderReleased && meshReleased && materialDisposed;
-    }
-
-    async #generateMesh(meshPath, abortSignal) {
-        // get context and draw type
-        const gl = Mesh.#gl;
-        const drawType = meshOptions.drawType ? meshOptions.drawType : gl.STATIC_DRAW;
-
-        // load data arrays, create and bind VAO
-        const meshArrays = await StreamReader.read(meshPath, { signal : abortSignal });
-        const meshData = { VAO: gl.createVertexArray() };
-        gl.bindVertexArray(meshData.VAO);
-
-        // create and bind vertex buffer
-        const vertexLocation = ShaderManager.ATTRIB_LOCATION_VERTEX;
-        meshData.vertexBuffer = Mesh.#createArrayBuffer(vertexLocation, meshArrays.vertexArray, 3, drawType);
-
-        // create and bind normal buffer
-        const normalLocation = ShaderManager.ATTRIB_LOCATION_NORMAL;
-        meshData.normalBuffer = Mesh.#createArrayBuffer(normalLocation, meshArrays.NormalArray, 3, drawType);
-
-        // if texture coordinates present, bind uv buffer
-        if (meshArrays.uvArray !== null) {
-            const uvLocation = ShaderManager.ATTRIB_LOCATION_UV;
-            meshData.uvBuffer = Mesh.#createArrayBuffer(uvLocation, meshArrays.uvArray, 2, drawType);
-        }
-
-        // bind index buffer
-        const indexBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, meshArrays.indexArray, drawType);
-        meshData.indexBuffer = indexBuffer;
-
-        // unbind buffers
-        gl.bindVertexArray(null);
-        gl.bindBuffer(gl.ARRAY_BUFFER, null);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-
-        // update capabilities
-        this.#updateMeshCapabilities(meshData);
-
-        // return mesh object (which now contains the VAO and buffers)
-        return meshData;
-    }
-
-    /** creates a new buffer object at the given location with the given data */
-    static #createArrayBuffer(location, data, elementSize, drawType) {
-        const gl = Mesh.#gl;
-
-        const buffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        gl.bufferData(gl.ARRAY_BUFFER, data, drawType);
-        gl.enableVertexAttribArray(location);
-        gl.vertexAttribPointer(location, elementSize, gl.FLOAT, false, 0, 0);
-        return buffer;
-    }
-
-    /** update this meshes capabilities using the provided mesh data */
-    #updateMeshCapabilities(meshData) {
-        // reset capability array
-        this.#meshCapabilities = ['model'];
-
-        if (meshData.vertexBuffer) this.#meshCapabilities.push('position');
-        if (meshData.normalBuffer) this.#meshCapabilities.push('normal');
-        if (meshData.uvBuffer) this.#meshCapabilities.push('uv');
-        // add more checks as mesh data becomes more sophisticated
-
-        this.#meshCapabilities.sort();
-    }
-
-    /** called when no more meshes exists with this data */
-    #disposeMesh(meshData) {
-        const gl = Mesh.#gl;
-
-        gl.deleteVertexArray(meshData.VAO);
-        if (meshData.vertexBuffer) gl.deleteBuffer(meshData.vertexBuffer);
-        if (meshData.normalBuffer) gl.deleteBuffer(meshData.normalBuffer);
-        if (meshData.uvBuffer) gl.deleteBuffer(meshData.uvBuffer);
-        if (meshData.indexBuffer) gl.deleteBuffer(meshData.indexBuffer);
     }
 }

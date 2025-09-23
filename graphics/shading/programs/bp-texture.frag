@@ -31,13 +31,6 @@ uniform int numPointLights;
 uniform vec3 ambientColor;
 uniform mat4 uView;
 
-float linearizeDepth(float depth) 
-{
-    float near = 0.1; float far = 100.0;
-    float z = depth * 2.0 - 1.0; // back to NDC 
-    return (2.0 * near * far) / (far + near - z * (far - near));	
-}
-
 vec3 calculatePointLight(vec3 diffMapColor, vec3 specMapColor, PointLight light, float light_dist, vec3 N, vec3 L, vec3 V) 
 {
     // attenuation
@@ -86,7 +79,9 @@ void main()
     }
     fragColor += diffMapColor * ambientColor;
 
-    // float depth = linearizeDepth(gl_FragCoord.z) / far;
+    // // visualize depth
+    // float near = 0.1; float far = 100.0;
+    // float depth = near / (far - gl_FragCoord.z * (far - near));
     // outColor = vec4(vec3(1.0-depth), 1.0);
 
     outColor = vec4(pow(fragColor, vec3(1.0/gamma)), 1.0);

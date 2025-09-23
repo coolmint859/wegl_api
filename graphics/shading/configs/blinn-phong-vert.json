@@ -5,38 +5,25 @@
         {
             "name": "aPosition",
             "location": 0,
-            "type": "vec3"
+            "type": "vec3",
+            "aliases": ["vertexPosition"]
         },
         {
             "name": "aNormal",
             "location": 1,
-            "type": "vec3"
+            "type": "vec3",
+            "aliases": ["vertexNormal"]
         }
     ],
     "blocks": [],
     "outputs": [
         { "name": "vNormal", "type": "vec3" },
-        { "name": "vViewDir", "type": "vec3" },
-        { "name": "vPointLightVectors", "type": "vec3", "isArray": true, "maxSize": 5 }
+        { "name": "vViewDir", "type": "vec3" }
     ],
     "uniforms": [
-        { "name": "uModel", "type": "mat4" },
-        { "name": "uView", "type": "mat4" },
-        { "name": "uProjection", "type": "mat4" },
-        { "name": "pointLights", "type": "PointLight", "isArray": true, "maxSize": 5 },
-        { "name": "numPointLights", "type": "int" },
-        { "name": "testArray", "type": "float", "isArray": true, "maxSize": 5 }
+        { "name": "uModel", "type": "mat4", "aliases": ["model", "u_Model", "modelMatrix"] },
+        { "name": "uView", "type": "mat4", "aliases": ["view", "u_View", "viewMatrix"] },
+        { "name": "uProjection", "type": "mat4", "aliases": ["projection", "u_Projection", "projectionMatrix"] }
     ],
-    "structs": [
-        {
-            "name": "PointLight",
-            "members": [
-                { "name": "position", "type": "vec3"},
-                { "name": "emissiveColor", "type": "vec3"},
-                { "name": "attenConst", "type": "float"},
-                { "name": "attenLinear", "type": "float"},
-                { "name": "attenQuad", "type": "float"}
-            ]
-        }
-    ]
+    "structs": []
 }

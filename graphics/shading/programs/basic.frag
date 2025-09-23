@@ -6,22 +6,14 @@ precision mediump int;
 
 out vec4 outColor;
 
-struct Material {
-    vec3 diffuseColor;
-};
-uniform Material material;
-
-float linearizeDepth(float depth) 
-{
-    float near = 0.1; float far = 100.0;
-    float z = depth * 2.0 - 1.0; // back to NDC 
-    return (2.0 * near * far) / (far + near - z * (far - near));	
-}
+uniform vec3 baseColor;
 
 void main()
 {
-    // float depth = linearizeDepth(gl_FragCoord.z) / far;
+    // // visualize depth
+    // float near = 0.1; float far = 100.0;
+    // float depth = near / (far - gl_FragCoord.z * (far - near));
     // outColor = vec4(vec3(1.0-depth), 1.0);
 
-    outColor = vec4(material.diffuseColor, 1.0);
+    outColor = vec4(baseColor, 1.0);
 }

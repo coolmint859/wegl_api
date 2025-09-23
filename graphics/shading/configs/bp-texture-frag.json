@@ -3,10 +3,9 @@
     "precisions": { "int": "mediump", "float": "lowp", "sampler2D": "highp" },
     "blocks": [],
     "inputs": [
-        { "name": "vNormal", "type": "vec3" },
+        { "name": "vNormal", "type": "vec3", "aliases": ["frag_normal", "Normal"] },
         { "name": "vTexCoord", "type": "vec3" },
-        { "name": "vViewDir", "type": "vec3" },
-        { "name": "vPointLightVectors", "type": "vec3", "isArray": true, "maxSize": 5 }
+        { "name": "vViewDir", "type": "vec3" }
     ],
     "uniforms": [
         { "name": "material", "type": "Material"},
