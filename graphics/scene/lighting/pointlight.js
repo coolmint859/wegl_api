@@ -1,9 +1,10 @@
 import { Color, Vector3 } from "../../utilities/index.js";
 import * as radial from '../../modeling/geometry/procedural/radial-geometry.js';
-import { Material, Transform } from "../../modeling/index.js";
+import { Geometry, Material, Mesh, Transform } from "../../modeling/index.js";
 import { ColorComponent } from "../../components/index.js";
 import { Graphics3D } from "../../rendering/index.js";
 import Light from "./light.js";
+import { BasicMaterial } from "../../modeling/materials/default-materials.js";
 
 /**
  * Represents a pointlight
@@ -35,15 +36,16 @@ export default class PointLight extends Light {
         }
 
         this.#position = positionVector;
-        this._debugModel = {
-            arrays: radial.generateSphere(20, 20),
-            material: new Material([
-                new ColorComponent(this._color, 'baseColor')
-            ]),
-            transform: new Transform({ position: this.#position }),
-            currentShader: Graphics3D.RenderType.BASIC
-        }
-        this._debugModel.material.name = '';
+
+
+        const debugGeometry = Geometry.sphere(20, 20);
+        const debugMaterial = BasicMaterial({ color: this._color });
+        const debugTransform = new Transform({ position: this.#position });
+        debugMaterial.name = '';
+        
+        this._debugModel = new Mesh(debugGeometry, debugMaterial, debugTransform);
+        this._debugModel.currentShader = 'basic';
+
         this._lightType = Light.Type.POINTLIGHT;
     }
     

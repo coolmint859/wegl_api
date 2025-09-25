@@ -1,4 +1,4 @@
-import TextureManager from "../components/texture/texture-manager.js";
+import TextureHandler from "../components/texture/texture-handler.js";
 import { Color } from "../utilities/index.js";
 import { Matrix2, Matrix3, Matrix4 } from "../utilities/math/matrix.js";
 import { Vector2, Vector3, Vector4 } from "../utilities/math/vector.js";
@@ -171,7 +171,7 @@ class MapGenerator {
             case 'bool': return false;
             case 'int': return 0;
             case 'float': return 0.0;
-            case 'sampler2D': return TextureManager.getDefault(Color.RED);
+            case 'sampler2D': return TextureHandler.getDefault(Color.RED);
             default: return 0;
         }
     }

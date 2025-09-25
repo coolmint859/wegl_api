@@ -24,6 +24,7 @@ export default class ShaderProgram {
     #capabilityMap;             // a filtered version of the alias map that doesn't include array types
     #capabilityList;            // list of standalone uniform names and uniform array types, used for best fit logic
     #dirtyUniforms;             // maps true uniform names to uniforms whose values have changed
+    #textureBindUnit;           // keeps track of the number of textures bound for a given flush call
 
     /**
      * Create a new ShaderProgram instance.
@@ -48,9 +49,10 @@ export default class ShaderProgram {
         this.#aliasMap = aliasMap;
         this.#dataMap = dataMap;
         this.#capabilityMap = capabilityMap;
-        this.#capabilityList = Array.from(new Set(this.#capabilityMap.values())) ;
+        this.#capabilityList = Array.from(new Set(this.#capabilityMap.values()));
 
         this.#dirtyUniforms = new Map();
+        this.#textureBindUnit = 0;
     }
 
     /**
@@ -172,7 +174,7 @@ export default class ShaderProgram {
     }
 
     /**
-     * Set the value of a uniform
+     * Set the value of a uniform (Does not include textures)
      * @param {string} name the name of the uniform. Must be the full name or a known alias of such.
      * @param {any} newValue the value to store. Must match the data type specified in the config
      */
@@ -184,7 +186,6 @@ export default class ShaderProgram {
             const trueName = this.#aliasMap.get(name);
             const uniform = this.#dataMap.get(trueName);
 
-            // comparison check is different depending on whether it's a primitive or a class object
             if (['float', 'int', 'bool'].includes(uniform.type)) {
                 if (uniform.value !== newValue) {
                     uniform.value = newValue;
@@ -200,6 +201,42 @@ export default class ShaderProgram {
     }
 
     /**
+     * Send a texture for a texture sampler to this shader
+     * @param {string} name the name of the sampler uniform. Must be the full name or a known alias of such.
+     * @param {any} texture the texture instance to send
+     */
+    setSampler(name, texture) {
+        if (!this.isActive) {
+            console.error(`[ShaderProgram @${this.#name}] Cannot set uniform '${name}' for this program as it is currently inactive.`)
+        }
+        if (!(texture instanceof WebGLTexture)) {
+            console.error(`[ShaderProgram @${this.#name}] Expected 'texture' to be an instance of WebGLTexture. Cannot bind texture data.`);
+            return;
+        }
+
+        if (this.#aliasMap.has(name)) {
+            const trueName = this.#aliasMap.get(name);
+            const uniform = this.#dataMap.get(trueName);
+
+            if (uniform.type !== 'sampler2D' && uniform.type !== 'sampler3D') {
+                console.error(`[ShaderProgram @${this.#name}] Uniform '${name}' has type '${uniform.type}', but needs to be of type 'sampler2D' or 'sampler3D'. Cannot bind texture data.`);
+                return;
+            }
+
+            const gl = ShaderProgram.#gl;
+            const glTextureType = uniform.type === 'sampler2D' ? gl.TEXTURE_2D : gl.TEXTURE_3D;
+
+            gl.activeTexture(gl.TEXTURE0 + this.#textureBindUnit);
+            gl.bindTexture(glTextureType, texture);
+            gl.uniform1i(uniform.location, this.#textureBindUnit);
+
+            this.#textureBindUnit++; // this will get reset to 0 when reset() is called.
+        } else {
+            console.error(`[ShaderProgram @${this.#name}] Expected sampler uniform '${name}' to be supported by this shader. Cannot set uniform.`)
+        }
+    }
+
+    /**
      * Send any pending uniform data to the shader program. Designed to be called every frame.
      */
     flush() {
@@ -208,18 +245,9 @@ export default class ShaderProgram {
             return;
         }
 
-        let textureBindUnit = 0;
         const gl = ShaderProgram.#gl;
         for (const [name, uniform] of this.#dirtyUniforms) {
-            // separate logic for sampler types
             if (uniform.type === 'sampler2D' || uniform.type === 'sampler3D') {
-                const glTextureType = uniform.type === 'sampler2D' ? gl.TEXTURE_2D : gl.TEXTURE_3D;
-
-                gl.activeTexture(gl.TEXTURE0 + textureBindUnit);
-                gl.bindTexture(glTextureType, uniform.value);
-                gl.unform1i(uniform.location, textureBindUnit);
-
-                textureBindUnit++;
                 continue;
             }
 
@@ -236,9 +264,19 @@ export default class ShaderProgram {
                 default: console.warn(`[Shader @${this.#name}]: Cannot apply uniform '${name}' to shader. Value type '${uniform.type}' not supported.`);
             }
         }
-        
-        // refresh state for next frame
-        gl.bindTexture(gl.TEXTURE_2D, null);
+    }
+
+    /**
+     * Cleanup the shader state, preparing it for the next use.
+     */
+    reset() {
+        const gl = ShaderProgram.#gl;
+        for (let i = 0; i < this.#textureBindUnit; i++) {
+            gl.activeTexture(gl.TEXTURE0 + i);
+            gl.bindTexture(gl.TEXTURE_2D, null);
+            gl.bindTexture(gl.TEXTURE_3D, null);
+        }
+        this.#textureBindUnit = 0;
         this.#dirtyUniforms.clear();
     }
 
@@ -358,11 +396,22 @@ export default class ShaderProgram {
             if (property.location !== undefined)
                 continue;
 
+            let location;
             if (property.isAttr) {
-                property.location = ShaderProgram.#gl.getAttribLocation(this.programID, name);
+                location = ShaderProgram.#gl.getAttribLocation(this.programID, name);
             } else {
-                property.location = ShaderProgram.#gl.getUniformLocation(this.programID, name);
+                location = ShaderProgram.#gl.getUniformLocation(this.programID, name);
             }
+
+            if (location === null) {
+                console.warn(`[Shader Program  @${this.name}] Failed to find location for uniform '${name}'.`);
+            }
+
+            if (this.name === 'bp-diff-map') {
+                console.log(name, property);
+            }
+
+            property.location = location;
         }
     }
 

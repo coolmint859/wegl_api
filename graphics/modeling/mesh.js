@@ -3,6 +3,7 @@ import ShaderProgram from "../shading/shader-program.js";
 import Geometry from "./geometry/geometry.js";
 import Material from "./materials/material.js";
 import Transform from "./transform.js";
+import { BPBasicMaterial } from "./materials/default-materials.js";
 
 /**
  * Represents a renderable entity
@@ -12,10 +13,12 @@ export default class Mesh {
     #ID;
 
     #geometry;
-    material;
+    #material;
     transform;
 
     #components; // components are additional abilities a mesh can have to affect it's behavior
+
+    currentShader = '';
 
     /**
      * Create a new Mesh instance
@@ -23,23 +26,34 @@ export default class Mesh {
      * @param {Material} material a material instance specifying the 'look' of this mesh
      * @param {Transform} transform optional transform instance specifying the orientation of this mesh.
      */
-    constructor(geometry, material, transform=null) {
+    constructor(geometry, material, transform) {
         if (!(geometry instanceof Geometry)) {
             console.error(`[Mesh ID#${this.#ID}] Expected 'geometry' to be an instance of Geometry.`);
             return;
         }
+
         if (!(material instanceof Material)) {
             console.error(`[Mesh ID#${this.#ID}] Expected 'material' to be an instance of Material.`);
-            return;
+            this.material = BPBasicMaterial();
+        } else {
+            this.#material = material;
+        }
+
+        if (!(transform instanceof Transform)) {
+            console.error(`[Mesh ID#${this.#ID}] Expected 'transform' to be an instance of Transform.`);
+            this.transform = new Transform();
+        } else {
+            this.transform = transform;
         }
         this.#ID = Mesh.#ID_COUNTER++;
 
         this.#geometry = geometry;
-        this.material = material;
-        this.material.parentContainer = this;
-
-        this.transform = (transform instanceof Transform) ? transform : new Transform();
+        this.#material.parentContainer = this;
         this.#components = new Map();
+    }
+
+    get ID() {
+        return this.#ID;
     }
 
     /**
@@ -49,7 +63,7 @@ export default class Mesh {
     get capabilities() {
         const capabilities = [];
         capabilities.push(...this.#geometry.capabilities);
-        capabilities.push(...this.material.capabilities);
+        capabilities.push(...this.#material.capabilities);
         capabilities.push(...this.transform.capabilities);
 
         for (const component of this.#components.values()) {
@@ -101,7 +115,10 @@ export default class Mesh {
      * @returns 
      */
     isReadyFor(shaderName) {
-        return this.#geometry && this.#geometry.isReadyFor(shaderName);
+        const geometryReady = this.#geometry && this.#geometry.isReadyFor(shaderName);
+        const materialReady = this.#material && this.#material.isReady();
+
+        return geometryReady && materialReady;
     }
 
     /**
@@ -110,7 +127,18 @@ export default class Mesh {
      * @param {object} options options for generating and storing the VAO. See docs for possible properties.
      */
     prepareForShader(shaderProgram, options={}) {
-        this.#geometry.generateVAO(shaderProgram, options);
+        if (this.#geometry && !this.#geometry.isReadyFor(shaderProgram)) {
+            this.#geometry.generateVAO(shaderProgram, options);
+        }
+    }
+
+    getDataFor(shaderName) {
+        if (!this.isReadyFor(shaderName)) return null;
+        return this.#geometry.getDataFor(shaderName);
+    }
+
+    geometryIsBuilding(shaderName) {
+        return this.#geometry.isBuilding(shaderName);
     }
 
     /**
@@ -160,9 +188,9 @@ export default class Mesh {
      * Apply this mesh to a shader program.
      * @param {ShaderProgram} shaderProgram the shader to apply the mesh to. Should already be in use.
      */
-    applyToShader(shaderProgram, options={}) {
+    applyToShader(shaderProgram) {
         this.transform.applyToShader(shaderProgram);
-        this.material.applyToShader(shaderProgram);
+        this.#material.applyToShader(shaderProgram);
 
         const shadeableComponents = this.#components.values().filter(comp => {
             comp.hasModifer(Component.Modifier.SHADEABLE);

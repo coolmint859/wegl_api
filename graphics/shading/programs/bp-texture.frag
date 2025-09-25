@@ -61,8 +61,6 @@ void main()
     vec3 diffMapColor = pow(sRGB_diff.rgb, vec3(gamma));
     vec3 specMapColor = pow(sRGB_spec.rgb, vec3(gamma));
 
-    // outColor = vec4(material.shininess, material.shininess, material.shininess, 1.0);
-
     vec3 N = normalize(frag_normal);
     vec3 V = normalize(-eyeSpace_vector);
     vec3 fragColor = vec3(0.0);

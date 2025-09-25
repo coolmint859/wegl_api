@@ -6,24 +6,21 @@ import Geometry from "./geometry.js";
  * Keeps track of geometry VAOs
  */
 export default class GeometryHandler {
-    #gl;
-    #canvasID;
+    static #gl;
+    static #glTypeMap;
 
     /**
-     * Create a new Geometry manager instance
-     * @param {WebGL2RenderingContext} gl the context this manager should be bound to
-     * @param {string} canvasID the canvas id that the context is bound to
+     * Initialize this handler
+     * @param {WebGL2RenderingContext} gl the currently active rendering context
      */
-    constructor(gl, canvasID) {
+    static init(gl) {
         if (!gl instanceof WebGL2RenderingContext) {
-            console.error(`[GeometryManager] Cannot create instance as 'gl' is not a valid rendering context.`);
+            console.error(`[GeometryHandler] Cannot initialize handler as 'gl' is not a valid rendering context.`);
             return;
         }
 
-        this.#gl = gl;
-        this.#canvasID = canvasID;
-
-        this.glTypeMap = new Map([
+        GeometryHandler.#gl = gl;
+        GeometryHandler.#glTypeMap = new Map([
             ['char', gl.BYTE], ['uchar', gl.UNSIGNED_BYTE],
             ['int8', gl.BYTE], ['uint8', gl.UNSIGNED_BYTE],
             ['short', gl.SHORT], ['ushort', gl.UNSIGNED_SHORT],
@@ -40,8 +37,8 @@ export default class GeometryHandler {
      * @param {string} shaderName the name of the shader the VAO was created with
      * @returns {boolean} true if the geometry VAO has been created, false otherwise
      */
-    isVAO_Ready(geometryName, shaderName) {
-        const vaoName = this.#genVAOName(geometryName, shaderName);
+    static isReady(geometryName, shaderName) {
+        const vaoName = GeometryHandler.#genStorageName(geometryName, shaderName);
         return ResourceCollector.isLoaded(vaoName);
     }
 
@@ -51,49 +48,29 @@ export default class GeometryHandler {
      * @param {string} shaderName the name of the shader the VAO was created with
      * @returns {boolean} true if the VAO is being created, false otherwise
      */
-    containsVAO(geometryName, shaderName) {
-        const vaoName = this.#genVAOName(geometryName, shaderName);
+    static contains(geometryName, shaderName) {
+        const vaoName = GeometryHandler.#genStorageName(geometryName, shaderName);
         return ResourceCollector.contains(vaoName);
     }
 
     /**
-     * Get a geometry VAO associated with the provided names
+     * Get the geometry data associated with the provided names
      * @param {string} geometryName the name of the geometry VAO data
      * @param {string} shaderName the name of the shader the VAO was created with
      * @returns {WebGLVertexArrayObject | null} a VAO instance if it has finished being created, null otherwise.
      */
-    getVAO(geometryName, shaderName) {
-        const vaoName = this.#genVAOName(geometryName, shaderName);
+    static get(geometryName, shaderName) {
+        const vaoName = GeometryHandler.#genStorageName(geometryName, shaderName);
         if (ResourceCollector.isLoaded(vaoName)) {
-            return ResourceCollector.get(vaoName).VAO;
+            return ResourceCollector.get(vaoName);
         }
         return null;
     }
 
-    /**
-     * Acquire a geometry VAO for use
-     * @param {string} geometryName the name/path of the geometry instance
-     * @param {string} shaderName the name of the shader the vao was created with
-     */
-    acquireVAO(geometryName, shaderName) {
-        const vaoName = this.#genVAOName(geometryName, shaderName)
-        ResourceCollector.acquire(vaoName);
-    }
-
-    /**
-     * Release a geometry VAO from use
-     * @param {string} geometryName the name/path of the geometry instance
-     * @param {string} shaderName the name of the shader the vao was created with
-     */
-    releaseVAO(geometryName, shaderName) {
-        const vaoName = this.#genVAOName(geometryName, shaderName)
-        ResourceCollector.release(vaoName);
-    }
-
     /** generates a standard key used to store a VAO instance */
-    #genVAOName(geometryName, shaderName) {
-        return `[${shaderName}@${this.#canvasID}]->{${geometryName}}`; 
-        // ex: [basic@canvas-main]->[./assets/bunny.ply]
+    static #genStorageName(geometryName, shaderName) {
+        return `${geometryName}@${shaderName}`; 
+        // ex: ./assets/bunny.ply@basic
     }
 
     /**
@@ -101,7 +78,7 @@ export default class GeometryHandler {
      * @param {Geometry} geometry a geometry instance
      * @param {ShaderProgram} shaderProgram a shaderprogram instance
      */
-    async createVAO(geometry, shaderProgram, options={}) {
+    static async createVAO(geometry, shaderProgram, options={}) {
         if (!(geometry instanceof Geometry)) {
             console.error(`[GeometryHandler] Expected 'geometry' to be an instance of Geometry. Cannot create VAO instance`);
             return null;
@@ -111,19 +88,20 @@ export default class GeometryHandler {
             return null;
         }
 
-        const vaoName = this.#genVAOName(geometry.name, shaderProgram.name);
+        const vaoName = GeometryHandler.#genStorageName(geometry.name, shaderProgram.name);
         if (ResourceCollector.contains(vaoName)) {
             const geometryData = await ResourceCollector.getWhenLoaded(
                 vaoName, { pollInterval: 0.2, pollTimeout: 3 }
             )
+            ResourceCollector.acquire(vaoName);
             return geometryData.VAO;
         }
 
         const geometryData = await ResourceCollector.load(
-            vaoName, this.#createVAO.bind(this),
+            vaoName, GeometryHandler.#createVAO,
             { 
                 maxRetries: options.maxRetries ?? 3,
-                disposalCallback: this.#deleteVAO.bind(this),
+                disposalCallback: GeometryHandler.#deleteVAO,
                 disposalDelay: options.disposalDelay ?? 0.5,
                 category: 'texture',
                 loadData: { geometry, shaderProgram }
@@ -135,9 +113,9 @@ export default class GeometryHandler {
     }
 
     /** creates a new VAO instance */
-    #createVAO(vaoName, options) {
+    static #createVAO(vaoName, options) {
         try {
-            const gl = this.#gl;
+            const gl = GeometryHandler.#gl;
             const geometryData = options.geometry.data;
             const shaderProgram = options.shaderProgram;
 
@@ -169,7 +147,7 @@ export default class GeometryHandler {
                     if (Object.keys(attribLocations).includes(attr.name)) {
                         const attribLocation = attribLocations[attr.name];
                 
-                        const glAttrType = this.glTypeMap.get(attr.dataType);
+                        const glAttrType = GeometryHandler.#glTypeMap.get(attr.dataType);
                         gl.enableVertexAttribArray(attribLocation);
                         gl.vertexAttribPointer(attribLocation, attr.size, glAttrType, false, array.stride, attr.offset);
                     }
@@ -187,8 +165,8 @@ export default class GeometryHandler {
     }
 
     /** deletes a VAO isntance */
-    #deleteVAO(geometryInfo) {
-        const gl = this.#gl;
+    static #deleteVAO(geometryInfo) {
+        const gl = GeometryHandler.#gl;
         if (gl.isVertexArray(geometryInfo.VAO)) {
             gl.deleteVertexArray(VAO);
 

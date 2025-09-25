@@ -2,33 +2,23 @@ import * as platonic from "./procedural/platonic-solids.js";
 import * as radial from "./procedural/radial-geometry.js";
 import * as planar from "./procedural/planar-geometry.js";
 import * as miscgeo from "./procedural/misc-geometry.js";
-import ContextManager from "../../utilities/misc/context-manager.js";
 import { ResourceCollector } from "../../utilities/index.js";
+import GeometryHandler from "./geometry-handler.js";
 
 /**
  * Represents mesh data - vertices, normals, and texture coordinates
  */
 export default class Geometry {
     #name;
-    #canvasID;
-    #handler;
-
     #data;
+    #capabilities;
 
     /**
      * Create a new geometry instance
      * @param {string} name the name of the geometry, used as a unique indentifier for storage
      * @param {object} data the raw data to be used by this Geometry instance. See docs for format
      */
-    constructor(name, data, canvasID='') {
-        if (typeof canvasID === 'string' && canvasID.trim() !== '' && ContextManager.isValidContext(canvasID)) {
-            this.#canvasID = canvasID;
-            this.#handler = ContextManager.getHandler(canvasID, ContextManager.HandlerType.GEOMETRY);
-        } else {
-            this.#canvasID = ContextManager.currentCanvasID;
-            this.#handler = ContextManager.getCurrentHandler(ContextManager.HandlerType.GEOMETRY);
-        }
-
+    constructor(name, data) {
         this.#name = name;
         this.#data = data;
 
@@ -37,17 +27,12 @@ export default class Geometry {
         } else {
             ResourceCollector.store(name, data);
         }
+
+        this.#capabilities = this.#genCapabilityList();
     }
 
     get name() {
         return this.#name;
-    }
-
-    /**
-     * get the parent context this geometry instance was created in
-     */
-    get parentContext() {
-        return this.#canvasID;
     }
 
     /**
@@ -61,6 +46,54 @@ export default class Geometry {
      * Get the capabililities of this geometry as a list of strings.
      */
     get capabilities() {
+        return this.#capabilities;
+    }
+
+    /**
+     * Create a VAO for the given shader
+     * @param {ShaderProgram} shaderProgram the shader program the VAO should be created with
+     * @param {object} shaderProgram the shader program the VAO should be created with
+     */
+    generateVAO(shaderProgram, options={}) {
+        GeometryHandler.createVAO(this, shaderProgram, options)
+    }
+
+    /**
+     * Check if a VAO has been created with the given shader.
+     * @param {string} shaderName the name of the shader the VAO was created with
+     * @returns {boolean} true if the VAO for this geometry has been created, false otherwise
+     */
+    isReadyFor(shaderName) {
+        return GeometryHandler.isReady(this.#name, shaderName)
+    }
+
+    isBuilding(shaderName) {
+        return GeometryHandler.contains(this.#name, shaderName);
+    }
+    
+    /**
+     * Get the arrays and VAO for the geometry instance, if ready
+     * @param {string} shaderName the name of the shader the VAO was created with
+     * @returns {object | null} an object with the array data and VAO object, if ready. If the VAO data is not ready, null is returned
+     */
+    getDataFor(shaderName) {
+        if (!this.isReadyFor(shaderName)) return null;
+        const { VAO, buffers } = GeometryHandler.get(this.#name, shaderName);
+        return { 
+            geometry: this.#data, 
+            VAO, buffers
+        }
+    }
+
+    /**
+     * Create an exact replica of this geometry instance.
+     */
+    clone() {
+        return new Geometry(this.#name, this.#data);
+    }
+
+    /** generates the capabilities of this geometry from it's provided data */
+    #genCapabilityList() {
         const geoCapabilities = new Set();
 
         function addCapability(searchKey, keyword, cap) {
@@ -83,147 +116,96 @@ export default class Geometry {
         return Array.from(geoCapabilities);
     }
 
-    /**
-     * Create a VAO for the given shader
-     * @param {ShaderProgram} shaderProgram the shader program the VAO should be created with
-     * @param {object} shaderProgram the shader program the VAO should be created with
-     */
-    generateVAO(shaderProgram, options={}) {
-        this.#handler.createVAO(this, shaderProgram, options)
-    }
-
-    /**
-     * Check if a VAO has been created with the given shader.
-     * @param {string} shaderName the name of the shader the VAO was created with
-     * @returns {boolean} true if the VAO for this geometry has been created, false otherwise
-     */
-    isReadyFor(shaderName) {
-        return this.#handler.isVAO_Ready(this.#name, shaderName)
-    }
-    
-    /**
-     * Get the arrays and VAO for the geometry instance, if ready
-     * @param {string} shaderName the name of the shader the VAO was created with
-     * @returns {object | null} an object with the array data and VAO object, if ready. If the VAO data is not ready, null is returned
-     */
-    getDataFor(shaderName) {
-        if (!this.isReadyFor(shaderName)) return null;
-        return { 
-            arrays: this.#data, 
-            VAO: this.#handler.getVAO(this.#name, shaderName)
-        }
-    }
-
-    /**
-     * Create an exact replica of this geometry instance.
-     * @param {string} canvasID optional context to create the new instance in. If not provided, the new instance will be created in the current context (Even if that's not the parent context)
-     */
-    clone(canvasID = '') {
-        return new Geometry(this.#name, this.#data, canvasID);
-    }
+    // ------------ PLATONIC SOLIDS ------------ //
 
     /**
      * Generates a tetahredon, centered at the origin. Normalized to fit within a unit cube.
      * @returns {Geometry} a new Geometry instance with tetrahedron data
      */
-    static tetrahedron(canvasID = '') {
+    static tetrahedron() {
         const name = 'tetrahedron';
         if (ResourceCollector.contains(name)) {
             const tetrahedron = ResourceCollector.get(name);
-            return new Geometry(name, tetrahedron, canvasID);
+            return new Geometry(name, tetrahedron);
         }
         
         const tetrahedron = platonic.generateTetrahedron();
         ResourceCollector.store(name, tetrahedron);
-        return new Geometry(name, tetrahedron, canvasID);
+        return new Geometry(name, tetrahedron);
     }
 
     /** 
      * Generates a cube, centered at the origin. Normalized to fit within a unit cube.
      * @returns {Geometry} a new Geometry instance with cube data
      */
-    static cube(canvasID = '') {
+    static cube() {
         const name = 'cube';
         if (ResourceCollector.contains(name)) {
             const cube = ResourceCollector.get(name);
-            return new Geometry(name, cube, canvasID);
+            return new Geometry(name, cube);
         }
 
         const cube = platonic.generateCube();
         ResourceCollector.store(name, cube);
-        return new Geometry(name, cube, canvasID);
+        return new Geometry(name, cube);
     }
 
     /**
      * Generates an octahedron, centered at the origin. Normalized to fit within a unit cube.
      * @returns {Geometry} a new Geometry instance with octahedron data
      */
-    static octahedron(canvasID = '') {
+    static octahedron() {
         const name = 'octahedron';
         if (ResourceCollector.contains(name)) {
             const octahedron = ResourceCollector.get(name);
-            return new Geometry(name, octahedron, canvasID);
+            return new Geometry(name, octahedron);
         }
 
         const octahedron = platonic.generateOctahedron();
         ResourceCollector.store(name, octahedron)
-        return new Geometry(name, octahedron, canvasID);
+        return new Geometry(name, octahedron);
     }
 
     /**
      * Generates a dodecahedron, centered at the origin. Normalized to fit within a unit cube.
      * @returns {Geometry} a new Geometry instance with dodecahedron data
      */
-    static dodecahedron(canvasID = '') {
+    static dodecahedron() {
         const name = 'dodecahedron';
         if (ResourceCollector.contains(name)) {
             const dodecahedron = ResourceCollector.get(name);
-            return new Geometry(name, dodecahedron, canvasID);
+            return new Geometry(name, dodecahedron);
         }
 
         const dodecahedron = platonic.generateDodecahedron();
         ResourceCollector.store(name, dodecahedron);
-        return new Geometry(name, dodecahedron, canvasID);
+        return new Geometry(name, dodecahedron);
     }
 
     /**
      * Generates an icosahedron, centered at the origin. Normalized to fit within a unit cube.
      * @returns {Geometry} a new Geometry instance with icosahedron data
      */
-    static icosahedron(canvasID = '') {
+    static icosahedron() {
         const name = 'icosahedron';
         if (ResourceCollector.contains(name)) {
             const icosahedron = ResourceCollector.get(name);
-            return new Geometry(name, icosahedron, canvasID);
+            return new Geometry(name, icosahedron);
         }
 
         const icosahedron = platonic.generateIcosahedron();
         ResourceCollector.store(name, icosahedron);
-        return new Geometry(name, icosahedron, canvasID);
+        return new Geometry(name, icosahedron);
     }
 
-    /**
-     * Generates a pyramid, centered at the origin. Normalized to fit within a unit cube.
-     * @returns {object} an object containing the arrays and accompanying attributes
-     */
-    static pyramid(canvasID = '') {
-        const name = 'pyramid';
-        if (ResourceCollector.contains(name)) {
-            const pyramid = ResourceCollector.get(name);
-            return new Geometry(name, pyramid, canvasID);
-        }
-
-        const pyramid = miscgeo.generatePyramid();
-        ResourceCollector.store(name, pyramid);
-        return new Geometry(name, pyramid, canvasID);
-    }
+    // ------------ RADIAL GEOMETRY ------------ //
 
     /**
      * Generates a cube, centered at the origin. Normalized to fit within a unit cube.
      * @param {number} numBands the number of bands around the cone. Must be at least 3.
      * @returns {object} an object containing the arrays and accompanying attributes
      */
-    static cone(numBands, canvasID = '') {
+    static cone(numBands) {
         if (numBands < 3) {
             console.warn(`[Geometry] Generating a cone must have 'numBands' to be greater than 2. Assigning default (numBands=5).`);
             numBands = 5;
@@ -232,12 +214,12 @@ export default class Geometry {
         const name = `cone#b${numBands}`;
         if (ResourceCollector.contains(name)) {
             const cone = ResourceCollector.get(name);
-            return new Geometry(name, cone, canvasID);
+            return new Geometry(name, cone);
         }
 
         const cone = radial.generateCone(numBands);
         ResourceCollector.store(name, cone);
-        return new Geometry(name, cone, canvasID);
+        return new Geometry(name, cone);
     }
 
     /**
@@ -245,7 +227,7 @@ export default class Geometry {
      * @param {number} numBands the number of bands around the cylinder. Must be at least 3.
      * @returns {object} an object containing the arrays and accompanying attributes
      */
-    static cylinder(numBands, canvasID = '') {
+    static cylinder(numBands) {
         if (numBands < 3) {
             console.warn(`[Geometry] Generating a cylinder must have 'numBands' to be greater than 2. Assigning default (numBands=10).`);
             numBands = 10;
@@ -254,12 +236,51 @@ export default class Geometry {
         const name = `cylinder#b${numBands}`;
         if (ResourceCollector.contains(name)) {
             const cylinder = ResourceCollector.get(name);
-            return new Geometry(name, cylinder, canvasID);
+            return new Geometry(name, cylinder);
         }
     
         const cylinder = radial.generateCylinder(numBands);
         ResourceCollector.store(name, cylinder);
-        return new Geometry(name, cylinder, canvasID);
+        return new Geometry(name, cylinder);
+    }
+
+    static sphere(numRings, numBands) {
+        if (numRings < 2) {
+            console.warn(`[Geometry] Generating a sphere must have 'numBands' to be greater than 2. Assigning default (numRings=5).`);
+            numRings = 5;
+        }
+        if (numBands < 3) {
+            console.warn(`[Geometry] Generating a sphere must have 'numRings' to be greater than 1. Assigning default (numBands=10).`);
+            numBands = 10;
+        }
+
+        const name = `sphere#r${numRings}b${numBands}`;
+        if (ResourceCollector.contains(name)) {
+            const sphere = ResourceCollector.get(name);
+            return new Geometry(name, sphere);
+        }
+    
+        const sphere = radial.generateSphere(numRings, numBands);
+        ResourceCollector.store(name, sphere);
+        return new Geometry(name, sphere);
+    }
+
+    // ------------ MISC GEOMETRY ------------ //
+
+    /**
+     * Generates a pyramid, centered at the origin. Normalized to fit within a unit cube.
+     * @returns {object} an object containing the arrays and accompanying attributes
+     */
+    static pyramid() {
+        const name = 'pyramid';
+        if (ResourceCollector.contains(name)) {
+            const pyramid = ResourceCollector.get(name);
+            return new Geometry(name, pyramid);
+        }
+
+        const pyramid = miscgeo.generatePyramid();
+        ResourceCollector.store(name, pyramid);
+        return new Geometry(name, pyramid);
     }
 
     // ------------ 2D GEOMETRY ------------ //
@@ -272,7 +293,7 @@ export default class Geometry {
      * @param {number} depth the depth (z-axis) of the plane
      * @returns {object} an object containing the arrays and accompanying attributes
      */
-    static plane(rows, cols, width, depth, canvasID = '') {
+    static plane(rows, cols, width, depth) {
         if (rows <= 0) {
             console.warn(`[GeneratePlane] 'rows' must be greater than 0. Assigning default (rows=1).`);
             numSides = 1;
@@ -293,12 +314,12 @@ export default class Geometry {
         const name = `plane#r${rows}c${cols}w${width}d${depth}`;
         if (ResourceCollector.contains(name)) {
             const plane = ResourceCollector.get(name);
-            return new Geometry(name, plane, canvasID);
+            return new Geometry(name, plane);
         }
     
         const plane = planar.generatePlane(rows, cols, width, depth);
         ResourceCollector.store(name, plane);
-        return new Geometry(name, plane, canvasID);
+        return new Geometry(name, plane);
     }
 
     /**
@@ -319,11 +340,11 @@ export default class Geometry {
         const name = `reg-pol#s${numBands}`;
         if (ResourceCollector.contains(name)) {
             const regpoly = ResourceCollector.get(name);
-            return new Geometry(name, regpoly, options.canvasID);
+            return new Geometry(name, regpoly);
         }
     
-        const regpoly = planar.generateRegularPolygon(numSides);
+        const regpoly = planar.generateRegularPolygon(numSides, options);
         ResourceCollector.store(name, regpoly);
-        return new Geometry(name, regpoly, options.canvasID);
+        return new Geometry(name, regpoly);
     }
 }

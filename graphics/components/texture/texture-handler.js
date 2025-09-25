@@ -1,13 +1,18 @@
 import { ResourceCollector, Color } from "../../utilities/index.js";
 
-export default class TextureManager {
+export default class TextureHandler {
     static #gl;
 
     /**
-     * Initialize the texture manager for use.
+     * Initialize the texture handler
+     * @param {WebGL2RenderingContext} gl the currently active rendering context
      */
     static init(gl) {
-        TextureManager.#gl = gl;
+        if (!gl instanceof WebGL2RenderingContext) {
+            console.error(`[TextureHandler] Cannot initialize handler as 'gl' is not a valid rendering context.`);
+            return;
+        }
+        TextureHandler.#gl = gl;
     }
 
     /**
@@ -25,10 +30,10 @@ export default class TextureManager {
         }
 
         const textureInfo = await ResourceCollector.load(
-            texturePath, TextureManager.#loadTexture,
+            texturePath, TextureHandler.#loadTexture,
             { 
                 maxRetries: options.maxRetries ?? 3,
-                disposalCallback: TextureManager.#deleteTexture,
+                disposalCallback: TextureHandler.#deleteTexture,
                 disposalDelay: options.disposalDelay ?? 0.5,
                 category: 'texture',
                 loadData: options
@@ -93,7 +98,7 @@ export default class TextureManager {
         if (ResourceCollector.contains(colorHex)) {
             return ResourceCollector.get(colorHex);
         }
-        return TextureManager.#createDefault(color);
+        return TextureHandler.#createDefault(color);
     }
 
     /** Load a texture using the resource collector */
@@ -101,13 +106,13 @@ export default class TextureManager {
         try {
             const imageData = await ResourceCollector.fetchImageFile(texturePath, options);
             return {
-                glTexture: TextureManager.#defineTexture(texturePath, imageData, options.loadData),
+                glTexture: TextureHandler.#defineTexture(texturePath, imageData, options),
                 name: texturePath,
                 width: imageData.width,
                 height: imageData.height,
             }
         } catch (error) {
-            console.error(`[TextureManager] An error occurred attempting to load texture ${texturePath}: ${error}`);
+            console.error(`[TextureHandler] An error occurred attempting to load texture ${texturePath}: ${error}`);
             throw error;
         }
     }
@@ -127,14 +132,14 @@ export default class TextureManager {
                 const coloredCorner = topLeft || bottomRight;
 
                 const colorInts = color.getInts();
-                imageData[index+0] = coloredCorner ? colorInts.r : 0;
-                imageData[index+1] = coloredCorner ? colorInts.g : 0;
-                imageData[index+2] = coloredCorner ? colorInts.b : 0;
+                imageData[index+0] = coloredCorner ? colorInts.r : 30;
+                imageData[index+1] = coloredCorner ? colorInts.g : 30;
+                imageData[index+2] = coloredCorner ? colorInts.b : 30;
                 imageData[index+3] = colorInts.a;
             }
         }
 
-        const gl = TextureManager.#gl;
+        const gl = TextureHandler.#gl;
         const imageOptions = { 
             wrapT: gl.CLAMP_TO_EDGE, 
             wrapS: gl.CLAMP_TO_EDGE,
@@ -145,15 +150,15 @@ export default class TextureManager {
             height: height
         }
         const textureInfo = {
-            glTexture: TextureManager.#defineTexture(hexCode, imageData, imageOptions),
+            glTexture: TextureHandler.#defineTexture(hexCode, imageData, imageOptions),
             name: hexCode,
-            width: imageData.width,
-            height: imageData.height,
+            width: width,
+            height: height,
         }
         ResourceCollector.store(
             hexCode, textureInfo,
             { 
-                disposalCallback: TextureManager.#deleteTexture,
+                disposalCallback: TextureHandler.#deleteTexture,
                 disposalDelay: 0.5,
                 category: 'texture',
             }
@@ -163,11 +168,11 @@ export default class TextureManager {
 
     /** define a new webgl texture */
     static #defineTexture(path, image, options) {
-        const gl = TextureManager.#gl;
+        const gl = TextureHandler.#gl;
         let glTexture = null;
         try {
             glTexture = gl.createTexture();
-            if (!glTexture) throw new Error(`[Texture @${path}] Creation of new WebGL texture failed.`)
+            if (!glTexture) throw new Error(`[TextureHandler] Creation of new WebGL texture failed for image '${path}'.`)
 
             gl.bindTexture(gl.TEXTURE_2D, glTexture);
 
@@ -195,10 +200,10 @@ export default class TextureManager {
 
             gl.bindTexture(gl.TEXTURE_2D, null);
             
-            console.log(`[Texture @${path}] Successfully created WebGL texture for image '${path}'.`);
+            console.log(`[TextureHandler] Successfully created WebGL texture for image '${path}'.`);
             return glTexture;
         } catch (error) {
-            console.error(`[Texture @${path}] An error occurred when attempting to create WebGL texture from image '${path}': ${error}`);
+            console.error(`[TextureHandler] An error occurred when attempting to create WebGL texture from image '${path}': ${error}`);
 
             if (gl.isTexture(glTexture)) {
                 gl.deleteTexture(glTexture);
@@ -210,8 +215,8 @@ export default class TextureManager {
 
     /** delete a webgl texture if exists */
     static #deleteTexture(textureInfo) {
-        if (TextureManager.#gl.isTexture(textureInfo.glTexture)) {
-            TextureManager.#gl.deleteTexture(textureInfo.glTexture);
+        if (TextureHandler.#gl.isTexture(textureInfo.glTexture)) {
+            TextureHandler.#gl.deleteTexture(textureInfo.glTexture);
         }
     }
 }

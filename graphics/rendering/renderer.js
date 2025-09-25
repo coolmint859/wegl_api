@@ -1,6 +1,7 @@
-import { TextureManager } from "../components/index.js";
+import { TextureHandler } from "../components/index.js";
+import { GeometryHandler } from "../modeling/index.js";
+import { ShaderHandler } from "../shading/index.js";
 import { Camera, FPSCamera, Light } from "../scene/index.js";
-import { ShaderManager } from "../shading/index.js";
 import { Color } from "../utilities/index.js";
 import EventScheduler from "../utilities/misc/scheduler.js";
 
@@ -77,8 +78,9 @@ export default class Graphics3D {
         this.ambientColor = Color.BLACK;
         this.clearColor = Color.CF_BLUE;
 
-        TextureManager.init(gl);
-        ShaderManager.init();
+        ShaderHandler.init(gl);
+        TextureHandler.init(gl);
+        GeometryHandler.init(gl);
     }
 
     /** Returns the current WebGl context. */
@@ -162,9 +164,9 @@ export default class Graphics3D {
             if (!object.debugEnabled) return;
             this.sceneObjects.push(object.debugModel);
         } else {
-            if (object.currentShader === null || !Object.values(Graphics3D.RenderType).includes(object.currentShader)) {
-                object.currentShader = Graphics3D.RenderType.BASIC;
-            }
+            // if (object.currentShader === null || !Object.values(Graphics3D.RenderType).includes(object.currentShader)) {
+            //     object.currentShader = Graphics3D.RenderType.BASIC;
+            // }
 
             this.sceneObjects.push(object);
         }
@@ -172,17 +174,25 @@ export default class Graphics3D {
 
     /** renders objects and lights to the screen. */
     end(dt, totalTime) {
-        if (!ShaderManager.isReady) return;
+        if (!ShaderHandler.isReady) return;
         for (let i = 0; i < this.sceneObjects.length; i++) {
             const mesh = this.sceneObjects[i];
             // if (!mesh.isReady) continue;
             
-            // const bestFitShader = ShaderManager.bestFitShader(mesh.capabilities);
-            const shader = ShaderManager.getShaderProgram(mesh.currentShader);
+            // const bestFitShader = ShaderHandler.bestFitShader(mesh.capabilities);
+            const shader = ShaderHandler.getShaderProgram(mesh.currentShader);
             if (!shader || !shader.isReady) return;
             // console.log(shader.name);
             // console.log(shader.isReady);
             shader.use();
+
+            // skip meshes that aren't ready yet - prepare them if not being prepared
+            if (!mesh.isReadyFor(shader.name)) {
+                if (!mesh.geometryIsBuilding(shader.name)) {
+                    mesh.prepareForShader(shader);
+                }
+                continue;
+            };
 
             this.#renderMesh(mesh, shader, dt, totalTime);
 
@@ -194,27 +204,27 @@ export default class Graphics3D {
     #renderMesh(mesh, shader, dt, totalTime) {
         const gl = Graphics3D.#gl;
 
-        if (!mesh.VAO) {
-            mesh.VAO = this.#createMeshVAO(mesh);
-        }
-        gl.bindVertexArray(mesh.VAO);
+        const meshData = mesh.getDataFor(shader.name);
+        // console.log(meshData);
+        gl.bindVertexArray(meshData.VAO);
 
         // set up shader uniforms && attributes
-        shader.setUniform("uModel", mesh.transform.worldMatrix);
+        mesh.applyToShader(shader);
+
         this.currentCamera.applyToShader(shader);
 
         this.#setShaderUniforms(shader, mesh.currentShader, totalTime);
-        // mesh.applyToShader(shader);
-        mesh.material.applyToShader(shader); 
 
-        const indexArray = mesh.arrays.index;
+        const indexArray = meshData.geometry.index;
         const indexArrayType = Graphics3D.glTypeMap.get(indexArray.dataType);
         const numIndices = indexArray.data.length;
 
         shader.flush();
 
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.buffers.index);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, meshData.buffers.index);
         gl.drawElements(this.renderMode, numIndices, indexArrayType, 0);
+
+        shader.reset();
         
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
         gl.bindVertexArray(null);
@@ -234,6 +244,7 @@ export default class Graphics3D {
                 setLightingAttribs(this.lights);
                 break;
             case Graphics3D.RenderType.TEXTURE:
+            case Graphics3D.RenderType.DIFFMAP:
                 shader.setUniform('ambientColor', this.ambientColor);
                 setLightingAttribs(this.lights);
                 break;
@@ -245,42 +256,5 @@ export default class Graphics3D {
             default:
                 break; // nothing for basic shader
         }
-    }
-
-    #createMeshVAO(mesh) {
-        const gl = Graphics3D.#gl;
-
-        const VAO = gl.createVertexArray();
-        gl.bindVertexArray(VAO);
-
-        mesh.buffers = {};
-        for (const name in mesh.arrays) {
-            if (name === 'buffers') continue;
-
-            const array = mesh.arrays[name];
-            const bufferType = name === 'index' ? gl.ELEMENT_ARRAY_BUFFER : gl.ARRAY_BUFFER;
-
-            const glBuffer = gl.createBuffer();
-            gl.bindBuffer(bufferType, glBuffer);
-            gl.bufferData(bufferType, array.data, gl.STATIC_DRAW);
-            mesh.buffers[name] = glBuffer;
-
-            for (const attr of array.attributes) {
-                let attribLocation;
-                if (attr.name === 'vertex') attribLocation = ShaderManager.ATTRIB_LOCATION_VERTEX;
-                if (attr.name === 'normal') attribLocation = ShaderManager.ATTRIB_LOCATION_NORMAL;
-                if (attr.name === 'uv') attribLocation = ShaderManager.ATTRIB_LOCATION_UV;
-
-                const glAttrType = Graphics3D.glTypeMap.get(attr.dataType);
-                gl.enableVertexAttribArray(attribLocation);
-                gl.vertexAttribPointer(attribLocation, attr.size, glAttrType, false, array.stride, attr.offset);
-            }
-        }
-
-        gl.bindVertexArray(null);
-        gl.bindBuffer(gl.ARRAY_BUFFER, null);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-
-        return VAO;
     }
 }

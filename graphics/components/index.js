@@ -13,4 +13,4 @@ export { default as Mat4Component } from './primitive/matrix4-component.js';
 export { default as QuatComponent } from './primitive/quaternion-component.js';
 
 export { default as TexComponent } from './texture/texture-component.js';
-export { default as TextureManager } from './texture/texture-manager.js';
+export { default as TextureHandler } from './texture/texture-handler.js';

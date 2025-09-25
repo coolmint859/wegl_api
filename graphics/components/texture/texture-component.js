@@ -1,6 +1,7 @@
 import { ShaderProgram } from "../../shading/index.js";
-import TextureManager from "./texture-manager.js";
+import TextureHandler from "./texture-handler.js";
 import Component from "../component.js";
+import { Color } from "../../utilities/index.js";
 
 export default class TexComponent extends Component {
     #texturePath = "";
@@ -8,13 +9,13 @@ export default class TexComponent extends Component {
 
     /**
      * Create a new texture component
-     * @param {string} name the name of the texture component
      * @param {string} texturePath the path to the texture to store in the component
+     * @param {string} name the name of the texture component
      * @param {object} options webgl texture configuration options (see docs for possible values)
      */
-    constructor(name, texturePath, options={}) {
+    constructor(texturePath, name, options={}) {
         super(name, [Component.Modifier.SHADEABLE]);
-        this.set(texturePath, textureType, options);
+        this.set(texturePath, options);
     }
 
     /**
@@ -29,16 +30,16 @@ export default class TexComponent extends Component {
         } else {
             this.#texturePath = texturePath;
             this.#textureOptions = options;
-            
-            if (TextureManager.contains(this.#texturePath)) {
-                TextureManager.acquire(this.#texturePath);
-                this._isDirty = true;
-            } else {
-                TextureManager.load(this.#texturePath, options)
-                .then(textureInfo => this._isDirty = true);
-            }
 
-            this._isDirty = true; // this makes sure the default texture is used at first
+            if (!this.#textureOptions.defaultColor) {
+                this.#textureOptions.defaultColor = Color.RED;
+            }
+            
+            if (TextureHandler.contains(this.#texturePath)) {
+                TextureHandler.acquire(this.#texturePath);
+            } else {
+                TextureHandler.load(this.#texturePath, options)
+            }
         }
     }
 
@@ -47,8 +48,10 @@ export default class TexComponent extends Component {
      * @returns {WebGLTexture | null} the webgl texture instance if loaded. If not yet loaded, null is returned.
      */
     get glTexture() {
-        if (this.#texturePath.trim() === "") return null;
-        return TextureManager.get(this.#texturePath).glTexture;
+        if (TextureHandler.isLoaded(this.#texturePath)) {
+            return TextureHandler.get(this.#texturePath).glTexture;
+        }
+        return null;
     }
 
     /**
@@ -64,7 +67,7 @@ export default class TexComponent extends Component {
      * @returns {boolean} true if the texture is ready, false otherwise
      */
     get isReady() {
-        return TextureManager.isLoaded(this.#texturePath);
+        return TextureHandler.isLoaded(this.#texturePath);
     }
 
     /**
@@ -75,7 +78,7 @@ export default class TexComponent extends Component {
         
         // only release the texture from the manager if the ref count is 0.
         if (this.refCount === 0) {
-            TextureManager.release(this.#texturePath);
+            TextureHandler.release(this.#texturePath);
         }
     }
 
@@ -90,7 +93,7 @@ export default class TexComponent extends Component {
 
     /**
      * Clone this component.
-     * @param {boolean} deepCopy Textures are not cloned to save memory.
+     * @param {string} canvasID if specified, this will create a new glTexture under the new context. The raw image data will be reused.
      * @returns {TexComponent} a new TexComponent with the same value as this one.
      */
     clone(canvasID='') {
@@ -106,8 +109,6 @@ export default class TexComponent extends Component {
      * @param {number} options.index the index to the glsl array of which this uniform is a value of. If this is not specified, it's assumed the uniform is not an array type.
      */
     applyToShader(shaderProgram, options={}) {
-        if (!this._isDirty) return;
-        
         const indexToken = typeof options.index === 'number' ? `[${options.index}]` : '';
         const parentToken = typeof options.parentName === 'string' ? `${options.parentName}.` : '';
         const uniformName = parentToken + this.name + indexToken;
@@ -115,9 +116,8 @@ export default class TexComponent extends Component {
         if (shaderProgram.supports(uniformName)) {
             let glTexture = this.isReady ? 
                             this.glTexture : 
-                            TextureManager.getDefault(this.#textureOptions.defaultColor);
-            shaderProgram.setUniform(uniformName, glTexture);
+                            TextureHandler.getDefault(this.#textureOptions.defaultColor);
+            shaderProgram.setSampler(uniformName, glTexture);
         }
-        this._isDirty = false;
     }
 }

@@ -1,4 +1,4 @@
-import { ColorComponent, Component } from "../../components/index.js";
+import { ColorComponent, Component, TexComponent } from "../../components/index.js";
 import ShaderProgram from "../../shading/shader-program.js";
 import { Color } from "../../utilities/index.js";
 import EventScheduler from "../../utilities/misc/scheduler.js";
@@ -29,6 +29,7 @@ export default class Material extends Component {
             console.error(`[Material @ID${this.ID}] Expected '${component}' to be an instance of Component. Cannot add to Material.`);
             return;
         }
+        component.parentContainer = this;
         this.#components.set(component.name, component.acquire());
     }
 
@@ -71,6 +72,10 @@ export default class Material extends Component {
         return this.#components.has(name);
     }
 
+    isReady() {
+        return true;
+    }
+
     /**
      * Release this material from use.
      */
@@ -89,11 +94,15 @@ export default class Material extends Component {
      * @returns {Array<string>} an array of the names of the components.
      */
     get capabilities() {
-        const componentIterator = this.#components.values().map(comp => `${this.name}.${comp.name}`);
+        const matName = this.name !== '' ? `${this.name}.` : '';
+
+        const componentIterator = this.#components.values().map(comp => {
+            return `${matName}${comp.name}`;
+        });
         const componentNames = Array.from(componentIterator);
 
         if (componentNames.length === 0) {
-            componentNames.push(`${this.name}.${Material.#defaultColorName}`);
+            componentNames.push(`${matName}${Material.#defaultColorName}`);
         }
         return componentNames;
     }

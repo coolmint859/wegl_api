@@ -736,8 +736,9 @@ export default class ResourceCollector {
      * Fetch an image file from the server. Aborts loading if the provided signal fires.
      * 
      * Note: This function is intented to be a potential load function for ResourceCollector.load() - it does not store the data it loads in the cache.
-     * @param {string} imagePath the path to the image
-     * @param {AbortSignal} abortSignal a signal used to determine if the client should abort the fetch request. 
+     * @param {string} imagePath the path to the image file
+     * @param {object} options options on how to load the image.
+     * @param {AbortSignal} options.abortSignal a signal used to determine if the client should abort the fetch request. 
      * @returns {Promise} a promise that resolves to a decoded image object
      */
     static async fetchImageFile(imagePath, options) {
@@ -755,8 +756,9 @@ export default class ResourceCollector {
      * Fetch a text file from the server. Aborts loading if the provided signal fires.
      * 
      * Note: This function is intented to be a potential load function for ResourceCollector.load() - it does not store the data it loads in the cache.
-     * @param {string} imagePath the path to the image
-     * @param {AbortSignal} abortSignal a signal used to determine if the client should abort the fetch request. 
+     * @param {string} filePath the path to the text file
+     * @param {object} options options on how to load the image.
+     * @param {AbortSignal} options.abortSignal a signal used to determine if the client should abort the fetch request. 
      * @returns {Promise} a promise resolving with the loaded text
      */
     static async fetchTextFile(filePath, options) {
