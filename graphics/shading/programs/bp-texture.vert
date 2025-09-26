@@ -7,8 +7,8 @@ layout(location = 0) in vec3 aPosition;
 layout(location = 1) in vec3 aNormal;
 layout(location = 2) in vec2 aTexCoord;
 
-out vec3 frag_normal;
-out vec3 eyeSpace_vector;
+out vec3 vNormal;
+out vec3 vViewDir;
 out vec2 vTexCoord;
 
 // transformation matrices
@@ -25,9 +25,9 @@ void main()
     
     // pipeline interpolates the vertex normal
     mat4 modelViewInverseTranspose = transpose(inverse(modelView));
-    frag_normal = normalize(mat3(modelViewInverseTranspose) * aNormal);
+    vNormal = normalize(mat3(modelViewInverseTranspose) * aNormal);
 
-    eyeSpace_vector = eyeSpace_vertex.xyz;
+    vViewDir = -eyeSpace_vertex.xyz;
     
     vTexCoord = aTexCoord;
 }

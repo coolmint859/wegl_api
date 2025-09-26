@@ -6,8 +6,8 @@ precision mediump int;
 layout(location = 0) in vec3 aPosition;
 layout(location = 1) in vec3 aNormal;
 
-out vec3 frag_normal;
-out vec3 view_dir;
+out vec3 vNormal;
+out vec3 vViewDir;
 
 // transformation matrices
 uniform mat4 uModel;
@@ -22,8 +22,9 @@ void main()
     gl_Position = uProjection * eyeSpace_vertex;
     
     // pipeline interpolates the vertex normal
-    mat4 modelViewInverseTranspose = transpose(inverse(modelView));
-    frag_normal = normalize(mat3(modelViewInverseTranspose) * aNormal);
+    mat3 normalMatrix = transpose(inverse(mat3(modelView)));
+    vNormal = normalize(normalMatrix * aNormal);
 
-    view_dir = -eyeSpace_vertex.xyz;
+    // camera is always at the origin
+    vViewDir = -eyeSpace_vertex.xyz;
 }

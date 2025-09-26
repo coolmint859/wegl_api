@@ -1,3 +1,4 @@
+import Graphics3D from "../../rendering/renderer.js";
 import { ShaderProgram } from "../../shading/index.js";
 import { ResourceCollector } from "../../utilities/index.js";
 import Geometry from "./geometry.js";
@@ -7,7 +8,6 @@ import Geometry from "./geometry.js";
  */
 export default class GeometryHandler {
     static #gl;
-    static #glTypeMap;
 
     /**
      * Initialize this handler
@@ -20,15 +20,6 @@ export default class GeometryHandler {
         }
 
         GeometryHandler.#gl = gl;
-        GeometryHandler.#glTypeMap = new Map([
-            ['char', gl.BYTE], ['uchar', gl.UNSIGNED_BYTE],
-            ['int8', gl.BYTE], ['uint8', gl.UNSIGNED_BYTE],
-            ['short', gl.SHORT], ['ushort', gl.UNSIGNED_SHORT],
-            ['int16', gl.SHORT], ['uint16', gl.UNSIGNED_SHORT],
-            ['int', gl.INT], ['uint', gl.UNSIGNED_INT],
-            ['int32', gl.INT], ['uint32', gl.UNSIGNED_INT],
-            ['float', gl.FLOAT], ['float32', gl.FLOAT],
-        ])
     }
 
     /**
@@ -147,7 +138,7 @@ export default class GeometryHandler {
                     if (Object.keys(attribLocations).includes(attr.name)) {
                         const attribLocation = attribLocations[attr.name];
                 
-                        const glAttrType = GeometryHandler.#glTypeMap.get(attr.dataType);
+                        const glAttrType = Graphics3D.glTypeMap.get(attr.dataType);
                         gl.enableVertexAttribArray(attribLocation);
                         gl.vertexAttribPointer(attribLocation, attr.size, glAttrType, false, array.stride, attr.offset);
                     }

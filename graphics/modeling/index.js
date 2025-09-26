@@ -35,7 +35,7 @@ export { default as GeometryHandler } from './geometry/geometry-handler.js';
 
 export { default as Material } from './materials/material.js';
 export {
-    BlinnPhongMaterial as BPColorMaterial
+    BasicMaterial, BlinnPhongMaterial
 } from './materials/default-materials.js';
 
 

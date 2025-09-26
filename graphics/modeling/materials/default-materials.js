@@ -36,12 +36,3 @@ export function BlinnPhongMaterial(params={}) {
 
     return new Material(matComponents);
 }
-
-export function BPBasicMaterial() {
-    const matComponents = [
-        new ColorComponent(new Color(0.9, 0.9, 0.9), 'diffuseColor'),
-        new ColorComponent(Color.WHITE, 'specularColor'),
-        new FloatComponent(1.0, 'shininess')
-    ];
-    return new Material(matComponents);
-}

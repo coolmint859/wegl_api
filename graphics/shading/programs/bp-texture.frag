@@ -4,8 +4,8 @@ precision mediump int;
 precision highp sampler2D;
 
 in vec2 vTexCoord;
-in vec3 frag_normal;
-in vec3 eyeSpace_vector;
+in vec3 vNormal;
+in vec3 vViewDir;
 
 out vec4 outColor;
 
@@ -61,15 +61,15 @@ void main()
     vec3 diffMapColor = pow(sRGB_diff.rgb, vec3(gamma));
     vec3 specMapColor = pow(sRGB_spec.rgb, vec3(gamma));
 
-    vec3 N = normalize(frag_normal);
-    vec3 V = normalize(-eyeSpace_vector);
+    vec3 N = normalize(vNormal);
+    vec3 V = normalize(vViewDir);
     vec3 fragColor = vec3(0.0);
     for (int i = 0; i < numPointLights; i++) 
     {
         PointLight light = pointLights[i];
         vec4 lightPos = vec4(light.position, 1.0);
 
-        vec3 light_vector = (uView * lightPos).xyz - eyeSpace_vector;
+        vec3 light_vector = (uView * lightPos).xyz + vViewDir;
         vec3 L = normalize(light_vector);
         float light_dist = length(light_vector);
 

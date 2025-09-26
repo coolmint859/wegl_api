@@ -6,8 +6,8 @@ precision mediump int;
 layout(location = 0) in vec3 aPosition;
 layout(location = 1) in vec3 aNormal;
 
-out vec3 frag_normal;
-out vec3 view_dir;
+out vec3 vNormal;
+out vec3 vViewDir;
 
 struct Wave {
     vec2 direction;
@@ -62,12 +62,12 @@ void main()
 
     // vertex model to projected position
     mat4 modelView = uView * uModel;
-    vec4 eyeSpace_vertex = modelView * vec4(aPosition, 1.0);
+    vec4 eyeSpace_vertex = modelView * vec4(position, 1.0);
     gl_Position = uProjection * eyeSpace_vertex;
     
     // pipeline interpolates the vertex normal
-    mat4 modelViewInverseTranspose = transpose(inverse(modelView));
-    frag_normal = normalize(mat3(modelViewInverseTranspose) * aNormal);
+    mat3 normalMatrix = transpose(inverse(mat3(modelView)));
+    vNormal = normalize(normalMatrix * normal);
 
-    view_dir = -eyeSpace_vertex.xyz;
+    vViewDir = -eyeSpace_vertex.xyz;
 }

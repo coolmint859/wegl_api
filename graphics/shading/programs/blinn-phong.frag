@@ -2,8 +2,8 @@
 precision lowp float;
 precision mediump int;
 
-in vec3 frag_normal;
-in vec3 view_dir;
+in vec3 vNormal;
+in vec3 vViewDir;
 
 out vec4 outColor;
 
@@ -52,14 +52,14 @@ vec3 calculatePointLight(PointLight light, float light_dist, vec3 N, vec3 L, vec
 
 void main()
 {
-    vec3 N = normalize(frag_normal);
-    vec3 V = normalize(view_dir);
+    vec3 N = normalize(vNormal);
+    vec3 V = normalize(vViewDir);
 
     vec3 fragColor = vec3(0.0);
     for (int i = 0; i < numPointLights; i++) 
     {
         vec4 light_pos = vec4(pointLights[i].position, 1.0);
-        vec3 light_dir = vec3((uView * light_pos).xyz + view_dir.xyz);
+        vec3 light_dir = vec3((uView * light_pos).xyz + vViewDir.xyz);
         vec3 L = normalize(light_dir);
         float light_dist = length(light_dir);
 
@@ -73,6 +73,6 @@ void main()
     // float depth = near / (far - gl_FragCoord.z * (far - near));
     // outColor = vec4(vec3(1.0-depth), 1.0);
     
-    // outColor = vec4(pointLights[0].emissiveColor, 1.0);
+    // outColor = vec4(N, 1.0);
     outColor = vec4(fragColor, 1.0);
 }

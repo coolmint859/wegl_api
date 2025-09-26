@@ -1,9 +1,9 @@
-import Component from "../components/component.js";
 import ShaderProgram from "../shading/shader-program.js";
 import Geometry from "./geometry/geometry.js";
 import Material from "./materials/material.js";
 import Transform from "./transform.js";
-import { BPBasicMaterial } from "./materials/default-materials.js";
+import { BlinnPhongMaterial } from "./materials/default-materials.js";
+import Component from "../components/component.js";
 
 /**
  * Represents a renderable entity
@@ -34,7 +34,7 @@ export default class Mesh {
 
         if (!(material instanceof Material)) {
             console.error(`[Mesh ID#${this.#ID}] Expected 'material' to be an instance of Material.`);
-            this.material = BPBasicMaterial();
+            this.material = BlinnPhongMaterial();
         } else {
             this.#material = material;
         }
@@ -192,11 +192,8 @@ export default class Mesh {
         this.transform.applyToShader(shaderProgram);
         this.#material.applyToShader(shaderProgram);
 
-        const shadeableComponents = this.#components.values().filter(comp => {
-            comp.hasModifer(Component.Modifier.SHADEABLE);
-        })
-
-        for (const component of shadeableComponents) {
+        for (const component of this.#components.values()) {
+            if (!component.hasModifier(Component.Modifier.SHADEABLE)) continue;
             component.applyToShader(shaderProgram);
         }
     }
