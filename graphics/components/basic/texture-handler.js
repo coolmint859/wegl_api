@@ -1,5 +1,8 @@
 import { ResourceCollector, Color } from "../../utilities/index.js";
 
+/**
+ * Handles creating texture buffers used by texture components
+ */
 export default class TextureHandler {
     static #gl;
 

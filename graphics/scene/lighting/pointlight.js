@@ -1,8 +1,5 @@
 import { Color, Vector3 } from "../../utilities/index.js";
-import * as radial from '../../modeling/geometry/procedural/radial-geometry.js';
-import { Geometry, Material, Mesh, Transform } from "../../modeling/index.js";
-import { ColorComponent } from "../../components/index.js";
-import { Graphics3D } from "../../rendering/index.js";
+import { Geometry, Mesh } from "../../modeling/index.js";
 import Light from "./light.js";
 import { BasicMaterial } from "../../modeling/materials/default-materials.js";
 
@@ -40,10 +37,9 @@ export default class PointLight extends Light {
 
         const debugGeometry = Geometry.sphere(20, 20);
         const debugMaterial = BasicMaterial({ color: this._color });
-        const debugTransform = new Transform({ position: this.#position });
-        debugMaterial.name = '';
         
-        this._debugModel = new Mesh(debugGeometry, debugMaterial, debugTransform);
+        this._debugModel = new Mesh(debugGeometry, debugMaterial);
+        this._debugModel.position = this.#position;
         this._debugModel.currentShader = 'basic';
 
         this._lightType = Light.Type.POINTLIGHT;
@@ -59,8 +55,16 @@ export default class PointLight extends Light {
             console.error("Expected 'radius' to be a number greater than 0. Cannot set debug model radius.");
             return false;
         }
-        this._debugModel.transform.dimensions = new Vector3(radius, radius, radius);
+        this._debugModel.dimensions = new Vector3(radius, radius, radius);
         return true;
+    }
+
+    /**
+     * Retrieve the position of this PointLight
+     * @returns {Vector3} the position of this PointLight
+     */
+    get position() {
+        return this.#position;
     }
 
     /**
@@ -74,31 +78,8 @@ export default class PointLight extends Light {
             return false
         }
         this.#position = position.clone();
-        this._debugModel.transform.position = this.#position;
+        this._debugModel.position = this.#position;
         return true;
-    }
-
-    /**
-     * Translates this pointLight by the deltaPosition.
-     * @param {Vector3} deltaPosition the translation vector
-     * @returns {boolean} true if the position was successfully translated, false otherwise
-     */
-    translate(deltaPosition) {
-        if (!(deltaPosition instanceof Vector3)) {
-            console.error("Expected 'deltaPosition' to be an instance of Vector3. Cannot translate position of this PointLight.");
-            return false
-        }
-        this.#position = this.#position.add(deltaPosition);
-        this._debugModel.transform.translate(deltaPosition);
-        return true;
-    }
-
-    /**
-     * Retrieve the position of this PointLight
-     * @returns {Vector3} the position of this PointLight
-     */
-    get position() {
-        return this.#position.clone();
     }
 
     /**
@@ -132,6 +113,11 @@ export default class PointLight extends Light {
         }
     }
 
+    /**
+     * Apply this pointlight to a shader
+     * @param {ShaderProgram} shaderProgram the shader program instance to apply this light to
+     * @param {number} index the index location of the pointlight
+     */
     applyToShader(shaderProgram, index) {
         const elementPrefix = "pointLights[" + index + "].";
         shaderProgram.setUniform(elementPrefix + "position", this.#position);

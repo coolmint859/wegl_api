@@ -4,6 +4,7 @@ import Material from "./materials/material.js";
 import Transform from "./transform.js";
 import { BlinnPhongMaterial } from "./materials/default-materials.js";
 import Component from "../components/component.js";
+import { Vector3 } from "../utilities/index.js";
 
 /**
  * Represents a renderable entity
@@ -14,9 +15,11 @@ export default class Mesh {
 
     #geometry;
     #material;
-    transform;
+    #transform;
 
-    #components; // components are additional abilities a mesh can have to affect it's behavior
+    // components are additional abilities a mesh can have to affect it's behavior
+    #shadeableComponents;
+    #updatableComponents;
 
     currentShader = '';
 
@@ -26,7 +29,7 @@ export default class Mesh {
      * @param {Material} material a material instance specifying the 'look' of this mesh
      * @param {Transform} transform optional transform instance specifying the orientation of this mesh.
      */
-    constructor(geometry, material, transform) {
+    constructor(geometry, material) {
         if (!(geometry instanceof Geometry)) {
             console.error(`[Mesh ID#${this.#ID}] Expected 'geometry' to be an instance of Geometry.`);
             return;
@@ -39,17 +42,13 @@ export default class Mesh {
             this.#material = material;
         }
 
-        if (!(transform instanceof Transform)) {
-            console.error(`[Mesh ID#${this.#ID}] Expected 'transform' to be an instance of Transform.`);
-            this.transform = new Transform();
-        } else {
-            this.transform = transform;
-        }
         this.#ID = Mesh.#ID_COUNTER++;
 
         this.#geometry = geometry;
+        this.#transform = new Transform();
         this.#material.parentContainer = this;
-        this.#components = new Map();
+        this.#shadeableComponents = new Map();
+        this.#updatableComponents = new Map();
     }
 
     get ID() {
@@ -64,14 +63,57 @@ export default class Mesh {
         const capabilities = [];
         capabilities.push(...this.#geometry.capabilities);
         capabilities.push(...this.#material.capabilities);
-        capabilities.push(...this.transform.capabilities);
+        capabilities.push(...this.#transform.capabilities);
 
-        for (const component of this.#components.values()) {
-            if (component.hasModifer(Component.Modifier.SHADEABLE)) {
-                capabilities.push(...component.capabilities);
-            }
+        for (const component of this.#shadeableComponents.values()) {
+            capabilities.push(...component.capabilities);
         }
         return capabilities;
+    }
+
+    /**
+     * Get the position vector of this mesh
+     */
+    get position() {
+        return this.#transform.position;
+    }
+
+    /**
+     * Set the position vector of this mesh
+     * @param {Vector3} newPos the new position vector
+     */
+    set position(newPos) {
+        this.#transform.position = newPos;
+    } 
+
+    /**
+     * Get the rotation quaternion of this mesh
+     */
+    get rotation() {
+        return this.#transform.rotation;
+    }
+
+    /**
+     * Set the rotation quaternion of this mesh
+     * @param {Vector3} newRot the new rotation quaternion
+     */
+    set rotation(newRot) {
+        this.#transform.rotation = newRot;
+    }
+
+    /**
+     * Get the dimension vector of this mesh
+     */
+    get dimensions() {
+        return this.#transform.dimensions;
+    }
+
+    /**
+     * Set the dimension vector of this mesh
+     * @param {Vector3} newDim the new dimension vector
+     */
+    set dimensions(newDim) {
+        this.#transform.dimensions = newDim;
     }
 
     /**
@@ -84,8 +126,16 @@ export default class Mesh {
             console.error(`[Mesh ID#${this.#ID}] Expected 'component' to be an instance of Component. Cannot add component to mesh.`);
             return;
         }
-        this.#components.set(component.name, component);
-        component.parentContainer = this;
+        if (component.hasModifier(Component.Modifier.SHADEABLE)) {
+            this.#shadeableComponents.set(component.name, component);
+            component.parentContainer = this;
+        } else if (component.hasModifier(Component.Modifier.UPDATABLE)) {
+            this.#updatableComponents.set(component.name, component);
+            component.parentContainer = this;
+        } else {
+            console.error(`[Mesh ID#${this.#ID}] Component '${component.name}' does not have a supported modifier. Cannot add component to mesh.`);
+            return;
+        }
     }
 
     /**
@@ -97,7 +147,11 @@ export default class Mesh {
             console.error(`[Mesh ID#${this.#ID}] Expected 'componentName' to be a non-empty string. Cannot remove component from mesh.`);
             return;
         }
-        this.#components.delete(componentName);
+        if (this.#shadeableComponents.has(componentName)) {
+            this.#shadeableComponents.delete(componentName);
+        } else if (this.#updatableComponents.has(componentName)) {
+            this.#updatableComponents.delete(componentName);
+        }
     }
 
     /**
@@ -106,7 +160,10 @@ export default class Mesh {
      * @returns {boolean} true if at least one component with the name exists on this material, false otherwise
      */
     contains(componentName) {
-        return this.#components.some(comp => comp.name === componentName);
+        const isShadeable = this.#shadeableComponents.some(comp => comp.name === componentName);
+        const isUpdatable = this.#updatableComponents.some(comp => comp.name === componentName);
+
+        return isShadeable || isUpdatable;
     }
 
     /**
@@ -132,11 +189,21 @@ export default class Mesh {
         }
     }
 
+    /**
+     * Get the geometry data associated with this mesh for the given shader
+     * @param {string} shaderName the name of the shader
+     * @returns {object} an object containing the VAO, geometry arrays, and buffers
+     */
     getDataFor(shaderName) {
         if (!this.isReadyFor(shaderName)) return null;
         return this.#geometry.getDataFor(shaderName);
     }
 
+    /**
+     * Check if the VAO for the geometry associated with this mesh is being built
+     * @param {string} shaderName the name of the shader
+     * @returns {boolean} true if the geometry VAO is currently being built, false otherwise
+     */
     geometryIsBuilding(shaderName) {
         return this.#geometry.isBuilding(shaderName);
     }
@@ -145,26 +212,10 @@ export default class Mesh {
      * Update any updateable components attached to this mesh
      * @param {number} dt the elapsed time in seconds since the last update
      */
-    updateComponents(dt) {
-        const updatableComps = this.#components.values().filter(comp => {
-            comp.hasModifer(Component.Modifier.UPDATABLE);
-        })
-
-        for (const component of updatableComps) {
-            component.update(dt);
+    updateComponents(dt, totalTime) {
+        for (const component of this.#updatableComponents.values()) {
+            component.update(dt, totalTime);
         }
-    }
-
-    /**
-     * Get the raw vertex data and VAO from this mesh's geometry
-     * @param {string} shaderName the name of the shader
-     * @returns {object} as object containing the vertex data and VAO as properties, if ready. Returns null otherwise.
-     */
-    getGeometryData(shaderName) {
-        if (this.isReadyFor(shaderName)) {
-            return this.#geometry.getDataFor(shaderName);
-        }
-        return null;
     }
 
     /**
@@ -175,10 +226,13 @@ export default class Mesh {
     clone(canvasID='') {
         const newGeometry = this.#geometry.clone(canvasID);
         const newMaterial = this.material.clone(canvasID);
-        const newTransform = this.transform.clone();
+        const newTransform = this.#transform.clone();
         const newMesh = new Mesh(newGeometry, newMaterial, newTransform);
 
-        for (const component of this.#components.values()) {
+        for (const component of this.#shadeableComponents.values()) {
+            newMesh.addComponent(component);
+        }
+        for (const component of this.#updatableComponents.values()) {
             newMesh.addComponent(component);
         }
         return newMesh;
@@ -189,11 +243,10 @@ export default class Mesh {
      * @param {ShaderProgram} shaderProgram the shader to apply the mesh to. Should already be in use.
      */
     applyToShader(shaderProgram) {
-        this.transform.applyToShader(shaderProgram);
+        this.#transform.applyToShader(shaderProgram);
         this.#material.applyToShader(shaderProgram);
 
-        for (const component of this.#components.values()) {
-            if (!component.hasModifier(Component.Modifier.SHADEABLE)) continue;
+        for (const component of this.#shadeableComponents.values()) {
             component.applyToShader(shaderProgram);
         }
     }

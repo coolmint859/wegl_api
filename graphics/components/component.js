@@ -54,6 +54,7 @@ export default class Component {
     get refCount() {
         return this.#refCount;
     }
+    
      /**
      * Set the value of this component. This method should be overriden.
      * @param {any} value 
@@ -120,20 +121,20 @@ export default class Component {
     }
 
     /**
-     * Clone this material component. This method should be overriden.
-     * @param {string} canvasID if the component is context-bound, this can be used to change the context of the new component instance
-     * @returns {Component} a new Material Component with the same properties as this one.
+     * Clone this component. This method should be overriden.
+     * @param {boolean} deepCopy if true, will duplicated the data stored in the original component. Does not apply to textures.
+     * @returns {Component} a new Component with the same value as this one.
      */
-    clone(canvasID='') {
+    clone(deepCopy=false) {
         throw new Error(`[Component] This is an abstract class. Use a derived class to clone a component.`);
     }
 
     /**
-     * Check if the provided property is valid for this component. This method should be overriden.
-     * @param {any} property the property to check
-     * @returns {boolean} true if the property is a valid type, false otherwise
+     * Check if the provided value is valid for this component. This method should be overriden.
+     * @param {any} value the value to check
+     * @returns {boolean} true if the value is a valid type, false otherwise
      */
-    validProperty(property) {
+    static validValue(value) {
         throw new Error(`[Component] This is an abstract class. Use a derived class to validate component values.`);
     }
 }

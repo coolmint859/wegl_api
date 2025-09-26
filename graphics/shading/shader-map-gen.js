@@ -1,4 +1,4 @@
-import TextureHandler from "../components/texture/texture-handler.js";
+import TextureHandler from "../components/basic/texture-handler.js";
 import { Color } from "../utilities/index.js";
 import { Matrix2, Matrix3, Matrix4 } from "../utilities/math/matrix.js";
 import { Vector2, Vector3, Vector4 } from "../utilities/math/vector.js";

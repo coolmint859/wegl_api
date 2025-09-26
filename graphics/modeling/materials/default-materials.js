@@ -1,10 +1,13 @@
-import { ColorComponent, FloatComponent, TexComponent } from "../../components/index.js";
+import { TexComponent, PrimComponent } from "../../components/index.js";
 import { Color } from "../../utilities/index.js";
 import Material from "./material.js";
 
 export function BasicMaterial(params={}) {
     const baseColor = (params.color instanceof Color) ? params.color : Color.WHITE;
-    return new Material([new ColorComponent(baseColor, 'baseColor')]);
+    const material = new Material([new PrimComponent(baseColor, 'baseColor')]);
+    material.name = '';
+
+    return material;
 }
 
 export function BlinnPhongMaterial(params={}) {
@@ -17,7 +20,7 @@ export function BlinnPhongMaterial(params={}) {
         matComponents.push(new TexComponent(params.diffMap, 'diffuseMap', params.diffMapOptions));
     } else {
         const diffColor = (params.diffColor instanceof Color) ? params.diffColor : new Color(0.9, 0.9, 0.9);
-        matComponents.push(new ColorComponent(diffColor, 'diffuseColor'));
+        matComponents.push(new PrimComponent(diffColor, 'diffuseColor'));
     }
 
     // determine specular color/map
@@ -27,12 +30,12 @@ export function BlinnPhongMaterial(params={}) {
         matComponents.push(new TexComponent(params.specMap, 'specularMap', params.specMapOptions));
     } else {
         const specColor = (params.specColor instanceof Color) ? params.specColor : Color.WHITE;
-        matComponents.push(new ColorComponent(specColor, 'specularColor'));
+        matComponents.push(new PrimComponent(specColor, 'specularColor'));
     }
 
     // determine shininess
     const shininess = (typeof params.shininess === 'number') ? params.shininess : 1.0;
-    matComponents.push(new FloatComponent(shininess, 'shininess'));
+    matComponents.push(new PrimComponent(shininess, 'shininess'));
 
     return new Material(matComponents);
 }

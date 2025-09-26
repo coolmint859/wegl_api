@@ -93,16 +93,14 @@ export default class TexComponent extends Component {
 
     /**
      * Clone this component.
-     * @param {string} canvasID if specified, this will create a new glTexture under the new context. The raw image data will be reused.
      * @returns {TexComponent} a new TexComponent with the same value as this one.
      */
-    clone(canvasID='') {
-        this.#textureOptions.canvasID = canvasID;
+    clone() {
         return new TexComponent(this.name, this.#texturePath, this.#textureOptions);
     }
 
     /**
-     * Apply this material component to a shader program.
+     * Apply this texture component to a shader program.
      * @param {ShaderProgram} shaderProgram the shader to apply the component to. Should already be in use.
      * @param {object} options options for how to the apply the component to the shader
      * @param {string} options.parentName the name of this component's parent container, default is an empty string

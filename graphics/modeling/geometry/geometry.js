@@ -31,6 +31,9 @@ export default class Geometry {
         this.#capabilities = this.#genCapabilityList();
     }
 
+    /**
+     * Get the name of this geometry
+     */
     get name() {
         return this.#name;
     }
@@ -67,6 +70,11 @@ export default class Geometry {
         return GeometryHandler.isReady(this.#name, shaderName)
     }
 
+    /**
+     * Check if the VAO for this geometry instance is currently being built
+     * @param {string} shaderName the name of the shader tied to the VAO
+     * @returns {boolean} true if the VAO is being built, false otherwise
+     */
     isBuilding(shaderName) {
         return GeometryHandler.contains(this.#name, shaderName);
     }
@@ -120,7 +128,7 @@ export default class Geometry {
 
     /**
      * Generates a tetahredon, centered at the origin. Normalized to fit within a unit cube.
-     * @returns {Geometry} a new Geometry instance with tetrahedron data
+     * @returns {Geometry} a geometry instance representing a tetrahedron.
      */
     static tetrahedron() {
         const name = 'tetrahedron';
@@ -135,8 +143,8 @@ export default class Geometry {
     }
 
     /** 
-     * Generates a cube, centered at the origin. Normalized to fit within a unit cube.
-     * @returns {Geometry} a new Geometry instance with cube data
+     * Generates a cube, centered at the origin.
+     * @returns {Geometry} a geometry instance representing a cube.
      */
     static cube() {
         const name = 'cube';
@@ -152,7 +160,7 @@ export default class Geometry {
 
     /**
      * Generates an octahedron, centered at the origin. Normalized to fit within a unit cube.
-     * @returns {Geometry} a new Geometry instance with octahedron data
+     * @returns {Geometry} a geometry instance representing an octahedron.
      */
     static octahedron() {
         const name = 'octahedron';
@@ -168,7 +176,7 @@ export default class Geometry {
 
     /**
      * Generates a dodecahedron, centered at the origin. Normalized to fit within a unit cube.
-     * @returns {Geometry} a new Geometry instance with dodecahedron data
+     * @returns {Geometry} a geometry instance representing a dodecahedron.
      */
     static dodecahedron() {
         const name = 'dodecahedron';
@@ -184,7 +192,7 @@ export default class Geometry {
 
     /**
      * Generates an icosahedron, centered at the origin. Normalized to fit within a unit cube.
-     * @returns {Geometry} a new Geometry instance with icosahedron data
+     * @returns {Geometry} a geometry instance representing an icosahedron.
      */
     static icosahedron() {
         const name = 'icosahedron';
@@ -203,15 +211,15 @@ export default class Geometry {
     /**
      * Generates a cube, centered at the origin. Normalized to fit within a unit cube.
      * @param {number} numBands the number of bands around the cone. Must be at least 3.
-     * @returns {object} an object containing the arrays and accompanying attributes
+     * @returns {Geometry} a geometry instance representing a cone.
      */
     static cone(numBands) {
         if (numBands < 3) {
-            console.warn(`[Geometry] Generating a cone must have 'numBands' to be greater than 2. Assigning default (numBands=5).`);
+            console.warn(`[Geometry-Cone] Generating a cone must have 'numBands' to be greater than 2. Assigning default (numBands=5).`);
             numBands = 5;
         }
 
-        const name = `cone#b${numBands}`;
+        const name = `cone#b:${numBands}`;
         if (ResourceCollector.contains(name)) {
             const cone = ResourceCollector.get(name);
             return new Geometry(name, cone);
@@ -225,15 +233,15 @@ export default class Geometry {
     /**
      * Generates a cylinder, centered at the origin. Normalized to fit within a unit cube.
      * @param {number} numBands the number of bands around the cylinder. Must be at least 3.
-     * @returns {object} an object containing the arrays and accompanying attributes
+     * @returns {Geometry} a geometry instance representing a cylinder.
      */
     static cylinder(numBands) {
         if (numBands < 3) {
-            console.warn(`[Geometry] Generating a cylinder must have 'numBands' to be greater than 2. Assigning default (numBands=10).`);
+            console.warn(`[Geometry-Cylinder] Generating a cylinder must have 'numBands' to be greater than 2. Assigning default (numBands=10).`);
             numBands = 10;
         }
 
-        const name = `cylinder#b${numBands}`;
+        const name = `cylinder#b:${numBands}`;
         if (ResourceCollector.contains(name)) {
             const cylinder = ResourceCollector.get(name);
             return new Geometry(name, cylinder);
@@ -244,17 +252,23 @@ export default class Geometry {
         return new Geometry(name, cylinder);
     }
 
+    /**
+     * Generates a sphere, centered at the origin. Normalized to fit within a unit cube.
+     * @param {number} numRings the number of rings around the sphere
+     * @param {number} numBands the number of bands from pole to pole around the sphere
+     * @returns {Geometry} a geometry instance representing a sphere.
+     */
     static sphere(numRings, numBands) {
         if (numRings < 2) {
-            console.warn(`[Geometry] Generating a sphere must have 'numBands' to be greater than 2. Assigning default (numRings=5).`);
+            console.warn(`[Geometry-Sphere] Generating a sphere must have 'numBands' to be greater than 2. Assigning default (numRings=5).`);
             numRings = 5;
         }
         if (numBands < 3) {
-            console.warn(`[Geometry] Generating a sphere must have 'numRings' to be greater than 1. Assigning default (numBands=10).`);
+            console.warn(`[Geometry-Sphere] Generating a sphere must have 'numRings' to be greater than 1. Assigning default (numBands=10).`);
             numBands = 10;
         }
 
-        const name = `sphere#r${numRings}b${numBands}`;
+        const name = `sphere#r:${numRings}b:${numBands}`;
         if (ResourceCollector.contains(name)) {
             const sphere = ResourceCollector.get(name);
             return new Geometry(name, sphere);
@@ -269,7 +283,7 @@ export default class Geometry {
 
     /**
      * Generates a pyramid, centered at the origin. Normalized to fit within a unit cube.
-     * @returns {object} an object containing the arrays and accompanying attributes
+     * @returns {Geometry} a geometry instance representing a pyramid.
      */
     static pyramid() {
         const name = 'pyramid';
@@ -291,27 +305,27 @@ export default class Geometry {
      * @param {number} cols the number of columns on the plane. a higher value means more triangles
      * @param {number} width the width (x-axis) of the plane
      * @param {number} depth the depth (z-axis) of the plane
-     * @returns {object} an object containing the arrays and accompanying attributes
+     * @returns {Geometry} a geometry instance representing a plane.
      */
     static plane(rows, cols, width, depth) {
         if (rows <= 0) {
-            console.warn(`[GeneratePlane] 'rows' must be greater than 0. Assigning default (rows=1).`);
+            console.warn(`[Geometry-Plane] 'rows' must be greater than 0. Assigning default (rows=1).`);
             numSides = 1;
         }
         if (cols <= 0) {
-            console.warn(`[GeneratePlane] 'cols' must be greater than 0. Assigning default (cols=1).`);
+            console.warn(`[Geometry-Plane] 'cols' must be greater than 0. Assigning default (cols=1).`);
             cols = 1;
         }
         if (width <= 0) {
-            console.warn(`[GeneratePlane] 'width' must be greater than 0. Assigning default (width=1).`);
+            console.warn(`[Geometry-Plane] 'width' must be greater than 0. Assigning default (width=1).`);
             width = 1;
         }
         if (depth <= 0) {
-            console.warn(`[GeneratePlane] 'depth' must be greater than 0. Assigning default (depth=1).`);
+            console.warn(`[Geometry-Plane] 'depth' must be greater than 0. Assigning default (depth=1).`);
             depth = 1;
         }
 
-        const name = `plane#r${rows}c${cols}w${width}d${depth}`;
+        const name = `plane#r:${rows}c:${cols}w:${width}d:${depth}`;
         if (ResourceCollector.contains(name)) {
             const plane = ResourceCollector.get(name);
             return new Geometry(name, plane);
@@ -329,15 +343,19 @@ export default class Geometry {
      * @param {number} options.initRotation initial rotation about central axis. default is 0.
      * @param {boolean} options.shareVertices if true, the vertices around the perimeter will be shared, otherwise each triangle will be independent from eachother. Default is true.
      * @param {number} options.centerOffset the offset along the polygon's perpendicular axis for which the central vertex will be defined. Default is 0.
-     * @returns {object} an object containing the new vertex and index array. The size of each is proportional to the number of polygon sides
+     * @returns {Geometry} a geometry instance representing a regular polygon with the specified number of sides.
      */
     static regularPolygon(numSides, options={}) {
         if (numSides < 3) {
-            console.warn(`[GenerateRegularPolygon] numSides must be at least 3. Assigning default (numSides=3).`);
+            console.warn(`[Geometry-RegularPolygon] numSides must be at least 3. Assigning default (numSides=3).`);
             numSides = 3;
         }
 
-        const name = `reg-pol#s${numBands}`;
+        const initRotation = options.initRotation ?? 0
+        const shareVerts = options.shareVertices ?? false;
+        const centerOffset = options.centerOffset ?? 0;
+
+        const name = `reg-pol#s:${numSides}ir:${initRotation}sv:${shareVerts}co:${centerOffset}`;
         if (ResourceCollector.contains(name)) {
             const regpoly = ResourceCollector.get(name);
             return new Geometry(name, regpoly);

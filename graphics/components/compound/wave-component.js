@@ -1,5 +1,5 @@
 import Component from "../component.js";
-import ArrayComponent from "../primitive/array-component.js";
+import ArrayComponent from "../basic/array-component.js";
 
 export default class WaveComponent extends Component {
     #waveComponents;

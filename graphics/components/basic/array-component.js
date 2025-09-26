@@ -1,4 +1,5 @@
 import Component from '../component.js';
+import PrimComponent from './prim-component.js';
 
 /**
  * Represents an array of primitive uniform data.
@@ -8,7 +9,7 @@ export default class ArrayComponent extends Component {
 
     /**
      * Create a new data array component
-     * @param {Array<any>} data the array of data to send to the shader.
+     * @param {Array<any>} data the array of data to store
      * @param {string} name the name of the data
      */
     constructor(data, name) {
@@ -18,7 +19,7 @@ export default class ArrayComponent extends Component {
 
     /**
      * Set the data array of this array component.
-     * @param {boolean} data the data array to set.
+     * @param {Array<any>} data the data array to set.
      */
     set value(data) {
         if (!this.validValue(data)) {
@@ -30,8 +31,8 @@ export default class ArrayComponent extends Component {
     }
 
     /**
-     * Get the value of this boolean component.
-     * @returns {boolean} the boolean associated with this material component 
+     * Get the raw js array of this array component.
+     * @returns {Array<any>} the js array associated with this array component 
      */
     get value() {
         return this.#data;
@@ -50,13 +51,16 @@ export default class ArrayComponent extends Component {
      * @returns {boolean} true if the value is a valid type, false otherwise
      */
     validValue(value) {
-        return Array.isArray(value);
+        const isArray = Array.isArray(value);
+        const isValidValues = value.every(element => PrimComponent.validValue(element))
+
+        return isArray && isValidValues;
     }
 
     /**
-     * Clone this component.
-     * @param {boolean} deepCopy since booleans are primitives, their values are always 'cloned'.
-     * @returns {BoolComponent} a new BoolComponent with the same value as this one.
+     * Clone this array component.
+     * @param {boolean} deepCopy if true, each of the values in the array will be cloned. Default is false
+     * @returns {ArrayComponent} a new ArrayComponent with the same value as this one.
      */
     clone(deepCopy = false) {
         const data = deepCopy ? [...this.#data] : this.#data;
@@ -77,8 +81,6 @@ export default class ArrayComponent extends Component {
             } else {
                 uniformName = this.name + `[${i}]`;
             }
-
-            // console.log(uniformName, this.#data[i]);
 
             if (shaderProgram.supports(uniformName)) {
                 shaderProgram.setUniform(uniformName, this.#data[i]);

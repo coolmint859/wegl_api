@@ -1,11 +1,11 @@
-import { ColorComponent, Component, TexComponent } from "../../components/index.js";
+import { Component, PrimComponent, TexComponent } from "../../components/index.js";
 import ShaderProgram from "../../shading/shader-program.js";
 import { Color } from "../../utilities/index.js";
 import EventScheduler from "../../utilities/misc/scheduler.js";
 
 export default class Material extends Component {
     static #defaultColorName = 'baseColor';
-    static #defaultColor = new ColorComponent(Color.WHITE, Material.#defaultColorName);
+    static #defaultColor = new PrimComponent(Color.WHITE, Material.#defaultColorName);
 
     #components;
 
@@ -73,6 +73,12 @@ export default class Material extends Component {
     }
 
     isReady() {
+        for (const comp of this.#components) {
+            // only texture components are ones we need to worry about for 'readiness'
+            if (comp instanceof TexComponent){
+                if (!comp.isReady()) return false;
+            }
+        }
         return true;
     }
 
