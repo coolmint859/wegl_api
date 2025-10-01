@@ -2,7 +2,7 @@ import ShaderProgram from "../shading/shader-program.js";
 import Geometry from "./geometry/geometry.js";
 import Material from "./materials/material.js";
 import Transform from "./transform.js";
-import { BlinnPhongMaterial } from "./materials/default-materials.js";
+import { BasicMaterial, BlinnPhongMaterial } from "./materials/default-materials.js";
 import Component from "../components/component.js";
 import { Vector3 } from "../utilities/index.js";
 
@@ -17,7 +17,6 @@ export default class Mesh {
     #material;
     #transform;
 
-
     // components are additional abilities a mesh can have to affect it's behavior
     #shadeableComponents;
     #updatableComponents;
@@ -29,7 +28,7 @@ export default class Mesh {
      * Create a new Mesh instance
      * @param {Geometry} geometry a geometry instance specifying the vertex data of this mesh
      * @param {Material} material a material instance specifying the 'look' of this mesh
-     * @param {Transform} transform optional transform instance specifying the orientation of this mesh.
+     * @param {object} toggles optional rendering toggles (wireframe mode, disable depth mask etc..)
      */
     constructor(geometry, material, toggles={}) {
         if (!(geometry instanceof Geometry)) {
@@ -38,8 +37,8 @@ export default class Mesh {
         }
 
         if (!(material instanceof Material)) {
-            console.error(`[Mesh ID#${this.#ID}] Expected 'material' to be an instance of Material.`);
-            this.material = BlinnPhongMaterial();
+            console.error(`[Mesh ID#${this.#ID}] Expected 'material' to be an instance of Material. Setting default 'BasicMaterial'`);
+            this.#material = BasicMaterial();
         } else {
             this.#material = material;
         }
@@ -171,26 +170,31 @@ export default class Mesh {
     }
 
     /**
-     * Check if the VAO for the given shader name has been created.
-     * @param {string} shaderName 
-     * @returns 
+     * Check if mesh is ready for rendering with a given shader
+     * @param {string} shaderName the name of the shader that would be rendering the mesh
+     * @returns {boolean} true if the mesh is ready to be rendered, false otherwise
      */
-    isReadyFor(shaderName) {
-        const geometryReady = this.#geometry && this.#geometry.isReadyFor(shaderName);
-        const materialReady = this.#material && this.#material.isReady();
-
-        return geometryReady && materialReady;
+    isReady() {
+        return this.#material && this.#material.isReady();
     }
 
     /**
-     * Prepare this mesh for rendering by creating a VAO.
+     * Checks if a VAO for this mesh has been created for the given shader
+     * @param {string} shaderName the name of the shader to check for
+     * @returns {boolean} true if the VAO has been created, false otherwise;
+     */
+    hasVAOfor(shaderName) {
+        return this.#geometry.hasVAOFor(shaderName);
+    }
+
+    /**
+     * Generate a VAO for the given shader program from this mesh
      * @param {ShaderProgram} shaderProgram the shader program instance the mesh should be prepared for
      * @param {object} options options for generating and storing the VAO. See docs for possible properties.
      */
-    prepareForShader(shaderProgram, options={}) {
-        if (this.#geometry && !this.#geometry.isReadyFor(shaderProgram)) {
-            this.#geometry.generateVAO(shaderProgram, options);
-        }
+    generateVAOfor(shaderProgram, options={}) {
+        if (!this.isReady()) return null;
+        this.#geometry.generateVAO(shaderProgram, options);
     }
 
     /**
@@ -199,17 +203,8 @@ export default class Mesh {
      * @returns {object} an object containing the VAO, geometry arrays, and buffers
      */
     getDataFor(shaderName) {
-        if (!this.isReadyFor(shaderName)) return null;
+        if (!this.isReady()) return null;
         return this.#geometry.getDataFor(shaderName);
-    }
-
-    /**
-     * Check if the VAO for the geometry associated with this mesh is being built
-     * @param {string} shaderName the name of the shader
-     * @returns {boolean} true if the geometry VAO is currently being built, false otherwise
-     */
-    geometryIsBuilding(shaderName) {
-        return this.#geometry.isBuildingFor(shaderName);
     }
 
     /**

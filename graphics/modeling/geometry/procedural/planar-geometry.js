@@ -69,7 +69,7 @@ export function generatePlane(rows, cols, width, depth) {
     const plane = {
         vertex: { data: vertexArray, attributes: vertexAttributes, stride: 0 },
         normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
-        index:  { data: indexArray,  attributes: [], stride: 0, dataType: 'uint32' },
+        idxTriangles:  { data: indexArray,  attributes: [], stride: 0, dataType: 'uint32' },
     }
 
     return plane;
@@ -111,13 +111,13 @@ export function generateRegularPolygon(numSides, options={}) {
     const shape = GeoUtils.triangulate(vertexArray, options);
     const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }];
 
-    const normalArray = GeoUtils.generateNormals(shape.vertex, shape.index);
+    const normalArray = GeoUtils.generateNormals(shape.vertex, shape.idxTriangles);
     const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
 
     const regpoly = {
         vertex: { data: shape.vertex, attributes: vertexAttributes, stride: 0 },
         normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
-        index:  { data: shape.index,  attributes: [], stride: 0, dataType: 'uint16' },
+        idxTriangles:  { data: shape.idxTriangles,  attributes: [], stride: 0, dataType: 'uint16' },
     }
 
     return regpoly;
@@ -138,7 +138,7 @@ export function generateScreenQuad() {
 
     const quad = {
         vertex: { data: vertex, attributes: vertexAttributes, stride: 0 },
-        index:  { data: index,  attributes: [], stride: 0, dataType: 'uint16' },
+        idxTriangles:  { data: index,  attributes: [], stride: 0, dataType: 'uint16' },
     }
 
     return quad;

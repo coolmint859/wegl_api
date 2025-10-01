@@ -2,7 +2,6 @@ import * as platonic from "./procedural/platonic-solids.js";
 import * as radial from "./procedural/radial-geometry.js";
 import * as planar from "./procedural/planar-geometry.js";
 import * as miscgeo from "./procedural/misc-geometry.js";
-import { ResourceCollector } from "../../utilities/index.js";
 import GeometryHandler from "./geometry-handler.js";
 
 /**
@@ -22,11 +21,7 @@ export default class Geometry {
         this.#name = name;
         this.#data = data;
 
-        if (ResourceCollector.contains(name)) {
-            ResourceCollector.acquire(name);
-        } else {
-            ResourceCollector.store(name, data);
-        }
+        GeometryHandler.setupGeometry(this.#name, this.#data);
 
         this.#capabilities = this.#genCapabilityList();
     }
@@ -53,43 +48,39 @@ export default class Geometry {
     }
 
     /**
+     * Check if a VAO has been created from this geometry data for the given shader
+     * @param {string} shaderName the name of the shader to check with
+     * @returns {boolean} true if a VAO has been created for the geometry, false otherwise
+     */
+    hasVAOFor(shaderName) {
+        const geometryData = GeometryHandler.getDataFor(this.#name);
+        return geometryData.VAOs.has(shaderName);
+    }
+
+    /**
      * Create a VAO for the given shader
      * @param {ShaderProgram} shaderProgram the shader program the VAO should be created with
      * @param {object} shaderProgram the shader program the VAO should be created with
      */
     generateVAO(shaderProgram, options={}) {
-        GeometryHandler.createVAO(this, shaderProgram, options)
-    }
-
-    /**
-     * Check if a VAO has been created with the given shader.
-     * @param {string} shaderName the name of the shader the VAO was created with
-     * @returns {boolean} true if the VAO for this geometry has been created, false otherwise
-     */
-    isReadyFor(shaderName) {
-        return GeometryHandler.isReady(this.#name, shaderName)
-    }
-
-    /**
-     * Check if the VAO for this geometry instance is currently being built
-     * @param {string} shaderName the name of the shader tied to the VAO
-     * @returns {boolean} true if the VAO is being built, false otherwise
-     */
-    isBuildingFor(shaderName) {
-        return GeometryHandler.contains(this.#name, shaderName);
+        GeometryHandler.createVAO(this.#name, shaderProgram, options);
     }
     
     /**
-     * Get the arrays and VAO for the geometry instance, if ready
+     * Get the arrays and VAO for the geometry instance.
      * @param {string} shaderName the name of the shader the VAO was created with
      * @returns {object | null} an object with the array data and VAO object, if ready. If the VAO data is not ready, null is returned
      */
     getDataFor(shaderName) {
-        if (!this.isReadyFor(shaderName)) return null;
-        const { VAO, buffers } = GeometryHandler.get(this.#name, shaderName);
-        return { 
-            geometry: this.#data, 
-            VAO, buffers
+        const geometryData = GeometryHandler.getDataFor(this.#name);
+        if (!geometryData.VAOs.has(shaderName)) {
+            return null;
+        }
+
+        return {
+            geometry: geometryData.data, 
+            buffers: geometryData.buffers, 
+            VAO: geometryData.VAOs.get(shaderName)
         }
     }
 
@@ -132,13 +123,8 @@ export default class Geometry {
      */
     static tetrahedron() {
         const name = 'tetrahedron';
-        if (ResourceCollector.contains(name)) {
-            const tetrahedron = ResourceCollector.get(name);
-            return new Geometry(name, tetrahedron);
-        }
-        
         const tetrahedron = platonic.generateTetrahedron();
-        ResourceCollector.store(name, tetrahedron);
+
         return new Geometry(name, tetrahedron);
     }
 
@@ -148,13 +134,8 @@ export default class Geometry {
      */
     static cube() {
         const name = 'cube';
-        if (ResourceCollector.contains(name)) {
-            const cube = ResourceCollector.get(name);
-            return new Geometry(name, cube);
-        }
-
         const cube = platonic.generateCube();
-        ResourceCollector.store(name, cube);
+
         return new Geometry(name, cube);
     }
 
@@ -164,13 +145,8 @@ export default class Geometry {
      */
     static octahedron() {
         const name = 'octahedron';
-        if (ResourceCollector.contains(name)) {
-            const octahedron = ResourceCollector.get(name);
-            return new Geometry(name, octahedron);
-        }
-
         const octahedron = platonic.generateOctahedron();
-        ResourceCollector.store(name, octahedron)
+
         return new Geometry(name, octahedron);
     }
 
@@ -180,13 +156,8 @@ export default class Geometry {
      */
     static dodecahedron() {
         const name = 'dodecahedron';
-        if (ResourceCollector.contains(name)) {
-            const dodecahedron = ResourceCollector.get(name);
-            return new Geometry(name, dodecahedron);
-        }
-
         const dodecahedron = platonic.generateDodecahedron();
-        ResourceCollector.store(name, dodecahedron);
+
         return new Geometry(name, dodecahedron);
     }
 
@@ -196,13 +167,8 @@ export default class Geometry {
      */
     static icosahedron() {
         const name = 'icosahedron';
-        if (ResourceCollector.contains(name)) {
-            const icosahedron = ResourceCollector.get(name);
-            return new Geometry(name, icosahedron);
-        }
-
         const icosahedron = platonic.generateIcosahedron();
-        ResourceCollector.store(name, icosahedron);
+
         return new Geometry(name, icosahedron);
     }
 
@@ -220,13 +186,8 @@ export default class Geometry {
         }
 
         const name = `cone#b:${numBands}`;
-        if (ResourceCollector.contains(name)) {
-            const cone = ResourceCollector.get(name);
-            return new Geometry(name, cone);
-        }
-
         const cone = radial.generateCone(numBands);
-        ResourceCollector.store(name, cone);
+
         return new Geometry(name, cone);
     }
 
@@ -242,13 +203,8 @@ export default class Geometry {
         }
 
         const name = `cylinder#b:${numBands}`;
-        if (ResourceCollector.contains(name)) {
-            const cylinder = ResourceCollector.get(name);
-            return new Geometry(name, cylinder);
-        }
-    
         const cylinder = radial.generateCylinder(numBands);
-        ResourceCollector.store(name, cylinder);
+        
         return new Geometry(name, cylinder);
     }
 
@@ -269,13 +225,8 @@ export default class Geometry {
         }
 
         const name = `sphere#r:${numRings}b:${numBands}`;
-        if (ResourceCollector.contains(name)) {
-            const sphere = ResourceCollector.get(name);
-            return new Geometry(name, sphere);
-        }
-    
         const sphere = radial.generateSphere(numRings, numBands);
-        ResourceCollector.store(name, sphere);
+
         return new Geometry(name, sphere);
     }
 
@@ -287,13 +238,8 @@ export default class Geometry {
      */
     static pyramid() {
         const name = 'pyramid';
-        if (ResourceCollector.contains(name)) {
-            const pyramid = ResourceCollector.get(name);
-            return new Geometry(name, pyramid);
-        }
-
         const pyramid = miscgeo.generatePyramid();
-        ResourceCollector.store(name, pyramid);
+
         return new Geometry(name, pyramid);
     }
 
@@ -326,13 +272,8 @@ export default class Geometry {
         }
 
         const name = `plane#r:${rows}c:${cols}w:${width}d:${depth}`;
-        if (ResourceCollector.contains(name)) {
-            const plane = ResourceCollector.get(name);
-            return new Geometry(name, plane);
-        }
-    
         const plane = planar.generatePlane(rows, cols, width, depth);
-        ResourceCollector.store(name, plane);
+        
         return new Geometry(name, plane);
     }
 
@@ -356,13 +297,8 @@ export default class Geometry {
         const centerOffset = options.centerOffset ?? 0;
 
         const name = `reg-pol#s:${numSides}ir:${initRotation}sv:${shareVerts}co:${centerOffset}`;
-        if (ResourceCollector.contains(name)) {
-            const regpoly = ResourceCollector.get(name);
-            return new Geometry(name, regpoly);
-        }
-    
         const regpoly = planar.generateRegularPolygon(numSides, options);
-        ResourceCollector.store(name, regpoly);
+
         return new Geometry(name, regpoly);
     }
 
@@ -372,13 +308,8 @@ export default class Geometry {
      */
     static screenQuad() {
         const name = `fs-quad`;
-        if (ResourceCollector.contains(name)) {
-            const screenQuad = ResourceCollector.get(name);
-            return new Geometry(name, screenQuad);
-        }
-    
         const screenQuad = planar.generateScreenQuad();
-        ResourceCollector.store(name, screenQuad);
+
         return new Geometry(name, screenQuad);
     }
 }

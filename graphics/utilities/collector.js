@@ -219,7 +219,7 @@ export default class ResourceCollector {
             }
             // cache the resource once before attempting to load with retries
             ResourceCollector.#cache.set(alias, resourceInfo);
-            console.log(`[ResourceCollector] Successfully stored preloaded resource '${alias}'.`)
+            // console.log(`[ResourceCollector] Successfully stored preloaded resource '${alias}'.`)
             return true;
         }
     }
@@ -497,7 +497,7 @@ export default class ResourceCollector {
         resourceInfo.refCount--;
         // console.log(`[ResourceCollector] Successfully released resource '${resourcePath}'. Current Reference count: ${resourceInfo.refCount}'`)
         if (resourceInfo.refCount <= 0 ) {
-            console.log(`[ResourceCollector] No more consumers are using resource '${resourcePath}'. Scheduling for disposal.`);
+            // console.log(`[ResourceCollector] No more consumers are using resource '${resourcePath}'. Scheduling for disposal.`);
             ResourceCollector.#scheduleForDisposal(resourcePath, resourceInfo);
         }
         return true;

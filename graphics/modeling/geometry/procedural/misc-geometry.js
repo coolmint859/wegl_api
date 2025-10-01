@@ -27,7 +27,7 @@ export function generatePyramid() {
     const pyramid = {
         vertex: { data: GeoUtils.normalizeVertices(vertexArray), attributes: vertexAttributes, stride: 0 },
         normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
-        index:  { data: indexArray,  attributes: [], stride: 0, dataType: 'uint16' },
+        idxTriangles:  { data: indexArray,  attributes: [], stride: 0, dataType: 'uint16' },
     }
 
     return pyramid;

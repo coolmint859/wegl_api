@@ -108,20 +108,19 @@ export default class Renderer {
         this.#gl.clear(this.#gl.COLOR_BUFFER_BIT | this.#gl.DEPTH_BUFFER_BIT);
 
         for (const model of scene.renderables) {
-            // const shaderName = ShaderHandler.bestFitShader()
+            // skip models if they aren't ready to be rendered (dependent data isn't yet loaded)
+            if (!model.isReady()) continue;
+
             const shaderName = model.currentShader;
             const shader = ShaderHandler.getShaderProgram(shaderName);
             if (!shader || !shader.isReady) return;
 
             shader.use();
 
-            // skip meshes that aren't ready yet - prepare them if not being prepared
-            if (!model.isReadyFor(shader.name)) {
-                if (!model.geometryIsBuilding(shader.name)) {
-                    model.prepareForShader(shader);
-                }
-                continue;
-            };
+            // If a mesh doesn't yet have a VAO for the shader, create one before rendering.
+            if (!model.hasVAOfor(shader.name)) {
+                model.generateVAOfor(shader);
+            }
 
             camera.applyToShader(shader);
 
@@ -145,16 +144,17 @@ export default class Renderer {
         const meshData = mesh.getDataFor(shader.name);
         gl.bindVertexArray(meshData.VAO);
 
-        // set up shader uniforms && attributes
         mesh.applyToShader(shader);
 
-        const indexArray = meshData.geometry.index;
+        const indexArray = mesh.toggles.wireframe ? meshData.geometry.idxLines :  meshData.geometry.idxTriangles;
         const indexArrayType = Renderer.glTypeMap.get(indexArray.dataType);
         const numIndices = indexArray.data.length;
 
         shader.flush();
 
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, meshData.buffers.index);
+        const indexBuffer = mesh.toggles.wireframe ? meshData.buffers.idxLines : meshData.buffers.idxTriangles;
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        
         gl.drawElements(gl.TRIANGLES, numIndices, indexArrayType, 0);
 
         shader.reset();

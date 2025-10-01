@@ -212,7 +212,7 @@ export default class TextureHandler {
                 gl.deleteTexture(glTexture);
             }
 
-            throw error;
+            throw error;s
         }
     }
 

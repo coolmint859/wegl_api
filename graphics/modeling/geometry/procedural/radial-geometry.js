@@ -64,7 +64,7 @@ export function generateCone(numBands) {
     const cone = {
         vertex: { data: GeoUtils.normalizeVertices(vertexArray), attributes: vertexAttributes, stride: 0 },
         normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
-        index:  { data: indexArray,  attributes: [], stride: 0, dataType: 'uint16' },
+        idxTriangles:  { data: indexArray,  attributes: [], stride: 0, dataType: 'uint16' },
     }
 
     return cone;
@@ -150,7 +150,7 @@ export function generateCylinder(numBands) {
     const cylinder = {
         vertex: { data: vertexArray, attributes: vertexAttributes, stride: 0 },
         normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
-        index:  { data: indexArray,  attributes: [], stride: 0, dataType: 'uint16' },
+        idxTriangles:  { data: indexArray,  attributes: [], stride: 0, dataType: 'uint16' },
     }
 
     return cylinder;
@@ -325,6 +325,6 @@ export function generateSphere(numRings, numBands) {
     return {
         vertex: { data: model.vertices, attributes: vertexAttributes, stride: 0 },
         normal: { data: model.normals, attributes: normalAttributes, stride: 0 },
-        index:  { data: model.indices,  attributes: [], stride: 0, dataType: 'uint16' },
+        idxTriangles:  { data: model.indices,  attributes: [], stride: 0, dataType: 'uint16' },
     }
 }

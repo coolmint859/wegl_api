@@ -27,7 +27,7 @@ export function generateTetrahedron() {
     const tetrahedron = {
         vertex: { data: GeoUtils.normalizeVertices(vertexArray), attributes: vertexAttributes, stride: 0 },
         normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
-        index:  { data: indexArray,  attributes: [], stride: 0, dataType: 'uint16' },
+        idxTriangles:  { data: indexArray,  attributes: [], stride: 0, dataType: 'uint16' },
     }
 
     return tetrahedron;
@@ -91,7 +91,7 @@ export function generateOctahedron() {
     const octahedron = {
         vertex: { data: GeoUtils.normalizeVertices(vertexArray), attributes: vertexAttributes, stride: 0 },
         normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
-        index:  { data: indexArray,  attributes: [], stride: 0, dataType: 'uint16' },
+        idxTriangles:  { data: indexArray,  attributes: [], stride: 0, dataType: 'uint16' },
     }
 
     return octahedron;
@@ -105,7 +105,7 @@ export function generateDodecahedron() {
     const midRadius = 1.309;
     const goldRatio = (1 + Math.sqrt(5)) / 2;
     const basePentagon = planar.generateRegularPolygon(5, 1);
-    const pentagon = { vertex: basePentagon.vertex.data, index: basePentagon.index.data };
+    const pentagon = { vertex: basePentagon.vertex.data, idxTriangles: basePentagon.idxTriangles.data };
 
     const pi_2 = Math.PI/2;
     const rotations = [
@@ -133,7 +133,7 @@ export function generateIcosahedron() {
     const midRadius = 1.3101;
     const triangle = {
         vertex: new Float32Array([1, 0, 0, -0.5, 0.866, 0, -0.5, -0.866, 0]),
-        index: new Uint16Array([0, 1, 2])
+        idxTriangles: new Uint16Array([0, 1, 2])
     }
 
     // empirically found as true angles weren't working, not sure why

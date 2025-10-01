@@ -40,7 +40,7 @@ export default class MoveableCamera extends Camera {
         document.addEventListener('pointerlockchange', () => this.#onPointerLockChange(), false);
         document.addEventListener('pointerlockerror', (error) => this.#onPointerLockError(error), false);
 
-        console.log("[MoveableCamera] Initialized mouse controls");
+        console.log("[MoveableCamera] Initialized mouse controls.");
     }
 
     /** Tells the canvas to request a pointer lock when the mouse button pressed is the left one. */
@@ -74,8 +74,8 @@ export default class MoveableCamera extends Camera {
     /** Binds/Unbinds the pointer lock element to the current document object */
     #onPointerLockChange() {
         const pointerLockEnabled = document.pointerLockElement === this._canvasElement;
-        const pointerLockMessage = pointerLockEnabled ? "Enabled" : "Disabled";
-        console.log(`[MoveableCamera] Pointer Lock ${pointerLockMessage}`);
+        const pointerLockMessage = pointerLockEnabled ? "enabled" : "disabled";
+        console.log(`[MoveableCamera] Pointer lock ${pointerLockMessage}.`);
     }
 
     /** if the pointer lock had an error */

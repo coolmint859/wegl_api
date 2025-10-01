@@ -36,9 +36,9 @@ export function triangulate(vertexArray, options={}) {
 function triangulateShared(vertexArray, centerVertex) {
     const numVertices = Math.trunc(vertexArray.length/3);
     if (numVertices === 3) {
-        return { vertex: vertexArray, index: new Uint16Array([0, 1, 2]) };
+        return { vertex: vertexArray, idxTriangles: new Uint16Array([0, 1, 2]) };
     } else if (numVertices === 4) {
-        return { vertex: vertexArray, index: new Uint16Array([0, 1, 2, 0, 2, 3])};
+        return { vertex: vertexArray, idxTriangles: new Uint16Array([0, 1, 2, 0, 2, 3])};
     }
 
     const indexArray = new Uint16Array(numVertices*3);
@@ -60,16 +60,16 @@ function triangulateShared(vertexArray, centerVertex) {
         indexArray[iOffset+2] = i < numVertices-1 ? i+2 : 1;
     }
 
-    return { vertex: newVertices, index: indexArray };
+    return { vertex: newVertices, idxTriangles: indexArray };
 }
 
 /** Fan triangulation where triangles are independent (no shared vertices) */
 function triangulateIndep(vertexArray, centerVertex) {
     const numVertices = Math.trunc(vertexArray.length/3);
     if (numVertices === 3) {
-        return { vertex: vertexArray, index: new Uint16Array([0, 1, 2]) };
+        return { vertex: vertexArray, idxTriangles: new Uint16Array([0, 1, 2]) };
     } else if (numVertices === 4) {
-        return { vertex: vertexArray, index: new Uint16Array([0, 1, 2, 0, 2, 3])};
+        return { vertex: vertexArray, idxTriangles: new Uint16Array([0, 1, 2, 0, 2, 3])};
     }
 
     const numNewVertices = numVertices * 3;
@@ -93,7 +93,7 @@ function triangulateIndep(vertexArray, centerVertex) {
 
     const indexArray = Uint16Array.from({ length: numNewVertices }, (v, i) => i);
 
-    return { vertex: newVertices, index: indexArray };
+    return { vertex: newVertices, idxTriangles: indexArray };
 }
 
 /**
@@ -111,15 +111,15 @@ export function createRegularPolyhedron(primitive, rotations, positionOffset) {
     }
 
     const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }];
-    const polyhedron = tessellate(primitive.vertex, primitive.index, transforms);
+    const polyhedron = tessellate(primitive.vertex, primitive.idxTriangles, transforms);
 
-    const normalArray = generateNormals(polyhedron.vertex, polyhedron.index);
+    const normalArray = generateNormals(polyhedron.vertex, polyhedron.idxTriangles);
     const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
 
     return {
         vertex: { data: normalizeVertices(polyhedron.vertex), attributes: vertexAttributes, stride: 0 },
         normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
-        index:  { data: polyhedron.index,  attributes: [], stride: 0, dataType: 'uint16' },
+        idxTriangles:  { data: polyhedron.idxTriangles,  attributes: [], stride: 0, dataType: 'uint16' },
     }
 }
 
@@ -259,7 +259,7 @@ export function normalizeVertices(vertexArray, options = {}) {
  */
 export function tessellate(vertexArray, indexArray, transforms) {
     if (transforms.length === 0) {
-        return { vertex: vertexArray, index: indexArray };
+        return { vertex: vertexArray, idxTriangles: indexArray };
     }
 
     const basisVectors = [];
@@ -295,5 +295,5 @@ export function tessellate(vertexArray, indexArray, transforms) {
         }
     }
 
-    return { vertex: newVertices, index: newIndices };
+    return { vertex: newVertices, idxTriangles: newIndices };
 }
