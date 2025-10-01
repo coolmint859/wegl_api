@@ -5,7 +5,7 @@ import EventScheduler from "../../utilities/misc/scheduler.js";
 
 export default class Material extends Component {
     static #defaultColorName = 'baseColor';
-    static #defaultColor = new PrimComponent(Color.WHITE, Material.#defaultColorName);
+    static #defaultColor;
 
     #components;
 
@@ -15,6 +15,7 @@ export default class Material extends Component {
      */
     constructor(components=[]) {
         super('material');
+        Material.#defaultColor = new PrimComponent(Color.WHITE, Material.#defaultColorName);
 
         this.#components = new Map();
         components.forEach(comp => this.addComponent(comp));

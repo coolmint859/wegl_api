@@ -1,5 +1,5 @@
 import { Transform } from "../../modeling/index.js";
-import { Matrix4, Quaternion, Vector3 } from "../../utilities/index.js";
+import { clamp, mapRange, Matrix4, Quaternion, Vector3 } from "../../utilities/index.js";
 
 /** Provides common attributes/methods for all camera types. This class is abstract and should not be instatiated directly */
 export default class Camera {

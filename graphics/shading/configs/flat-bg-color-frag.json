@@ -1,0 +1,33 @@
+{
+    "path": "flat-bg-color.frag",
+    "precisions": { "int": "mediump", "float": "lowp"},
+    "blocks": [],
+    "inputs": [
+        { "name": "rayDir", "type": "vec3" }
+    ],
+    "uniforms": [
+        { "name": "bg", "type": "Background"},
+        { "name": "sun", "type": "DirectLight"}
+    ],
+    "structs": [
+        {
+            "name": "Background",
+            "members": [
+                { "name": "skyTopColor", "type": "vec3"},
+                { "name": "skyHorizonColor", "type": "vec3"},
+                { "name": "groundHorizonColor", "type": "vec3"},
+                { "name": "groundBottomColor", "type": "vec3"},
+                { "name": "horizonSize", "type": "float"},
+                { "name": "horizonLine", "type": "float"}
+            ]
+        },
+        {
+            "name": "DirectLight",
+            "members": [
+                { "name": "direction", "type": "vec3"},
+                { "name": "emissiveColor", "type": "vec3"},
+                { "name": "intensity", "type": "float"}
+            ]
+        }
+    ]
+}

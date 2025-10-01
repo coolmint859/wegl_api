@@ -1,4 +1,4 @@
-import Graphics3D from "../../rendering/renderer.js";
+import Renderer from "../../rendering/renderer.js";
 import { ShaderProgram } from "../../shading/index.js";
 import { ResourceCollector } from "../../utilities/index.js";
 import Geometry from "./geometry.js";
@@ -99,7 +99,6 @@ export default class GeometryHandler {
             }
         )
 
-        console.log(vaoName, geometryData);
         return geometryData.VAO;
     }
 
@@ -138,7 +137,7 @@ export default class GeometryHandler {
                     if (Object.keys(attribLocations).includes(attr.name)) {
                         const attribLocation = attribLocations[attr.name];
                 
-                        const glAttrType = Graphics3D.glTypeMap.get(attr.dataType);
+                        const glAttrType = Renderer.glTypeMap.get(attr.dataType);
                         gl.enableVertexAttribArray(attribLocation);
                         gl.vertexAttribPointer(attribLocation, attr.size, glAttrType, false, array.stride, attr.offset);
                     }

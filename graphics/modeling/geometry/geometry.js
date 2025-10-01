@@ -75,7 +75,7 @@ export default class Geometry {
      * @param {string} shaderName the name of the shader tied to the VAO
      * @returns {boolean} true if the VAO is being built, false otherwise
      */
-    isBuilding(shaderName) {
+    isBuildingFor(shaderName) {
         return GeometryHandler.contains(this.#name, shaderName);
     }
     
@@ -364,5 +364,21 @@ export default class Geometry {
         const regpoly = planar.generateRegularPolygon(numSides, options);
         ResourceCollector.store(name, regpoly);
         return new Geometry(name, regpoly);
+    }
+
+    /**
+     * Generates a screen-filling quad.
+     * @returns {Geometry} a geometry instance representing a regular polygon with the specified number of sides.
+     */
+    static screenQuad() {
+        const name = `fs-quad`;
+        if (ResourceCollector.contains(name)) {
+            const screenQuad = ResourceCollector.get(name);
+            return new Geometry(name, screenQuad);
+        }
+    
+        const screenQuad = planar.generateScreenQuad();
+        ResourceCollector.store(name, screenQuad);
+        return new Geometry(name, screenQuad);
     }
 }

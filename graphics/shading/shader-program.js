@@ -1,5 +1,5 @@
-import { Graphics3D } from "../rendering/index.js";
 import ResourceCollector from "../utilities/collector.js";
+import ShaderHandler from "./shader-handler.js";
 import ShaderMapGenerator from "./shader-map-gen.js";
 
 /**
@@ -35,7 +35,7 @@ export default class ShaderProgram {
      */
     constructor(shaderName, vertexSource, fragmentSource, config) {
         if (!ShaderProgram.#gl) {
-            ShaderProgram.#gl = Graphics3D.getGLContext();
+            ShaderProgram.#gl = ShaderHandler.glContext;
         }
 
         this.#id = ShaderProgram.#ID_COUNTER++;
@@ -403,9 +403,9 @@ export default class ShaderProgram {
                 location = ShaderProgram.#gl.getUniformLocation(this.programID, name);
             }
 
-            if (location === null) {
-                console.warn(`[Shader Program  @${this.name}] Failed to find location for uniform '${name}'.`);
-            }
+            // if (location === null) {
+            //     console.warn(`[Shader Program  @${this.name}] Failed to find location for uniform '${name}'.`);
+            // }
 
             if (this.name === 'bp-diff-map') {
                 console.log(name, property);

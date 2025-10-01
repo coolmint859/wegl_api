@@ -60,6 +60,7 @@ export default class FPSCamera extends MoveableCamera {
      * @param {number} aspectRatio the aspectRatio of the camera view
      */
     update(dt, aspectRatio) {
+        // console.log(aspectRatio);
         if (this._isViewDirty) {
             this.#updateViewMatrix();
         }
@@ -69,7 +70,11 @@ export default class FPSCamera extends MoveableCamera {
     }
 
     applyToShader(shaderProgram) {
-        shaderProgram.setUniform('uView', this.viewMatrix);
-        shaderProgram.setUniform('uProjection', this.projectionMatrix);
+        if (shaderProgram.supports('uView')) {
+            shaderProgram.setUniform('uView', this.viewMatrix);
+        }
+        if (shaderProgram.supports('uProjection')) {
+            shaderProgram.setUniform('uProjection', this.projectionMatrix);
+        }
     }
 }

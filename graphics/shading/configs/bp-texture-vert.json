@@ -22,7 +22,7 @@
     "outputs": [
         { "name": "vNormal", "type": "vec3" },
         { "name": "vTexCoord", "type": "vec3" },
-        { "name": "vViewDir", "type": "vec3" }
+        { "name": "vViewVector", "type": "vec3" }
     ],
     "uniforms": [
         { "name": "uModel", "type": "mat4", "aliases": ["model", "u_Model", "modelMatrix"] },

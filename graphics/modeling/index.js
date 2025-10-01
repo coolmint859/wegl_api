@@ -38,7 +38,5 @@ export {
     BasicMaterial, BlinnPhongMaterial
 } from './materials/default-materials.js';
 
-
-
 export { default as Mesh } from './mesh.js';
 export { default as Transform } from './transform.js';

@@ -122,3 +122,24 @@ export function generateRegularPolygon(numSides, options={}) {
 
     return regpoly;
 }
+
+/**
+ * Generates vertex data for a screen filling quad
+ */
+export function generateScreenQuad() {
+    const vertex = new Float32Array([
+        -1, -1, 0, -1, 1, 0, 1, -1, 0, 1, 1, 0 
+    ])
+    const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }];
+
+    const index = new Uint16Array([
+        1, 0, 2, 1, 2, 3
+    ])
+
+    const quad = {
+        vertex: { data: vertex, attributes: vertexAttributes, stride: 0 },
+        index:  { data: index,  attributes: [], stride: 0, dataType: 'uint16' },
+    }
+
+    return quad;
+}

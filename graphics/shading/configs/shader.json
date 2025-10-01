@@ -18,5 +18,10 @@
         "name": "bp-waves",
         "fragment_config": "blinn-phong-frag.json",
         "vertex_config": "bp-waves-vert.json"
+    },
+    {
+        "name": "flat-bg-color",
+        "fragment_config": "flat-bg-color-frag.json",
+        "vertex_config": "flat-bg-vert.json"
     }
 ]

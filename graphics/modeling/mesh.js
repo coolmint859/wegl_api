@@ -17,11 +17,13 @@ export default class Mesh {
     #material;
     #transform;
 
+
     // components are additional abilities a mesh can have to affect it's behavior
     #shadeableComponents;
     #updatableComponents;
 
     currentShader = '';
+    toggles;
 
     /**
      * Create a new Mesh instance
@@ -29,7 +31,7 @@ export default class Mesh {
      * @param {Material} material a material instance specifying the 'look' of this mesh
      * @param {Transform} transform optional transform instance specifying the orientation of this mesh.
      */
-    constructor(geometry, material) {
+    constructor(geometry, material, toggles={}) {
         if (!(geometry instanceof Geometry)) {
             console.error(`[Mesh ID#${this.#ID}] Expected 'geometry' to be an instance of Geometry.`);
             return;
@@ -47,6 +49,8 @@ export default class Mesh {
         this.#geometry = geometry;
         this.#transform = new Transform();
         this.#material.parentContainer = this;
+        this.toggles = toggles;
+
         this.#shadeableComponents = new Map();
         this.#updatableComponents = new Map();
     }
@@ -205,7 +209,7 @@ export default class Mesh {
      * @returns {boolean} true if the geometry VAO is currently being built, false otherwise
      */
     geometryIsBuilding(shaderName) {
-        return this.#geometry.isBuilding(shaderName);
+        return this.#geometry.isBuildingFor(shaderName);
     }
 
     /**

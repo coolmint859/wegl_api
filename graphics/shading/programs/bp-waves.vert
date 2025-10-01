@@ -2,12 +2,14 @@
 precision lowp float;
 precision mediump int;
 
+#define E 2.71828
+
 // vertex attributes
 layout(location = 0) in vec3 aPosition;
 layout(location = 1) in vec3 aNormal;
 
 out vec3 vNormal;
-out vec3 vViewDir;
+out vec3 vViewVector;
 
 struct Wave {
     vec2 direction;
@@ -26,12 +28,13 @@ uniform mat4 uProjection;
 
 uniform float totalTime;
 
-float expoSine(float angle, float amplitude) {
-    const float e = 2.71828;
-    return pow(e, amplitude * sin(angle));
+float expoSine(float angle, float amplitude) 
+{
+    return pow(E, amplitude * sin(angle));
 }
 
-float expoSineDeriv(float angle, float amplitude) {
+float expoSineDeriv(float angle, float amplitude) 
+{
     return -amplitude * cos(angle) * expoSine(angle, amplitude);
 }
 
@@ -60,14 +63,12 @@ void main()
         normal = aNormal;
     }
 
-    // vertex model to projected position
     mat4 modelView = uView * uModel;
-    vec4 eyeSpace_vertex = modelView * vec4(position, 1.0);
-    gl_Position = uProjection * eyeSpace_vertex;
+    vec4 viewSpacePos = modelView * vec4(position, 1.0);
+    gl_Position = uProjection * viewSpacePos;
     
-    // pipeline interpolates the vertex normal
     mat3 normalMatrix = transpose(inverse(mat3(modelView)));
     vNormal = normalize(normalMatrix * normal);
 
-    vViewDir = -eyeSpace_vertex.xyz;
+    vViewVector = viewSpacePos.xyz;
 }

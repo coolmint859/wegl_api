@@ -39,6 +39,7 @@ export default class PointLight extends Light {
         const debugMaterial = BasicMaterial({ color: this._color });
         
         this._debugModel = new Mesh(debugGeometry, debugMaterial);
+        this._debugModel.dimensions = new Vector3(0.1, 0.1, 0.1);
         this._debugModel.position = this.#position;
         this._debugModel.currentShader = 'basic';
 
@@ -120,10 +121,20 @@ export default class PointLight extends Light {
      */
     applyToShader(shaderProgram, index) {
         const elementPrefix = "pointLights[" + index + "].";
-        shaderProgram.setUniform(elementPrefix + "position", this.#position);
-        shaderProgram.setUniform(elementPrefix + "emissiveColor", this._color);
-        shaderProgram.setUniform(elementPrefix + "attenConst", this.#attenConstant);
-        shaderProgram.setUniform(elementPrefix + "attenLinear", this.#attenLinear);
-        shaderProgram.setUniform(elementPrefix + "attenQuad", this.#attenQuadratic);
+        if (shaderProgram.supports(elementPrefix + "position")) {
+            shaderProgram.setUniform(elementPrefix + "position", this.#position);
+        }
+        if (shaderProgram.supports(elementPrefix + "emissiveColor")) {
+            shaderProgram.setUniform(elementPrefix + "emissiveColor", this._color);
+        }
+        if (shaderProgram.supports(elementPrefix + "attenConst")) {
+            shaderProgram.setUniform(elementPrefix + "attenConst", this.#attenConstant);
+        }
+        if (shaderProgram.supports(elementPrefix + "attenLinear")) {
+            shaderProgram.setUniform(elementPrefix + "attenLinear", this.#attenLinear);
+        }
+        if (shaderProgram.supports(elementPrefix + "attenQuad")) {
+            shaderProgram.setUniform(elementPrefix + "attenQuad", this.#attenQuadratic);
+        }
     }
 }

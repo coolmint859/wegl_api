@@ -7,9 +7,7 @@ import ShaderValidator from "./shader-validator.js";
  * Intitializes shader programs to be used throughout the runtime environment
  */
 export default class ShaderHandler {
-    static ATTRIB_LOCATION_VERTEX = 0;
-    static ATTRIB_LOCATION_NORMAL = 1;
-    static ATTRIB_LOCATION_UV = 2;
+    static #gl;
 
     static shaderConfigDirectory = "./graphics/shading/configs/";
     static shaderFileDirectory = "./graphics/shading/programs/";
@@ -23,7 +21,11 @@ export default class ShaderHandler {
     /**
      * Initialize the shader manager to preload common shaders (only compiles the basic shader).
      */
-    static async init() {
+    static async init(gl) {
+        if (!ShaderHandler.#gl) {
+            ShaderHandler.#gl = gl;
+        }
+
         const shaderConfigs = await StreamReader.read(ShaderHandler.shaderConfigDirectory + 'shader.json')
         for (const configPair of shaderConfigs) {
             const mergedConfig = await ShaderHandler.#loadConfigPair(configPair);
@@ -55,6 +57,11 @@ export default class ShaderHandler {
             // }
         }
         ShaderHandler.#isReady = true
+    }
+
+    /** Returns the current WebGl context. */
+    static get glContext() {
+        return ShaderHandler.#gl;
     }
 
     /**
@@ -259,7 +266,6 @@ export default class ShaderHandler {
 
     /** loads and stores shader source code in ResourceCollector, creates a new shader program from them, and stores it in the shader map*/
     static async #loadShaderFiles(shaderConfig) {
-        // console.log(shaderConfig);
         try {
             const category = 'shader-source';
             const loadTimeout = 5; // seconds

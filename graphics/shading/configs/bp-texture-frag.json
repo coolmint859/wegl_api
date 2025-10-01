@@ -5,10 +5,11 @@
     "inputs": [
         { "name": "vNormal", "type": "vec3", "aliases": ["frag_normal", "Normal"] },
         { "name": "vTexCoord", "type": "vec3" },
-        { "name": "vViewDir", "type": "vec3" }
+        { "name": "vViewVector", "type": "vec3" }
     ],
     "uniforms": [
         { "name": "material", "type": "Material"},
+        { "name": "sun", "type": "DirectLight"},
         { "name": "ambientColor", "type": "vec3"},
         { "name": "pointLights", "type": "PointLight", "isArray": true, "maxSize": 5 },
         { "name": "numPointLights", "type": "int" }
@@ -30,6 +31,14 @@
                 { "name": "attenConst", "type": "float"},
                 { "name": "attenLinear", "type": "float"},
                 { "name": "attenQuad", "type": "float"}
+            ]
+        },
+        {
+            "name": "DirectLight",
+            "members": [
+                { "name": "direction", "type": "vec3"},
+                { "name": "emissiveColor", "type": "vec3"},
+                { "name": "intensity", "type": "float"}
             ]
         }
     ]

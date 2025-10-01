@@ -19,14 +19,14 @@ export default class PrimComponent extends Component {
 
     /**
      * Create a new primitive component
-     * @param {any} boolean the number to store in the component
+     * @param {any} value the primitive data to store in the component
      * @param {string} name the name of the integer component
      */
     constructor(value, name) {
         super(name, [Component.Modifier.SHADEABLE]);
         this.value = value;
     }
-
+    
     /**
      * Set the value of this primitive component.
      * @param {any} value the primitive value to set.

@@ -1,1 +1,1 @@
-export {default as Graphics3D } from './renderer.js';
+export {default as Renderer } from './renderer.js';
