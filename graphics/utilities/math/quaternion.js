@@ -1,20 +1,20 @@
 import { Vector3 } from './vector.js';
 import { Matrix4 } from './matrix.js';
 
-/** Used for converting euler angles into quaternions and vice versa */
-export const EulerOrder = Object.freeze({
-    XYZ: 'XYZ',
-    XZY: 'XZY',
-    YXZ: 'YXZ',
-    YZX: 'YZX',
-    ZXY: 'ZXY',
-    ZYX: 'ZYX'
-});
-
 /** 
  * Representes a 4D complex number, useful for 3D rotations 
  * */
 export default class Quaternion {
+    /** Used for converting euler angles into quaternions and vice versa */
+    static EulerOrder = Object.freeze({
+        XYZ: 'XYZ',
+        XZY: 'XZY',
+        YXZ: 'YXZ',
+        YZX: 'YZX',
+        ZXY: 'ZXY',
+        ZYX: 'ZYX'
+    });
+
     /**
      * create a new Quaternion instance
      * @param {number} w the scalar coordinate
@@ -82,10 +82,10 @@ export default class Quaternion {
      * @param {number} pitch the x-axis rotation angle in radians
      * @param {number} yaw the y-axis rotation angle in radians
      * @param {number} roll the z-axis rotation angle in radians
-     * @param {EulerOrder} order the order of rotations to apply
+     * @param {Quaternion.EulerOrder} order the order of rotations to apply
      * @returns {Quaternion} a new Quaternion instance
      */
-    static fromEulerAngles(pitch, yaw, roll, order = EulerOrder.XYZ) {
+    static fromEulerAngles(pitch, yaw, roll, order = Quaternion.EulerOrder.XYZ) {
         if (typeof pitch != 'number' || typeof yaw != 'number' || typeof roll != 'number') {
             console.error("TypeError: Expected pitch, yaw, and roll to be numbers, but one of them isn't. Cannot create Quaternion from provided values.");
             return new Quaternion(); // return identity quaternion.
@@ -101,15 +101,15 @@ export default class Quaternion {
 
         // return the combined rotation depending on the order
         switch (order) {
-            case EulerOrder.XZY:
+            case Quaternion.EulerOrder.XZY:
                 return xQuat.mult(zQuat).mult(yQuat);
-            case EulerOrder.YXZ:
+            case Quaternion.EulerOrder.YXZ:
                 return yQuat.mult(xQuat).mult(zQuat);
-            case EulerOrder.YZX:
+            case Quaternion.EulerOrder.YZX:
                 return yQuat.mult(zQuat).mult(xQuat);
-            case EulerOrder.ZXY:
+            case Quaternion.EulerOrder.ZXY:
                 return zQuat.mult(xQuat).mult(yQuat);
-            case EulerOrder.ZYX:
+            case Quaternion.EulerOrder.ZYX:
                 return zQuat.mult(yQuat).mult(xQuat);
             default:
                 return xQuat.mult(yQuat).mult(zQuat);
