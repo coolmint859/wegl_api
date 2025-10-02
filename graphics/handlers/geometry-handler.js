@@ -1,7 +1,6 @@
-import Renderer from "../../rendering/renderer.js";
-import { ShaderProgram } from "../../shading/index.js";
-import { ResourceCollector } from "../../utilities/index.js";
-import Geometry from "./geometry.js";
+import { Renderer, ShaderProgram } from "../rendering/index.js";
+import { ResourceCollector } from "../utilities/index.js";
+import { Geometry } from "../modeling/index.js";
 
 /**
  * Keeps track of geometry VAOs

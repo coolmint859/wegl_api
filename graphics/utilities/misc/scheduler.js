@@ -54,7 +54,7 @@ class Event {
         this._timeSinceLastInterval = 0;
         this._timeSinceScheduled = 0;
         this._isPaused = false;
-    }ß
+    }
 
     pause() {
         this._isPaused = true;

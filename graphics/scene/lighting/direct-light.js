@@ -1,7 +1,10 @@
-import ShaderProgram from "../../shading/shader-program.js";
+import { ShaderProgram } from "../../rendering/index.js"
 import { Color, Vector3 } from "../../utilities/index.js";
 import Light from "./light.js";
 
+/**
+ * Represents a directional light source.
+ */
 export default class DirectLight extends Light {
     #direction;
     #name;

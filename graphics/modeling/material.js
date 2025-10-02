@@ -1,8 +1,13 @@
-import { Component, PrimComponent, TexComponent } from "../../components/index.js";
-import ShaderProgram from "../../shading/shader-program.js";
-import { Color } from "../../utilities/index.js";
-import EventScheduler from "../../utilities/misc/scheduler.js";
+import PrimComponent from "./components/basic/prim-component.js";
+import TexComponent from "./components/basic/texture-component.js";
+import Component from "./components/component.js";
+import { ShaderProgram } from "../rendering/index.js";
+import { Color } from "../utilities/index.js";
+import EventScheduler from "../utilities/misc/scheduler.js";
 
+/**
+ * Provides the 'look' for a Mesh instance. The components attached predominantly determines which shader the mesh uses.
+ */
 export default class Material extends Component {
     static #defaultColorName = 'baseColor';
     static #defaultColor;
@@ -165,5 +170,62 @@ export default class Material extends Component {
             }
         }
         return true;
+    }
+
+    /** -------------------- Material Factory Methods -------------------- */
+
+    /**
+     * Creates a simple material with a single color component.
+     * @param {object} params values to set the characteristics of this material
+     * @param {object} params.color the color of the material (default is white)
+     * @returns {Material} a new material instance with components matching the specification
+     */
+    static BasicMaterial(params={}) {
+        const baseColor = (params.color instanceof Color) ? params.color : Color.WHITE;
+        const material = new Material([new PrimComponent(baseColor, 'baseColor')]);
+        material.name = '';
+
+        return material;
+    }
+
+    /**
+     * Creates a material usable with a blinn phong shader.
+     * @param {object} params values to set the characteristics of this material
+     * @param {object} params.diffColor the diffuse color of the material (default is off-white)
+     * @param {object} params.specColor the specular color of the material (default is white)
+     * @param {object} params.diffMap the path to a diffuse map texture for the material (overrides params.diffColor)
+     * @param {object} params.diffMapOptions options for how to create the glTexture for the diffuse map
+     * @param {object} params.specMap the path to a specular map texture for the material (overrides params.specColor)
+     * @param {object} params.specMapOptions options for how to create the glTexture for the specular map
+     * @returns {Material} a new material instance with components matching the specification
+     */
+    static BlinnPhongMaterial(params={}) {
+        const matComponents = [];
+
+        // determine diffuse color/map
+        if (typeof params.diffMap === 'string') {
+            if (!params.diffMapOptions) params.diffMapOptions = {};
+            params.diffMapOptions.defaultColor = Color.ORANGE;
+            matComponents.push(new TexComponent(params.diffMap, 'diffuseMap', params.diffMapOptions));
+        } else {
+            const diffColor = (params.diffColor instanceof Color) ? params.diffColor : new Color(0.9, 0.9, 0.9);
+            matComponents.push(new PrimComponent(diffColor, 'diffuseColor'));
+        }
+
+        // determine specular color/map
+        if (typeof params.specMap === 'string') {
+            if (!params.specMapOptions) params.specMapOptions = {};
+            params.specMapOptions.defaultColor = Color.BLUE;
+            matComponents.push(new TexComponent(params.specMap, 'specularMap', params.specMapOptions));
+        } else {
+            const specColor = (params.specColor instanceof Color) ? params.specColor : Color.WHITE;
+            matComponents.push(new PrimComponent(specColor, 'specularColor'));
+        }
+
+        // determine shininess
+        const shininess = (typeof params.shininess === 'number') ? params.shininess : 1.0;
+        matComponents.push(new PrimComponent(shininess, 'shininess'));
+
+        return new Material(matComponents);
     }
 }

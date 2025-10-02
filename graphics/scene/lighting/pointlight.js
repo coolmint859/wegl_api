@@ -1,10 +1,10 @@
 import { Color, Vector3 } from "../../utilities/index.js";
-import { Geometry, Mesh } from "../../modeling/index.js";
+import { Geometry, Material } from "../../modeling/index.js";
+import Mesh from "../mesh.js";
 import Light from "./light.js";
-import { BasicMaterial } from "../../modeling/materials/default-materials.js";
 
 /**
- * Represents a pointlight
+ * Represents a point light source
  */
 export default class PointLight extends Light {
     #name;
@@ -36,7 +36,7 @@ export default class PointLight extends Light {
 
 
         const debugGeometry = Geometry.sphere(20, 20);
-        const debugMaterial = BasicMaterial({ color: this._color });
+        const debugMaterial = Material.BasicMaterial({ color: this._color });
         
         this._debugModel = new Mesh(debugGeometry, debugMaterial);
         this._debugModel.dimensions = new Vector3(0.1, 0.1, 0.1);

@@ -1,9 +1,6 @@
-import ShaderProgram from "../shading/shader-program.js";
-import Geometry from "./geometry/geometry.js";
-import Material from "./materials/material.js";
+import { ShaderProgram } from "../rendering/index.js";
+import { Geometry, Material, Component } from "../modeling/index.js";
 import Transform from "./transform.js";
-import { BasicMaterial, BlinnPhongMaterial } from "./materials/default-materials.js";
-import Component from "../components/component.js";
 import { Vector3 } from "../utilities/index.js";
 
 /**
@@ -38,7 +35,7 @@ export default class Mesh {
 
         if (!(material instanceof Material)) {
             console.error(`[Mesh ID#${this.#ID}] Expected 'material' to be an instance of Material. Setting default 'BasicMaterial'`);
-            this.#material = BasicMaterial();
+            this.#material = Material.BasicMaterial();
         } else {
             this.#material = material;
         }

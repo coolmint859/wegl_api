@@ -1,6 +1,9 @@
 import Component from "../component.js";
 import ArrayComponent from "../basic/array-component.js";
 
+/**
+ * Represents wave data used for manipulating geometry in the vertex shader
+ */
 export default class WaveComponent extends Component {
     #waveComponents;
     #maxNumWaves = 20;

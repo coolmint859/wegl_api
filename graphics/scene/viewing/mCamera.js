@@ -1,4 +1,4 @@
-import Transform from "../../modeling/transform.js";
+import Transform from "../transform.js";
 import Camera from "./camera.js";
 
 /** An abstract class defining a camera movable by the user, providing methods for such. */

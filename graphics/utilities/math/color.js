@@ -1,4 +1,5 @@
-import { interpolate } from "./blend.js";
+import MathUtils from './utils.js';
+
 /**
  * Holds color information in the format (r, g, b, a). Also provides common colors.
  */
@@ -62,19 +63,24 @@ export default class Color {
      * @param {number} t the blending parameter (clamped to be between 0 and 1)
      * @param {EasingFunc} easingFunc the easing function to use in interpolation, default is LINEAR
      */
-    static interpolate(c1, c2, t, easingFunc = EasingFunc.LINEAR) {
+    static interpolate(c1, c2, t, easingFunc = (t) => t) {
         if (!(v1 instanceof Color && v2 instanceof Color)) {
             console.error(`TypeError: Either ${c1} or ${c2} is not a Color. Cannot interpolate.`);
             return v1;
-        } else if (typeof t === 'number') {
+        }
+        if (typeof t !== 'number') {
             console.error(`TypeError: Value ${t} is not a number. Cannot interpolate.`);
             return v1;
         }
+        if (typeof easingFunc !== 'function') {
+            console.error(`Expected 'easingFunc' to be a function. Cannot interpolate.`);
+            return v1;
+        }
 
-        const r = interpolate(c1.r, c2.r, t, easingFunc);
-        const g = interpolate(c1.b, c2.b, t, easingFunc);
-        const b = interpolate(c1.g, c2.g, t, easingFunc);
-        const a = interpolate(c1.a, c2.a, t, easingFunc);
+        const r = MathUtils.interpolate(c1.r, c2.r, t, easingFunc);
+        const g = MathUtils.interpolate(c1.b, c2.b, t, easingFunc);
+        const b = MathUtils.interpolate(c1.g, c2.g, t, easingFunc);
+        const a = MathUtils.interpolate(c1.a, c2.a, t, easingFunc);
         return new Color(r, g, b, a);
     }
 

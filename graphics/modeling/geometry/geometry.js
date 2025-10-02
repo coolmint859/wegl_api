@@ -1,8 +1,8 @@
-import * as platonic from "./procedural/platonic-solids.js";
-import * as radial from "./procedural/radial-geometry.js";
-import * as planar from "./procedural/planar-geometry.js";
-import * as miscgeo from "./procedural/misc-geometry.js";
-import GeometryHandler from "./geometry-handler.js";
+import PlanarGeometry from "./procedural/planar-geometry.js";
+import RadialGeometry from "./procedural/radial-geometry.js";
+import PlatonicGeometry from "./procedural/platonic-solids.js";
+import MiscGeometry from "./procedural/misc-geometry.js";
+import { GeometryHandler } from "../../handlers/index.js";
 
 /**
  * Represents mesh data - vertices, normals, and texture coordinates
@@ -123,7 +123,7 @@ export default class Geometry {
      */
     static tetrahedron() {
         const name = 'tetrahedron';
-        const tetrahedron = platonic.generateTetrahedron();
+        const tetrahedron = PlatonicGeometry.generateTetrahedron();
 
         return new Geometry(name, tetrahedron);
     }
@@ -134,7 +134,7 @@ export default class Geometry {
      */
     static cube() {
         const name = 'cube';
-        const cube = platonic.generateCube();
+        const cube = PlatonicGeometry.generateCube();
 
         return new Geometry(name, cube);
     }
@@ -145,7 +145,7 @@ export default class Geometry {
      */
     static octahedron() {
         const name = 'octahedron';
-        const octahedron = platonic.generateOctahedron();
+        const octahedron = PlatonicGeometry.generateOctahedron();
 
         return new Geometry(name, octahedron);
     }
@@ -156,7 +156,7 @@ export default class Geometry {
      */
     static dodecahedron() {
         const name = 'dodecahedron';
-        const dodecahedron = platonic.generateDodecahedron();
+        const dodecahedron = PlatonicGeometry.generateDodecahedron();
 
         return new Geometry(name, dodecahedron);
     }
@@ -167,7 +167,7 @@ export default class Geometry {
      */
     static icosahedron() {
         const name = 'icosahedron';
-        const icosahedron = platonic.generateIcosahedron();
+        const icosahedron = PlatonicGeometry.generateIcosahedron();
 
         return new Geometry(name, icosahedron);
     }
@@ -186,7 +186,7 @@ export default class Geometry {
         }
 
         const name = `cone#b:${numBands}`;
-        const cone = radial.generateCone(numBands);
+        const cone = RadialGeometry.generateCone(numBands);
 
         return new Geometry(name, cone);
     }
@@ -203,7 +203,7 @@ export default class Geometry {
         }
 
         const name = `cylinder#b:${numBands}`;
-        const cylinder = radial.generateCylinder(numBands);
+        const cylinder = RadialGeometry.generateCylinder(numBands);
         
         return new Geometry(name, cylinder);
     }
@@ -225,7 +225,7 @@ export default class Geometry {
         }
 
         const name = `sphere#r:${numRings}b:${numBands}`;
-        const sphere = radial.generateSphere(numRings, numBands);
+        const sphere = RadialGeometry.generateSphere(numRings, numBands);
 
         return new Geometry(name, sphere);
     }
@@ -238,7 +238,7 @@ export default class Geometry {
      */
     static pyramid() {
         const name = 'pyramid';
-        const pyramid = miscgeo.generatePyramid();
+        const pyramid = MiscGeometry.generatePyramid();
 
         return new Geometry(name, pyramid);
     }
@@ -272,7 +272,7 @@ export default class Geometry {
         }
 
         const name = `plane#r:${rows}c:${cols}w:${width}d:${depth}`;
-        const plane = planar.generatePlane(rows, cols, width, depth);
+        const plane = PlanarGeometry.generatePlane(rows, cols, width, depth);
         
         return new Geometry(name, plane);
     }
@@ -297,18 +297,18 @@ export default class Geometry {
         const centerOffset = options.centerOffset ?? 0;
 
         const name = `reg-pol#s:${numSides}ir:${initRotation}sv:${shareVerts}co:${centerOffset}`;
-        const regpoly = planar.generateRegularPolygon(numSides, options);
+        const regpoly = PlanarGeometry.generateRegularPolygon(numSides, options);
 
         return new Geometry(name, regpoly);
     }
 
     /**
-     * Generates a screen-filling quad.
-     * @returns {Geometry} a geometry instance representing a regular polygon with the specified number of sides.
+     * Generates a rectangle.
+     * @returns {Geometry} a geometry instance representing a rectangle.
      */
-    static screenQuad() {
+    static rectangle() {
         const name = `fs-quad`;
-        const screenQuad = planar.generateScreenQuad();
+        const screenQuad = PlanarGeometry.generateRectangle();
 
         return new Geometry(name, screenQuad);
     }

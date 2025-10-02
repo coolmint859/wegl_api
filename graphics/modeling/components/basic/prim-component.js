@@ -1,5 +1,5 @@
-import { ShaderProgram } from "../../shading/index.js"
-import { Color, Matrix2, Matrix3, Matrix4, Quaternion, Vector2, Vector3, Vector4 } from "../../utilities/index.js";
+import { ShaderProgram } from "../../../rendering/index.js"
+import { Color, Matrix2, Matrix3, Matrix4, Quaternion, Vector2, Vector3, Vector4 } from "../../../utilities/index.js";
 import Component from "../component.js";
 
 /**

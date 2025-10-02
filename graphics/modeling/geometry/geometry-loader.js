@@ -1,5 +1,5 @@
 import { ResourceCollector, StreamReader } from "../../utilities/index.js";
-import * as geoutils from './geometry-utils.js';
+import GeoUtils from "./geometry-utils.js";
 import Geometry from "./geometry.js";
 
 /** 
@@ -37,7 +37,7 @@ export default class GeometryLoader {
         )
 
         if (options.normalizeVertices) {
-            geometryData.vertex.data = geoutils.normalizeVertices(geometryData.vertex.data, options)
+            geometryData.vertex.data = GeoUtils.normalizeVertices(geometryData.vertex.data, options)
         }
 
         console.log(`[GeometryLoader] Successfully Loaded new geometry '${geometryPath}'.`);

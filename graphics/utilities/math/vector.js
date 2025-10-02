@@ -1,5 +1,5 @@
-import Color from '../misc/color.js';
-import { EasingFunc, interpolate } from '../misc/blend.js'; 
+import Color from './color.js';
+import MathUtils from './utils.js';
 
 /**
  * Represents a 2D mathematical vector.
@@ -49,10 +49,10 @@ export class Vector2 {
      * @param {Vector2} v1 the first vector
      * @param {Vector2} v2 the second vector
      * @param {number} t the blending parameter (clamped to be between 0 and 1)
-     * @param {EasingFunc} easingFunc the easing function to use in interpolation, default is LINEAR
+     * @param {Function} easingFunc the easing function to use in interpolation (default is linear)
      * @returns {Vector2} the interpolated Vector2 instance
      */
-    static interpolate(v1, v2, t, easingFunc = EasingFunc.LINEAR) {
+    static interpolate(v1, v2, t, easingFunc = (t) => t) {
         if (!(v1 instanceof Vector2 && v2 instanceof Vector2)) {
             console.error(`TypeError: Expected 'v1' and 'v2' to be instances of Vector2. Cannot interpolate.`);
             return v1;
@@ -60,9 +60,13 @@ export class Vector2 {
             console.error(`TypeError: Expected 't' to be a number. Cannot interpolate.`);
             return v1;
         }
+        if (typeof easingFunc !== 'function') {
+            console.error(`Expected 'easingFunc' to be a function. Cannot interpolate.`);
+            return v1;
+        }
 
-        const x = interpolate(v1.x, v2.x, t, easingFunc);
-        const y = interpolate(v1.y, v2.y, t, easingFunc);
+        const x = MathUtils.interpolate(v1.x, v2.x, t, easingFunc);
+        const y = MathUtils.interpolate(v1.y, v2.y, t, easingFunc);
         return new Vector2(x, y);
     }
 
@@ -267,10 +271,10 @@ export class Vector3 {
      * @param {Vector3} v1 the first vector
      * @param {Vector3} v2 the second vector
      * @param {number} t the blending parameter (clamped to be between 0 and 1)
-     * @param {EasingFunc} easingFunc the easing function to use in interpolation, default is LINEAR
+     * @param {Function} easingFunc the easing function to use in interpolation (default is linear)
      * @returns {Vector3} the interpolated Vector3 instance
      */
-    static interpolate(v1, v2, t, easingFunc = EasingFunc.LINEAR) {
+    static interpolate(v1, v2, t, easingFunc = (t) => t) {
         if (!(v1 instanceof Vector3 && v2 instanceof Vector3)) {
             console.error(`TypeError: Expected 'v1' and 'v2' to be instances of Vector3. Cannot interpolate.`);
             return v1;
@@ -278,10 +282,14 @@ export class Vector3 {
             console.error(`TypeError: Expected 't' to be a number. Cannot interpolate.`);
             return v1;
         }
+        if (typeof easingFunc !== 'function') {
+            console.error(`Expected 'easingFunc' to be a function. Cannot interpolate.`);
+            return v1;
+        }
 
-        const x = interpolate(v1.x, v2.x, t, easingFunc);
-        const y = interpolate(v1.y, v2.y, t, easingFunc);
-        const z = interpolate(v1.z, v2.z, t, easingFunc);
+        const x = MathUtils.interpolate(v1.x, v2.x, t, easingFunc);
+        const y = MathUtils.interpolate(v1.y, v2.y, t, easingFunc);
+        const z = MathUtils.interpolate(v1.z, v2.z, t, easingFunc);
         return new Vector3(x, y, z);
     }
 
@@ -535,10 +543,10 @@ export class Vector4 {
      * @param {Vector4} v1 the first vector
      * @param {Vector4} v2 the second vector
      * @param {number} t the blending parameter (clamped to be between 0 and 1)
-     * @param {EasingFunc} easingFunc the easing function to use in interpolation, default is LINEAR
+     * @param {Function} easingFunc the easing function to use in interpolation (default is linear)
      * @returns {Vector4} the interpolated Vector4 instance
      */
-    static interpolate(v1, v2, t, easingFunc = EasingFunc.LINEAR) {
+    static interpolate(v1, v2, t, easingFunc = (t) => t) {
         if (!(v1 instanceof Vector4 && v2 instanceof Vector4)) {
             console.error(`TypeError: Expected 'v1' and 'v2' to be instances of Vector4. Cannot interpolate.`);
             return v1;
@@ -546,11 +554,15 @@ export class Vector4 {
             console.error(`TypeError: Expected 't' to be a number. Cannot interpolate.`);
             return v1;
         }
-        
-        const x = interpolate(v1.x, v2.x, t, easingFunc);
-        const y = interpolate(v1.y, v2.y, t, easingFunc);
-        const z = interpolate(v1.z, v2.z, t, easingFunc);
-        const w = interpolate(v1.w, v2.w, t, easingFunc);
+        if (typeof easingFunc !== 'function') {
+            console.error(`Expected 'easingFunc' to be a function. Cannot interpolate.`);
+            return v1;
+        }
+
+        const x = MathUtils.interpolate(v1.x, v2.x, t, easingFunc);
+        const y = MathUtils.interpolate(v1.y, v2.y, t, easingFunc);
+        const z = MathUtils.interpolate(v1.z, v2.z, t, easingFunc);
+        const w = MathUtils.interpolate(v1.w, v2.w, t, easingFunc);
         return new Vector4(x, y, z, w);
     }
 

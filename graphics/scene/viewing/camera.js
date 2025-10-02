@@ -1,5 +1,5 @@
-import { Transform } from "../../modeling/index.js";
-import { clamp, mapRange, Matrix4, Quaternion, Vector3 } from "../../utilities/index.js";
+import Transform from "../transform.js";
+import { MathUtils, Matrix4, Quaternion, Vector3 } from "../../utilities/index.js";
 
 /** Provides common attributes/methods for all camera types. This class is abstract and should not be instatiated directly */
 export default class Camera {
@@ -100,11 +100,11 @@ export default class Camera {
         console.log("fov: " + this._fov);
 
         if (this._isPerspective) {
-            this._fov = mapRange(Camera.MIN_ORTHO_ZOOM, Camera.MAX_ORTHO_ZOOM, Camera.MIN_FOV, Camera.MAX_FOV, this._orthoZoom);
-            this._fov = clamp(this._fov, Camera.MIN_FOV, Camera.MAX_FOV);
+            this._fov = MathUtils.mapRange(Camera.MIN_ORTHO_ZOOM, Camera.MAX_ORTHO_ZOOM, Camera.MIN_FOV, Camera.MAX_FOV, this._orthoZoom);
+            this._fov = MathUtils.clamp(this._fov, Camera.MIN_FOV, Camera.MAX_FOV);
         } else {
-            this._orthoZoom = mapRange(Camera.MIN_FOV, Camera.MAX_FOV, Camera.MIN_ORTHO_ZOOM, Camera.MAX_ORTHO_ZOOM, this._fov);
-            this._orthoZoom = clamp(this._fov, Camera.MIN_ORTHO_ZOOM, Camera.MAX_ORTHO_ZOOM);
+            this._orthoZoom = MathUtils.mapRange(Camera.MIN_FOV, Camera.MAX_FOV, Camera.MIN_ORTHO_ZOOM, Camera.MAX_ORTHO_ZOOM, this._fov);
+            this._orthoZoom = MathUtils.clamp(this._fov, Camera.MIN_ORTHO_ZOOM, Camera.MAX_ORTHO_ZOOM);
         }
 
         this._isProjectionDirty = true;

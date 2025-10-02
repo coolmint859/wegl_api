@@ -1,35 +1,34 @@
-import { TextureHandler } from "../components/index.js";
-import { GeometryHandler } from "../modeling/index.js";
-import { ShaderHandler } from "../shading/index.js";
-import { Camera } from "../scene/index.js";
-import Scene from "../scene/scene.js";
+import { TextureHandler, GeometryHandler, ShaderHandler } from "../handlers/index.js";
+import { Scene, Camera } from "../scene/index.js";
 import { Color } from "../utilities/index.js";
 
+/**
+ * Renders scenes on an HTMLCanvasElement
+ */
 export default class Renderer {
-    static #instance = null;
-
     #canvas;
     #gl;
+
+    #prevWidth;
+    #prevHeight;
 
     #clearColor;
 
     static glTypeMap;
 
     /**
-     * 
-     * @param {HTMLCanvasElement} canvas 
-     * @param {number} width 
-     * @param {number} height 
-     * @param {object} contextOptions 
+     * Create a new Renderer instance
+     * @param {HTMLCanvasElement} canvas the canvas element to render to.
+     * @param {number} width the width of the render target
+     * @param {number} height the height of the render target
+     * @param {object} contextOptions options for setting up the WebGL rendering context
      */
     constructor(canvas, width, height, contextOptions={}) {
-        if (Renderer.#instance === null) {
-            Renderer.#instance = this;
-        }
-
         this.#canvas = canvas;
         this.#canvas.width = width;
         this.#canvas.height = height;
+        this.#prevWidth = width;
+        this.#prevHeight = height;
 
         const gl = this.#canvas.getContext('webgl2', contextOptions);
         this.#gl = gl;
@@ -65,18 +64,21 @@ export default class Renderer {
         GeometryHandler.init(gl);
     }
 
-    static get instance() {
-        return Renderer.#instance;
-    }
-
+    /**
+     * Update the size of the viewport for the rendering context
+     * @param {number} width the width of the viewport
+     * @param {number} height the height of the viewport
+     */
     updateViewport(width, height) {
-        this.#canvas.width = width;
-        this.#canvas.height = height;
-        this.#gl.viewport(0, 0, width, height);
+        if (this.#prevWidth !== width || this.#prevHeight !== height) {
+            this.#canvas.width = width;
+            this.#canvas.height = height;
+            this.#gl.viewport(0, 0, width, height);
+        }
     }
 
     /** 
-     * set the clear color for the rendering context.
+     * Set the clear color for the rendering context.
      * @param {Color} color the color to set the clear color as
      * */
     set clearColor(color) {

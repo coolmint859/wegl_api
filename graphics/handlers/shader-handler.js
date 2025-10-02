@@ -1,16 +1,14 @@
-import ResourceCollector from "../utilities/collector.js";
-import { StreamReader } from "../utilities/index.js";
-import ShaderProgram from "./shader-program.js";
-import ShaderValidator from "./shader-validator.js";
+import { StreamReader, ResourceCollector } from "../utilities/index.js";
+import { ShaderProgram, ShaderValidator } from '../rendering/index.js';
 
 /**
- * Intitializes shader programs to be used throughout the runtime environment
+ * Intitializes shader programs to be used throughout the rendering environment
  */
 export default class ShaderHandler {
     static #gl;
 
-    static shaderConfigDirectory = "./graphics/shading/configs/";
-    static shaderFileDirectory = "./graphics/shading/programs/";
+    static shaderConfigDirectory = "./graphics/rendering/shading/configs/";
+    static shaderSourceDirectory = "./graphics/rendering/shading/programs/";
 
     static #shaderPrograms = new Map();
     static #isReady = false;
@@ -274,7 +272,7 @@ export default class ShaderHandler {
             const pollInterval = 0.2;
 
             // load in vertex source
-            const vertexPath = ShaderHandler.shaderFileDirectory + shaderConfig.vertexPath;
+            const vertexPath = ShaderHandler.shaderSourceDirectory + shaderConfig.vertexPath;
             let vertexSource;
             if (ResourceCollector.contains(vertexPath)) {
                 vertexSource = await ResourceCollector.getWhenLoaded(vertexPath, { pollTimeout, pollInterval });
@@ -284,7 +282,7 @@ export default class ShaderHandler {
             }
 
             // load in fragment source
-            const fragmentPath = ShaderHandler.shaderFileDirectory + shaderConfig.fragmentPath;
+            const fragmentPath = ShaderHandler.shaderSourceDirectory + shaderConfig.fragmentPath;
             let fragmentSource;
             if (ResourceCollector.contains(fragmentPath)) {
                 fragmentSource = await ResourceCollector.getWhenLoaded(fragmentPath, { pollTimeout, pollInterval });

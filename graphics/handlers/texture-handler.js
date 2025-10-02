@@ -1,4 +1,4 @@
-import { ResourceCollector, Color } from "../../utilities/index.js";
+import { ResourceCollector, Color } from "../utilities/index.js";
 
 /**
  * Handles creating texture buffers used by texture components

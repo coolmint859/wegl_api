@@ -1,8 +1,11 @@
-import { ShaderProgram } from "../../shading/index.js";
-import TextureHandler from "./texture-handler.js";
+import { ShaderProgram } from "../../../rendering/index.js"
+import { TextureHandler } from "../../../handlers/index.js";
+import { Color } from "../../../utilities/index.js";
 import Component from "../component.js";
-import { Color } from "../../utilities/index.js";
 
+/**
+ * Represents a glsl sampler uniform and accompanying texture data
+ */
 export default class TexComponent extends Component {
     #texturePath = "";
     #textureOptions = null;

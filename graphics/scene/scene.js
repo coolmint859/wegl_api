@@ -1,10 +1,13 @@
-import { Component } from "../components/index.js";
-import { Mesh } from "../modeling/index.js";
-import { ShaderProgram } from "../shading/index.js";
+import { Component } from "../modeling/index.js";
+import { ShaderProgram } from "../rendering/index.js";
 import { Color } from "../utilities/index.js";
+import Mesh from "./mesh.js";
 import DirectLight from "./lighting/direct-light.js";
 import PointLight from "./lighting/pointlight.js";
 
+/**
+ * Represents an entire renderable scene with lights and models
+ */
 export default class Scene {
     #models;
     #pointLights;

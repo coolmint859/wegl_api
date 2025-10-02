@@ -1,4 +1,4 @@
-import EventScheduler from "./misc/scheduler.js";
+import EventScheduler from "./scheduler.js";
 
 /**
  * Utility class for loading and caching shared resources and disposing of them when they no longer needed.

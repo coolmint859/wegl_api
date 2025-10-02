@@ -1,4 +1,6 @@
-/** Abstract class representing components */
+/** 
+ * Abstract class representing components used in materials, meshes, and other components.
+ * */
 export default class Component {
     static #ID_COUNTER = 0;
 

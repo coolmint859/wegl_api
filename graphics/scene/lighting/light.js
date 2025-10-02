@@ -1,4 +1,4 @@
-import { Mesh } from "../../modeling/index.js";
+import Mesh from '../mesh.js'; 
 import { Color, Vector2 } from "../../utilities/index.js";
 
 /**

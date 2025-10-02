@@ -1,4 +1,4 @@
-import { ShaderProgram } from "../shading/index.js";
+import { ShaderProgram } from "../rendering/index.js";
 import { Matrix4, Quaternion, Vector3 } from "../utilities/index.js";
 
 /**

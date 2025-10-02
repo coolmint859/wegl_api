@@ -1,4 +1,4 @@
-import Transform from "../../modeling/transform.js";
+import Transform from "../transform.js";
 import { Matrix4, Quaternion, Vector3 } from "../../utilities/index.js";
 import MoveableCamera from "./mCamera.js";
 

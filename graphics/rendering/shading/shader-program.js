@@ -1,5 +1,5 @@
-import ResourceCollector from "../utilities/collector.js";
-import ShaderHandler from "./shader-handler.js";
+import { ResourceCollector } from "../../utilities/index.js";
+import { ShaderHandler } from "../../handlers/index.js";
 import ShaderMapGenerator from "./shader-map-gen.js";
 
 /**
