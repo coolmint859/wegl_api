@@ -11,6 +11,7 @@ export { Matrix2, Matrix3, Matrix4 } from './math/matrix.js';
 export { default as Color } from './math/color.js';
 
 export { default as KeyboardInput } from './interactivity/keyboard.js';
+export { default as MouseInput } from './interactivity/mouse.js';
 
 export { default as EventScheduler } from './misc/scheduler.js';
 export { default as ResourceCollector } from './misc/collector.js';

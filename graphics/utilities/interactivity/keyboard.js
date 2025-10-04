@@ -26,20 +26,15 @@ export default class KeyBoardInput {
      * If false, will repeatedly invoke the callback for as long as the key is pressed.
      * @param {number} [config.delay = 0] amount of time in seconds before the callback is first invoked. Default is 0.
      */
-    registerKeyDown(key, callback, config = {}) {
+    registerKeyPress(key, callback, config = {}) {
         if (typeof key !== 'string' || !key) {
-            console.error("KeyBoardInput: Invalid key provided to registerKeyDown.");
+            console.error(`[KeyBoardInput] Expected 'key' to be a known key type. Cannot register key press event`);
             return;
         }
         if (typeof callback !== 'function') {
-            console.error(`KeyBoardInput: Callback must be a function for key: ${key}`);
+            console.error(`[KeyBoardInput]: Expected 'callback' to be a function for key: ${key}`);
             return;
         }
-        if (typeof config !== 'object') {
-            console.error(`KeyBoardInput: Config must be a javascript object for key: ${key}`);
-            return;
-        }
-
         const {callOnce = false, delay = 0} = config;
         this.#keyDownCommands.set(key, {
             callback, 
@@ -55,13 +50,13 @@ export default class KeyBoardInput {
      * @param {string} key the key to register an event with
      * @param {function} callback the function to call when the key is released. Is called once immediately upon release.
      */
-    registerKeyUp(key, callback) {
+    registerKeyRelease(key, callback) {
         if (typeof key !== 'string' || !key) {
-            console.error("KeyBoardInput: Invalid key provided to registerKeyUp.");
+            console.error(`[KeyBoardInput] Expected 'key' to be a known key type. Cannot register key release event`);
             return;
         }
         if (typeof callback !== 'function') {
-            console.error(`KeyBoardInput: Callback must be a function for key: ${key}`);
+            console.error(`[KeyBoardInput]: Expected 'callback' to be a function for key: ${key}`);
             return;
         }
         this.#keyUpCommands.set(key, { callback });
@@ -71,7 +66,11 @@ export default class KeyBoardInput {
      * Unregister the keyDown event associated with this key, if it exists
      * @param {string} key the key to unregister.
      */
-    unregisterKeyDown(key) {
+    unregisterKeyPress(key) {
+        if (typeof key !== 'string' || !key) {
+            console.error(`[KeyBoardInput] Expected 'key' to be a known key type. Cannot enregister key press event`);
+            return;
+        }
         this.#keyDownCommands.delete(key);
     }
 
@@ -79,7 +78,11 @@ export default class KeyBoardInput {
      * Unregister the keyUp event associated with this key, if it exists
      * @param {string} key the key to unregister.
      */
-    unregisterKeyUp(key) {
+    unregisterKeyRelease(key) {
+        if (typeof key !== 'string' || !key) {
+            console.error(`[KeyBoardInput] Expected 'key' to be a known key type. Cannot unregister key release event`);
+            return;
+        }
         this.#keyUpCommands.delete(key);
     }
 
@@ -87,9 +90,13 @@ export default class KeyBoardInput {
      * Unregister any keyUp or keyDown events associated with this key
      * @param {string} key the key to unregister.
      */
-    unregisterKey(key) {
-        this.unregisterKeyDown(key);
-        this.unregisterKeyUp(key);
+    unregisterKeyEvent(key) {
+        if (typeof key !== 'string' || !key) {
+            console.error(`[KeyBoardInput] Expected 'key' to be a known key type. Cannot unregister key events`);
+            return;
+        }
+        this.unregisterKeyPress(key);
+        this.unregisterKeyRelease(key);
     }
 
     /**
@@ -98,13 +105,17 @@ export default class KeyBoardInput {
      * @returns {boolean} True if the key is currently pressed, false otherwise.
      */
     isKeyDown(key) {
+        if (typeof key !== 'string' || !key) {
+            console.error(`[KeyBoardInput] Expected 'key' to be a known key type. Cannot check for key events`);
+            return;
+        }
         return this.#currentPressedKeys.has(key);
     }
 
     /**
      * This method should be called once per animation frame.
      * It processes all registered key events based on the current keyboard state.
-     * @param {number} dt Delta time in seconds since the last frame.
+     * @param {number} dt elapsed time in seconds since the last animation frame
      */
     update(dt) {
         // Iterate over all keys that are currently marked as pressed down

@@ -1,4 +1,5 @@
 import { Transform } from "../components/index.js";
+import { MouseInput } from "../utilities/index.js";
 import Camera from "./camera.js";
 
 /** An abstract class defining a camera movable by the user, providing methods for such. */
@@ -17,51 +18,39 @@ export default class MoveableCamera extends Camera {
 
     /**
      * initialize the mouse controls for this camera. This needs to be called for a camera to be interactable.
-     * @param {*} canvas the canvas element to listen for mouse events on
-     * @param {*} mouseSensitivity the sensitivity of the mouse controls
+     * @param {MouseInput} mouse the mouse to register events with
+     * @param {number} sensitivity the sensitivity of the mouse controls (default is 0.002)
      */
-    initMouseControls(canvas, mouseSensitivity = 0.002) {
-        if (!(canvas instanceof HTMLElement) || canvas.tagName !== 'CANVAS') {
-            console.error("[MoveableCamera] Provided element is not a valid HTMLCanvasElement. Cannot initialize mouse controls.");
+    initMouseControls(mouse, sensitivity = 0.005) {
+        if (!(mouse instanceof MouseInput)) {
+            console.error("[MoveableCamera] Expected 'mouse' to be an instance of MouseInput. Cannot initialize mouse controls.");
             return;
         }
-        if (typeof mouseSensitivity !== 'number' || mouseSensitivity <= 0) {
+        if (typeof sensitivity !== 'number' || sensitivity <= 0) {
             console.error("[MoveableCamera] Expected 'sensitivity' to be number greater than 0. Cannot initialize mouse controls.");
             return;
         }
-        this._canvasElement = canvas;
-        this._mouseSensitivity = mouseSensitivity;
+        // this._canvasElement = canvas;
+        this._mouse = mouse;
+        this._mouseSensitivity = sensitivity;
 
-        // Use arrow functions to maintain 'this' context
-        this._canvasElement.addEventListener('mousedown', (event) => this.#onMouseDown(event));
-        this._canvasElement.addEventListener('mousemove', (event) => this.#onMouseMove(event));
-
-        // Optional: Pointer Lock API listeners
-        document.addEventListener('pointerlockchange', () => this.#onPointerLockChange(), false);
-        document.addEventListener('pointerlockerror', (error) => this.#onPointerLockError(error), false);
+        mouse.registerMouseClick('pointer-lock', mouse.requestPointerLock.bind(mouse));
+        mouse.registerMouseMove('camera-rotation', this.#onMouseMove.bind(this));
 
         console.log("[MoveableCamera] Initialized mouse controls.");
     }
 
-    /** Tells the canvas to request a pointer lock when the mouse button pressed is the left one. */
-    #onMouseDown(event) {
-        if (event.button === 0) { // Left mouse button
-            // Request pointer lock for true FPS feel
-            this._canvasElement.requestPointerLock();
-        }
-    }
-
     /** Updates the accumulated pitch and yaw angles based on mouse movement */
-    #onMouseMove(event) {
-        if (document.pointerLockElement !== this._canvasElement) return;
+    #onMouseMove(dt, event) {
+        if (!this._mouse.isPointerLocked) return;
 
         // update yaw angle - this can be any value
-        let yawAngleDelta = event.movementX * this._mouseSensitivity;
+        let yawAngleDelta = event.deltaX * this._mouseSensitivity;
         this._currentYawAngle -= yawAngleDelta;
 
         // update pitch angle - prevent gimbal lock by restricting alignment from local up vector
         // NOTE: doesn't work perfectly. Need to fix at some point
-        let pitchAngleDelta = event.movementY * this._mouseSensitivity;
+        let pitchAngleDelta = event.deltaY * this._mouseSensitivity;
         const possiblePitchAngle = this._currentPitchAngle + pitchAngleDelta;
         if (possiblePitchAngle <= MoveableCamera.MAX_PITCH && possiblePitchAngle >= MoveableCamera.MIN_PITCH) {
             this._currentPitchAngle -= pitchAngleDelta;
@@ -69,18 +58,6 @@ export default class MoveableCamera extends Camera {
 
         // flag view matrix as dirty
         this._isViewDirty = true;
-    }
-
-    /** Binds/Unbinds the pointer lock element to the current document object */
-    #onPointerLockChange() {
-        const pointerLockEnabled = document.pointerLockElement === this._canvasElement;
-        const pointerLockMessage = pointerLockEnabled ? "enabled" : "disabled";
-        console.log(`[MoveableCamera] Pointer lock ${pointerLockMessage}.`);
-    }
-
-    /** if the pointer lock had an error */
-    #onPointerLockError(error) {
-        console.error('[MoveableCamera] Pointer Lock Error:', error);
     }
 
     /**

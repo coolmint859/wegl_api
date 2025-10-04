@@ -45,7 +45,7 @@ export default class Mesh {
         this.#geometry = geometry;
         this.#transform = new Transform();
         this.#material.parentContainer = this;
-        this.toggles = toggles;
+        this.toggles = { rayCast: true, ...toggles };
 
         this.#shadeableComponents = new Map();
         this.#updatableComponents = new Map();
