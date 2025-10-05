@@ -34,16 +34,12 @@ export default class MoveableCamera extends Camera {
         this._mouse = mouse;
         this._mouseSensitivity = sensitivity;
 
-        mouse.registerMouseClick('pointer-lock', mouse.requestPointerLock.bind(mouse));
-        mouse.registerMouseMove('camera-rotation', this.#onMouseMove.bind(this));
-
+        mouse.registerLockedMovement('camera-rotation', this.#onMouseMove.bind(this));
         console.log("[MoveableCamera] Initialized mouse controls.");
     }
 
     /** Updates the accumulated pitch and yaw angles based on mouse movement */
     #onMouseMove(dt, event) {
-        if (!this._mouse.isPointerLocked) return;
-
         // update yaw angle - this can be any value
         let yawAngleDelta = event.deltaX * this._mouseSensitivity;
         this._currentYawAngle -= yawAngleDelta;
@@ -52,7 +48,7 @@ export default class MoveableCamera extends Camera {
         // NOTE: doesn't work perfectly. Need to fix at some point
         let pitchAngleDelta = event.deltaY * this._mouseSensitivity;
         const possiblePitchAngle = this._currentPitchAngle + pitchAngleDelta;
-        if (possiblePitchAngle <= MoveableCamera.MAX_PITCH && possiblePitchAngle >= MoveableCamera.MIN_PITCH) {
+        if (possiblePitchAngle <= MoveableCamera.MAX_PITCH || possiblePitchAngle >= MoveableCamera.MIN_PITCH) {
             this._currentPitchAngle -= pitchAngleDelta;
         }
 
