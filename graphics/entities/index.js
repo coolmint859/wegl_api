@@ -11,5 +11,4 @@ export { default as PointLight } from './lights/point-light.js';
 export { default as DirectLight } from './lights/direct-light.js';
 
 export { default as Camera } from './camera.js';
-export { default as MoveableCamera } from './mCamera.js';
-export { default as FPSCamera } from './FPSCamera.js';
+export { default as Entity } from './entity.js';

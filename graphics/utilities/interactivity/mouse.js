@@ -58,9 +58,9 @@ export default class MouseInput {
         this.#targetElement.addEventListener('mousedown', this.#onMouseDown.bind(this));
         this.#targetElement.addEventListener('mouseup', this.#onMouseUp.bind(this));
         this.#targetElement.addEventListener('mousemove', this.#onMouseMove.bind(this));
-        this.#targetElement.addEventListener('contextmenu', e => e.preventDefault()); 
         this.#targetElement.addEventListener('mouseenter', this.#onTargetHoverEnter.bind(this));
-        this.#targetElement.addEventListener('mouseleave', this.#onTargetHoverExit.bind(this)); 
+        this.#targetElement.addEventListener('mouseleave', this.#onTargetHoverExit.bind(this));
+        this.#targetElement.addEventListener('contextmenu', e => e.preventDefault()); 
 
         document.addEventListener('pointerlockchange', this.#onPointerLockChange.bind(this), false);
         document.addEventListener('pointerlockerror', this.#onPointerLockError.bind(this), false);

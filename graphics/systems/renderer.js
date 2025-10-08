@@ -103,10 +103,10 @@ export default class Renderer {
             console.error(`[Renderer] Expected 'scene' to be an instance of Scene. Cannot render scene.`);
             return;
         }
-        if (!(camera instanceof Camera)) {
-            console.error(`[Renderer] Expected 'camera' to be an instance of Camera. Cannot render scene.`);
-            return;
-        }
+        // if (!(camera instanceof Camera)) {
+        //     console.error(`[Renderer] Expected 'camera' to be an instance of Camera. Cannot render scene.`);
+        //     return;
+        // }
 
         if (!ShaderHandler.isReady) return;
 

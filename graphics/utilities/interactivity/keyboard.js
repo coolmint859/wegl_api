@@ -1,18 +1,21 @@
 /**
  * Processes basic input from the keyboard. 
  * */
-export default class KeyBoardInput {
+export default class KeyboardInput {
+    #targetElement;
+
     #currentPressedKeys = new Set();
     #previousPressedKeys = new Set();
 
     #keyDownCommands = new Map();
     #keyUpCommands = new Map();
 
-    constructor() {
-        document.addEventListener('keydown', event => {
+    constructor(targetElement) {
+        this.#targetElement = targetElement;
+        this.#targetElement.addEventListener('keydown', event => {
             this.#currentPressedKeys.add(event.code)
         });
-        document.addEventListener('keyup', event => {
+        this.#targetElement.addEventListener('keyup', event => {
             this.#currentPressedKeys.delete(event.code)
         });
     }

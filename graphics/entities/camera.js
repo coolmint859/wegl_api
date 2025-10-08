@@ -1,123 +1,175 @@
-import { Transform } from "../components/index.js";
-import { MathUtils, Matrix4, Quaternion, Vector3 } from "../utilities/index.js";
+import { Component, RotationControls, Transform, TranslationControls, ZoomControls } from "../components/index.js";
+import { ShaderProgram } from "../systems/index.js";
+import { EventDispatcher, Matrix4, MouseInput } from "../utilities/index.js";
+import KeyBoardInput from "../utilities/interactivity/keyboard.js";
+import Entity from "./entity.js";
 
-/** Provides common attributes/methods for all camera types. This class is abstract and should not be instatiated directly */
-export default class Camera {
-    // static variables, always constant
-    // we can let the user directly configure these since they're universal to all camera subclasses
-    static MAX_FOV = 2.094; // 120 degrees
-    static MIN_FOV = 0.017; // 1 degree
-    static FOV_SCALE_FACTOR = 2.5;
-    static MAX_ORTHO_ZOOM = 1;
-    static MIN_ORTHO_ZOOM = 0.01;
+/** Represents the view and projection into a scene. */
+export default class Camera extends Entity {
+    #viewMatrix;
+    #isViewDirty = true;
+    
+    #projMatrix;
+    #prevAspectRatio = 1;
+    #fov;
+    #nearPlane;
+    #farPlane;
+    #isProjDirty = true;
 
-    constructor() {
-        // previous view ratio
-        this._prevAspectRatio = 0;
+    constructor(options={}) {
+        super('camera');
+        this.#viewMatrix = new Matrix4();
+        this.#projMatrix = new Matrix4();
 
-        // camera properties and projection
-        this._isPerspective = true;
-        this._fov = Math.PI/4;
-        this._nearPlane = 0.1;
-        this._farPlane = 150;
-        this._projectionMatrix = new Matrix4();
-        this._viewMatrix = new Matrix4();
-        this._isProjectionDirty = true;
-        this._isViewDirty = true;
+        this.#fov = options.fov ?? Math.PI/4;
+        this.#nearPlane = options.nearPlane ?? 0.1;
+        this.#farPlane = options.farPlane ?? 500;
 
-        // camera orientation
-        this.transform = new Transform(new Vector3(), new Quaternion(), Vector3.Ones());
-        this._localMovementVector = new Vector3();
-        this._currentPitchAngle = 0;
-        this._currentYawAngle = 0;
-        this._currentRollAngle = 0;
-        
-        // used for orthographic projection
-        this._baseOrthoHeight = 2.0;
-        this._orthoFocalDistance = 6;
-        this._orthoZoom = 1.0;
-        this._prevOrthoZoom = 1.0;
+        this._capabilities.push('uView', 'uProjection');
+
+        this.dispatcher.subscribe(EventDispatcher.EventType.POSITION_CHANGE, this.#updatePosition.bind(this));
+        this.dispatcher.subscribe(EventDispatcher.EventType.ROTATION_CHANGE, this.#updateRotation.bind(this));
+        this.dispatcher.subscribe(EventDispatcher.EventType.FOV_CHANGE, this.#updateFOV.bind(this));
     }
 
     /**
-     * Get this camera's current view matrix.
+     * Get a copy of the view matrix of this camera.
+     * @returns {Matrix4} the view matrix
      */
     get viewMatrix() {
-        return this._viewMatrix.clone();
+        return this.#viewMatrix.clone();
     }
 
     /**
-     * Get this camera's current projection matrix.
+     * Get a copy of the projection matrix of this camera.
+     * @returns {Matrix4} the projection matrix
      */
-    get projectionMatrix() {
-        return this._projectionMatrix.clone();
+    get projMatrix() {
+        return this.#projMatrix;
     }
 
     /**
-     * Returns true if the camera current projection is perspective, false otherwise.
+     * Get the aspect ratio of this camera's projection
+     * @returns {number} the aspect ratio
      */
-    get isPerspective() {
-        return this._isPerspective;
+    get aspectRatio() {
+        return this.#prevAspectRatio;
     }
 
     /**
-     * Set this camera's current projection to orthographic.
+     * Get the field of view of this camera's projection
+     * @returns {number} the field of view
      */
-    setProjectionOrthographic(zoom, near, far) {
-        if (this._isPerspective ||
-            this._orthoZoom !== zoom ||
-            this._nearPlane !== near ||
-            this._farPlane !== far)
-        {
-            this._isPerspective = false;
-            this._orthoZoom = zoom;
-            this._nearPlane = near;
-            this._farPlane = far;
-            this._isProjectionDirty = true;
-        }
+    get FOV() {
+        return this.#fov;
     }
 
     /**
-     * Set this camera's current projection to perspective.
+     * Get near clipping plane of the camera's view frustum
+     * @returns {number} the near clipping plane
      */
-    setProjectionPerspective(fovAngle, near, far) {
-        if (!this._isPerspective ||
-            this._fov !== fovAngle ||
-            this._nearPlane !== near ||
-            this._farPlane !== far)
-        {
-            this._isPerspective = true;
-            this._fov = fovAngle;
-            this._nearPlane = near;
-            this._farPlane = far;
-            this._isProjectionDirty = true;
-        }
+    get nearPlane() {
+        return this.#nearPlane;
     }
 
-    switchProjection() {
-        this._isPerspective = !this._isPerspective;
-        console.log("zoom: " + this._orthoZoom);
-        console.log("fov: " + this._fov);
-
-        if (this._isPerspective) {
-            this._fov = MathUtils.mapRange(Camera.MIN_ORTHO_ZOOM, Camera.MAX_ORTHO_ZOOM, Camera.MIN_FOV, Camera.MAX_FOV, this._orthoZoom);
-            this._fov = MathUtils.clamp(this._fov, Camera.MIN_FOV, Camera.MAX_FOV);
-        } else {
-            this._orthoZoom = MathUtils.mapRange(Camera.MIN_FOV, Camera.MAX_FOV, Camera.MIN_ORTHO_ZOOM, Camera.MAX_ORTHO_ZOOM, this._fov);
-            this._orthoZoom = MathUtils.clamp(this._fov, Camera.MIN_ORTHO_ZOOM, Camera.MAX_ORTHO_ZOOM);
-        }
-
-        this._isProjectionDirty = true;
+    /**
+     * Get far clipping plane of the camera's view frustum
+     * @returns {number} the far clipping plane
+     */
+    get farPlane() {
+        return this.#farPlane;
+    }
+    
+    #updatePosition(event) {
+        this._transform.position = event.position;
+        this.#isViewDirty = true;
     }
 
+    #updateRotation(event) {
+        this._transform.rotation = event.rotation;
+        this.#isViewDirty = true;
+    }
+
+    #updateFOV(event) {
+        this.#fov = event.fov;
+        this.#isProjDirty = true;
+    }
+
+    /**
+     * Update this camera instance
+     * @param {number} dt the elapsed time since the last frame
+     * @param {number} aspectRatio the aspect ratio of the camera viewport
+     */
     update(dt, aspectRatio) {
-        // this is an 'abstract' class, where update() is a method base classes need to implement.
-        console.error("Cannot update abstract Camera instance. Please instatiate a subclass to use update method.");
+        for (const component of this._components.values()) {
+            if (component.hasModifier(Component.Modifier.UPDATABLE)) {
+                component.update(this, dt);
+            }
+        }
+
+        if (this.#isViewDirty) {
+            const eye = this._transform.position;
+            const target = eye.add(this._transform.forwardVector);
+            this.#viewMatrix = Matrix4.lookAt(eye, target, this._transform.upVector);
+            this.#isViewDirty = false;
+        }
+
+        if (this.#isProjDirty || aspectRatio !== this.#prevAspectRatio) {
+            this.#projMatrix = Matrix4.perspectiveProjSymmetic(this.#fov, aspectRatio, this.#nearPlane, this.#farPlane);
+            this.#prevAspectRatio = aspectRatio;
+            this.#isProjDirty = false;
+        }
     }
 
-    applyToShader(shader) {
-        if (this._isViewDirty) {
-            shader.setUniform()
+    /**
+     * Apply this camera to a shader program
+     * @param {ShaderProgram} shaderProgram the shader program to apply this camera to
+     */
+    applyToShader(shaderProgram) {
+        if (shaderProgram.supports('uView')) {
+            shaderProgram.setUniform('uView', this.#viewMatrix);
         }
+        if (shaderProgram.supports('uProjection')) {
+            shaderProgram.setUniform('uProjection', this.#projMatrix);
+        }
+    }
+
+    /**
+     * Create a camera instance designed to be controlled like a first person camera.
+     * @param {MouseInput} mouse the mouse input handler to register mouse events with
+     * @param {KeyBoardInput} keyboard the keyboard input handler to register keyboard events with
+     * @param {object} options an object containing camera and control options.
+     * @returns {Camera} a new camera instance with controls for a first person feel.
+     */
+    static FirstPerson(mouse, keyboard, options={}) {
+        const cameraOptions = {
+            fov : options.fov ?? Math.PI/4,
+            nearPlane: options.nearPlane ?? 0.1,
+            farPlane: options.farPlane ?? 1000
+        }
+        const camera = new Camera(cameraOptions);
+
+        const rotControlOptions = {
+            sensitivity: options.rotSensitivity ?? 0.005,
+            minPitch: -Math.PI/2 + 0.05,
+            maxPitch: Math.PI/2 - 0.05
+        }
+        camera.addComponent(new RotationControls(mouse, rotControlOptions));
+
+        const transControlOptions = {
+            speed: options.moveSpeed ?? 15,
+            keyFireRate: options.keyFireRate ?? 0
+        }
+        camera.addComponent(new TranslationControls(keyboard, transControlOptions));
+        
+        const zoomOptions = {
+            sensitivity: options.zoomSensitivity ?? 0.05,
+            speed: options.zoomSpeed ?? 15,
+            minFOV: options.minFOV ?? 0.2,
+            maxFOV: options.maxFOV ?? 2.094
+        }
+        camera.addComponent(new ZoomControls(keyboard, zoomOptions));
+
+        return camera;
     }
 }

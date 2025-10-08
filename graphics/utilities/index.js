@@ -14,6 +14,7 @@ export { default as KeyboardInput } from './interactivity/keyboard.js';
 export { default as MouseInput } from './interactivity/mouse.js';
 
 export { default as EventScheduler } from './misc/scheduler.js';
+export { default as EventDispatcher } from './misc/dispatcher.js';
 export { default as ResourceCollector } from './misc/collector.js';
 export { default as ShaderMapGenerator } from './misc/shader-map-gen.js';
 export { default as ShaderValidator } from './misc/shader-validator.js';
