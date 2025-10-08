@@ -117,6 +117,13 @@ export default class Scene {
         this.#globalUniforms.set(name, global);
     }
 
+    update(dt, totalTime) {
+        this.#globalUniforms.set('totalTime', totalTime);
+        for (const entity of this.#models.values()) {
+            entity.update(dt, totalTime);
+        }
+    }
+
     /**
      * Apply any global uniforms in this scene to the provided shader program.
      * @param {ShaderProgram} shaderProgram the shader program to apply the uniforms to.

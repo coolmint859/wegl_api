@@ -43,7 +43,7 @@ export default class MathUtils {
             console.error(`[MathUtils] Expected 'easingFunc' to a function. Cannot interpolate.`);
             return 0;
         }
-        return lerp(a, b, easingFunc(t));
+        return MathUtils.lerp(a, b, easingFunc(t));
     }
 
 

@@ -1,4 +1,4 @@
-import { Component, RotationControls, Transform, TranslationControls, ZoomControls } from "../components/index.js";
+import { Component, LocalTranslationControls, RotationControls, ZoomControls } from "../components/index.js";
 import { ShaderProgram } from "../systems/index.js";
 import { EventDispatcher, Matrix4, MouseInput } from "../utilities/index.js";
 import KeyBoardInput from "../utilities/interactivity/keyboard.js";
@@ -81,12 +81,12 @@ export default class Camera extends Entity {
     }
     
     #updatePosition(event) {
-        this._transform.position = event.position;
+        this.position = event.position;
         this.#isViewDirty = true;
     }
 
     #updateRotation(event) {
-        this._transform.rotation = event.rotation;
+        this.rotation = event.rotation;
         this.#isViewDirty = true;
     }
 
@@ -160,7 +160,7 @@ export default class Camera extends Entity {
             speed: options.moveSpeed ?? 15,
             keyFireRate: options.keyFireRate ?? 0
         }
-        camera.addComponent(new TranslationControls(keyboard, transControlOptions));
+        camera.addComponent(new LocalTranslationControls(keyboard, transControlOptions));
         
         const zoomOptions = {
             sensitivity: options.zoomSensitivity ?? 0.05,

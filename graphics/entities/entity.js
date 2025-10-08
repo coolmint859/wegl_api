@@ -187,8 +187,9 @@ export default class Entity {
     /**
      * Update this entity. This method should be overwritten.
      * @param {number} dt the elapsed time in seconds since the last update
+     * @param {number} totalTime the total amount of time since the start of the update loop
      */
-    update(dt) {
+    update(dt, totalTime) {
         console.error(`[Entity @${this._name}] This class is meant to be abstract. Instantiate a derived class to update this entity.`);
     }
 

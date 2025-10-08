@@ -68,6 +68,13 @@ export default class Renderer {
     }
 
     /**
+     * Get the canvas this renderer is associated with
+     */
+    get canvas() {
+        return this.#canvas;
+    }
+
+    /**
      * Update the size of the viewport for the rendering context
      * @param {number} width the width of the viewport
      * @param {number} height the height of the viewport
@@ -103,10 +110,10 @@ export default class Renderer {
             console.error(`[Renderer] Expected 'scene' to be an instance of Scene. Cannot render scene.`);
             return;
         }
-        // if (!(camera instanceof Camera)) {
-        //     console.error(`[Renderer] Expected 'camera' to be an instance of Camera. Cannot render scene.`);
-        //     return;
-        // }
+        if (!(camera instanceof Camera)) {
+            console.error(`[Renderer] Expected 'camera' to be an instance of Camera. Cannot render scene.`);
+            return;
+        }
 
         if (!ShaderHandler.isReady) return;
 

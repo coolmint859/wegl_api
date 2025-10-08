@@ -1,5 +1,5 @@
 import { ShaderProgram } from "../../systems/index.js";
-import { Matrix4, Quaternion, Vector3 } from "../../utilities/index.js";
+import { Matrix4, Quaternion, Vector3, Vector4 } from "../../utilities/index.js";
 
 /**
  * Encapsulates local to world space transformations.
@@ -150,6 +150,18 @@ export default class Transform {
     get rightVector() {
         return this.#rotation.rotateVector(Transform.localRight);
     }
+    
+    /**
+     * Computes the transformation matrix as determined by the current position, rotation, and dimensions.
+     * @returns {Matrix4} the computed transformation matrix
+     */
+    get worldMatrix() {
+        if (this.#isDirty) {
+            this.#worldMatrix = Matrix4.STR4(this.#position, this.#rotation, this.#dimensions);
+            this.#isDirty = false;
+        }
+        return this.#worldMatrix;
+    }
 
     /**
      * Adds the given translation to the current transform position.
@@ -253,26 +265,8 @@ export default class Transform {
      * @param {ShaderProgram} shaderProgram the shader program to apply this transform to
      */
     applyToShader(shaderProgram) {
-        if (this.#isDirty) {
-            this.#worldMatrix = Matrix4.STR4(this.#position, this.#rotation, this.#dimensions);
-            this.#isDirty = false;
-        }
-
-        // only attempt to apply the transform if the shader supports a model matrix (most should)
         if (shaderProgram.supports(Transform.#name)) {
-            shaderProgram.setUniform(Transform.#name, this.#worldMatrix);
+            shaderProgram.setUniform(Transform.#name, this.worldMatrix);
         }
-    }
-
-    /**
-     * Computes the transformation matrix as determined by the current position, rotation, and dimensions.
-     * @returns {Matrix4} the computed transformation matrix
-     */
-    get worldMatrix() {
-        if (this.#isDirty) {
-            this.#worldMatrix = Matrix4.STR4(this.#position, this.#rotation, this.#dimensions);
-            this.#isDirty = false;
-        }
-        return this.#worldMatrix.clone();
     }
 }

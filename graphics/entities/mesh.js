@@ -2,6 +2,7 @@ import { ShaderProgram } from "../systems/index.js";
 import { Material, Component } from "../components/index.js";
 import Geometry from "./geometry/geometry.js";
 import Entity from "./entity.js";
+import { EventDispatcher } from "../utilities/index.js";
 
 /**
  * Represents a renderable entity
@@ -35,6 +36,9 @@ export default class Mesh extends Entity {
         this.#geometry = geometry;
         this.#material.parentContainer = this;
         this.toggles = { rayCast: true, ...toggles };
+
+        this.dispatcher.subscribe(EventDispatcher.EventType.POSITION_CHANGE, (event) => this.position = event.position);
+        this.dispatcher.subscribe(EventDispatcher.EventType.ROTATION_CHANGE, (event) => this.rotation = event.rotation);
 
         this.#populateCapabilities();
     }

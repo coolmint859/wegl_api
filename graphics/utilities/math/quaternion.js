@@ -1,5 +1,6 @@
 import { Vector3 } from './vector.js';
-import { Matrix4 } from './matrix.js';
+import { Matrix3, Matrix4 } from './matrix.js';
+import MathUtils from './utils.js';
 
 /** 
  * Representes a 4D complex number, useful for 3D rotations 
@@ -381,7 +382,7 @@ export default class Quaternion {
      * @param {EasingFunc} easingFunc the easing function to interpolate with
      * @returns {Quaternion} the interpolated Quaternion instance
      */
-    static slerp(q1, q2, t, easingFunc = EasingFunc.LINEAR) {
+    static slerp(q1, q2, t, easingFunc = (t) => t) {
         if (!(q1 instanceof Quaternion && q2 instanceof Quaternion)) {
             console.error(`TypeError: Expected 'q1' and 'q2' to be instances of Quaternion. Cannot interpolate.`);
             return new Quaternion();
@@ -390,7 +391,7 @@ export default class Quaternion {
             return q1;
         }
         // calculate the eased p parameter
-        const p = interpolate(0, 1, t, easingFunc);
+        const p = MathUtils.interpolate(0, 1, t, easingFunc);
 
         let dot = q1.dot(q2);
 
@@ -404,10 +405,10 @@ export default class Quaternion {
         if (dot > 1.0 - EPSILON) {
             // If quaternions are very close, just linearly interpolate
             return new Quaternion(
-                lerp(q1.w, q2.w, p),
-                lerp(q1.x, q2.x, p),
-                lerp(q1.y, q2.y, p),
-                lerp(q1.z, q2.z, p),
+                MathUtils.lerp(q1.w, q2.w, p),
+                MathUtils.lerp(q1.x, q2.x, p),
+                MathUtils.lerp(q1.y, q2.y, p),
+                MathUtils.lerp(q1.z, q2.z, p),
             ).normal();
         }
 
