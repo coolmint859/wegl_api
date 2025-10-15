@@ -1,8 +1,8 @@
 import PrimComponent from "./prim-component.js";
 import TexComponent from "./texture-component.js";
-import Component from "../component.js";
 import { ShaderProgram } from '../../systems/index.js';
 import { Color, EventScheduler } from "../../utilities/index.js";
+import Component from "../component.js";
 
 /**
  * Provides the 'look' for a Mesh instance. The components attached predominantly determines which shader the mesh uses.
@@ -18,11 +18,30 @@ export default class Material extends Component {
      * @param {Array<Component>} components list of initial components that this material should have
      */
     constructor(components=[]) {
-        super('material');
-        Material.#defaultColor = new PrimComponent(Color.WHITE, Material.#defaultColorName);
-
+        super('material', [Component.Modifier.SHADABLE]);
         this.#components = new Map();
         components.forEach(comp => this.addComponent(comp));
+
+        if (!Material.#defaultColor) {
+            Material.#defaultColor = new PrimComponent(Material.#defaultColorName, Color.WHITE,);
+        }
+    }
+
+    /**
+     * Get the capabilities of this material in the form of a list of material names.
+     * @returns {Array<string>} an array of the names of the components.
+     */
+    get capabilities() {
+        const matName = this.name !== '' ? `${this.name}.` : '';
+        const componentIterator = this.#components.values().map(comp => {
+            return `${matName}${comp.name}`;
+        });
+        const componentNames = Array.from(componentIterator);
+
+        if (componentNames.length === 0) {
+            componentNames.push(`${matName}${Material.#defaultColorName}`);
+        }
+        return componentNames;
     }
 
     /**
@@ -34,7 +53,6 @@ export default class Material extends Component {
             console.error(`[Material @ID${this.ID}] Expected '${component}' to be an instance of Component. Cannot add to Material.`);
             return;
         }
-        component.parentContainer = this;
         this.#components.set(component.name, component.acquire());
     }
 
@@ -48,13 +66,17 @@ export default class Material extends Component {
             console.error(`[Material @ID${this.ID}] Expected 'name' to be a string. Cannot remove material component from Material.`);
             return false;
         }
-        return this.#components.delete(name);
+        if (this.#components.has(name)) {
+            const component = this.#components.get(name);
+            component.release();
+            return this.#components.delete(name);
+        }
     }
 
     /**
      * Get a component attached to this material
      * @param {string} name the name of the component
-     * @returns {Component | null} the material component instance. If not found, null is returned.
+     * @returns {DataComponent | null} the material component instance. If not found, null is returned.
      */
     getComponent(name) {
         if (typeof name !== 'string') {
@@ -77,6 +99,19 @@ export default class Material extends Component {
         return this.#components.has(name);
     }
 
+    /**
+     * Check if a component with the given name is attached to this material
+     * @param {string} componentName the name of the component to check against
+     * @returns {boolean} true if at least one component with the name exists on this material, false otherwise
+     */
+    contains(componentName) {
+        return this.#components.some(comp => comp.name === componentName);
+    }
+
+    /**
+     * Check if this material is ready to be used.
+     * @returns {boolean} true if this material is ready to be used, false otherwise
+     */
     isReady() {
         for (const comp of this.#components) {
             // only texture components are ones we need to worry about for 'readiness'
@@ -101,48 +136,12 @@ export default class Material extends Component {
     }
 
     /**
-     * Get the capabilities of this material in the form of a list of material names.
-     * @returns {Array<string>} an array of the names of the components.
-     */
-    get capabilities() {
-        const matName = this.name !== '' ? `${this.name}.` : '';
-
-        const componentIterator = this.#components.values().map(comp => {
-            return `${matName}${comp.name}`;
-        });
-        const componentNames = Array.from(componentIterator);
-
-        if (componentNames.length === 0) {
-            componentNames.push(`${matName}${Material.#defaultColorName}`);
-        }
-        return componentNames;
-    }
-
-    /**
-     * Get the value of this component.
-     * @returns {Array<Component>} a list of the components attached to this material
-     */
-    get value() {
-        return this.#components.values();
-    }
-
-    /**
-     * Check if a component with the given name is attached to this material
-     * @param {string} componentName the name of the component to check against
-     * @returns {boolean} true if at least one component with the name exists on this material, false otherwise
-     */
-    contains(componentName) {
-        return this.#components.some(comp => comp.name === componentName);
-    }
-
-    /**
      * create a exact replica of this material
-     * @param {string} canvasID optionally change the context the material components are bound to.
      */
-    clone(canvasID='') {
+    clone() {
         const newMaterial = new Material();
         this.#components.values().forEach(comp => {
-            newMaterial.addComponent(comp.clone(canvasID));
+            newMaterial.addComponent(comp.clone());
         })
         return newMaterial;
     }
@@ -152,7 +151,7 @@ export default class Material extends Component {
      * @param {ShaderProgram} shaderProgram the shader to apply the material to. Should already be in use.
      * @returns {boolean} true if the material was applied to the shader, false otherwise.
      */
-    applyToShader(shaderProgram, options={}) {
+    applyToShader(shaderProgram) {
         if (!(shaderProgram instanceof ShaderProgram)) {
             console.error(`[Material] Expected 'shaderProgram' to be an instance of Shader. Cannot apply material components to shader.`);
             return false;
@@ -161,14 +160,27 @@ export default class Material extends Component {
         if (this.#components.size === 0) {
             Material.#defaultColor.applyToShader(shaderProgram, { parentName: this.name })
         } else {
-            const shadeableComponents = this.#components.values().filter(comp => {
-                return comp.hasModifier(Component.Modifier.SHADEABLE);
-            })
-            for (const comp of shadeableComponents) {
-                comp.applyToShader(shaderProgram, { parentName: this.name })
+            for (const comp of this.#components.values()) {
+                if (comp.hasModifier(Component.Modifier.SHADABLE)) {
+                    comp.applyToShader(shaderProgram, { parentName: this.name })
+                }
             }
         }
         return true;
+    }
+
+    /**
+     * Update any updatable components on this material
+     * @param {number} dt the elasped time in seconds since the last frame
+     * @param {number} totalTime the total time in seconds since the start of the update loop
+     */
+    update(dt, totalTime) {
+        if (this.#components.size === 0) return;
+        for (const comp of this.#components.values()) {
+            if (comp.hasModifier(Component.Modifier.UPDATABLE)) {
+                comp.update(this, dt, totalTime)
+            }
+        }
     }
 
     /** -------------------- Material Factory Methods -------------------- */
@@ -181,7 +193,7 @@ export default class Material extends Component {
      */
     static BasicMaterial(params={}) {
         const baseColor = (params.color instanceof Color) ? params.color : Color.WHITE;
-        const material = new Material([new PrimComponent(baseColor, 'baseColor')]);
+        const material = new Material([new PrimComponent('baseColor', baseColor)]);
         material.name = '';
 
         return material;
@@ -205,25 +217,25 @@ export default class Material extends Component {
         if (typeof params.diffMap === 'string') {
             if (!params.diffMapOptions) params.diffMapOptions = {};
             params.diffMapOptions.defaultColor = Color.ORANGE;
-            matComponents.push(new TexComponent(params.diffMap, 'diffuseMap', params.diffMapOptions));
+            matComponents.push(new TexComponent('diffuseMap', params.diffMap, params.diffMapOptions));
         } else {
             const diffColor = (params.diffColor instanceof Color) ? params.diffColor : new Color(0.9, 0.9, 0.9);
-            matComponents.push(new PrimComponent(diffColor, 'diffuseColor'));
+            matComponents.push(new PrimComponent('diffuseColor', diffColor));
         }
 
         // determine specular color/map
         if (typeof params.specMap === 'string') {
             if (!params.specMapOptions) params.specMapOptions = {};
             params.specMapOptions.defaultColor = Color.BLUE;
-            matComponents.push(new TexComponent(params.specMap, 'specularMap', params.specMapOptions));
+            matComponents.push(new TexComponent('specularMap', params.specMap, params.specMapOptions));
         } else {
             const specColor = (params.specColor instanceof Color) ? params.specColor : Color.WHITE;
-            matComponents.push(new PrimComponent(specColor, 'specularColor'));
+            matComponents.push(new PrimComponent('specularColor', specColor));
         }
 
         // determine shininess
         const shininess = (typeof params.shininess === 'number') ? params.shininess : 1.0;
-        matComponents.push(new PrimComponent(shininess, 'shininess'));
+        matComponents.push(new PrimComponent('shininess', shininess));
 
         return new Material(matComponents);
     }

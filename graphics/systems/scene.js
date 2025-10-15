@@ -118,7 +118,6 @@ export default class Scene {
     }
 
     update(dt, totalTime) {
-        this.#globalUniforms.set('totalTime', totalTime);
         for (const entity of this.#models.values()) {
             entity.update(dt, totalTime);
         }

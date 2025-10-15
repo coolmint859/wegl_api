@@ -215,11 +215,11 @@ export default class Geometry {
      * @returns {Geometry} a geometry instance representing a sphere.
      */
     static sphere(numRings, numBands) {
-        if (numRings < 2) {
+        if (numRings === undefined || numRings < 2) {
             console.warn(`[Geometry-Sphere] Generating a sphere must have 'numBands' to be greater than 2. Assigning default (numRings=5).`);
             numRings = 5;
         }
-        if (numBands < 3) {
+        if (numBands === undefined || numBands < 3) {
             console.warn(`[Geometry-Sphere] Generating a sphere must have 'numRings' to be greater than 1. Assigning default (numBands=10).`);
             numBands = 10;
         }

@@ -5,37 +5,39 @@ import PrimComponent from './prim-component.js';
  * Represents an array of primitive uniform data.
  */
 export default class ArrayComponent extends Component {
-    #data = [];
+    #data;
 
     /**
-     * Create a new data array component
-     * @param {Array<any>} data the array of data to store
-     * @param {string} name the name of the data
+     * Represents an array of primitive uniform data.
+     * @param {string} name the name of the component (used for shading)
+     * @param {Array} data the array of data to save.
      */
-    constructor(data, name) {
-        super(name, [Component.Modifier.SHADEABLE]);
-        this.value = data;
+    constructor(name, data) {
+        super(name, [Component.Modifier.SHADABLE]);
+        if (!this.isValid(data)) {
+            console.error(`[ArrayComponent] Expected 'data' to be an array of primitives. Assigning empty array as default.`);
+            data = [];
+        }
+        this.#data = data;
     }
 
     /**
      * Set the data array of this array component.
      * @param {Array<any>} data the data array to set.
      */
-    set value(data) {
-        if (!this.validValue(data)) {
-            console.warn(`[ArrayComponent] Expected 'data' to be an array of primitives. Unable to set value.`)
-        } else {
-            this.#data = data;
-            this._isDirty = true;
+    set data(data) {
+        if (!this.isValid(data)) {
+            console.error(`[ArrayComponent] Expected 'data' to be an array of primitives. Unable to set data.`);
+            return;
         }
+        this.#data = data;
     }
 
     /**
-     * Get the raw js array of this array component.
-     * @returns {Array<any>} the js array associated with this array component 
+     * Get the list of data stored in this array component
      */
-    get value() {
-        return this.#data;
+    get data() {
+        return [...this.#data]; // send a copy
     }
 
     /**
@@ -46,25 +48,44 @@ export default class ArrayComponent extends Component {
     }
 
     /**
+     * Get the value stored at the provided index.
+     * @param {number} index the index into the array of data stored
+     * @returns {any} the value stored at the index.
+     */
+    valueAt(index) {
+        if (typeof index !== 'number' || index < 0 || index >= this.#data.length) {
+            console.error(`[ArrayComponent] Expected 'index' to be a number between 0 and ${this.#data.length}. Cannot get value.`);
+            return null;
+        }
+        return this.#data[index];
+    }
+
+    setValue(index, value) {
+        if (typeof index !== 'number' || index < 0 || index >= this.#data.length) {
+            console.error(`[ArrayComponent] Expected 'index' to be a number between 0 and ${this.#data.length}. Cannot set value.`);
+            return;
+        }
+        this.#data[index] = value;
+    }
+
+    /**
      * Check if the provided value is valid for this component
-     * @param {any} value the value to check
+     * @param {any} data the value to check
      * @returns {boolean} true if the value is a valid type, false otherwise
      */
-    validValue(value) {
-        const isArray = Array.isArray(value);
-        const isValidValues = value.every(element => PrimComponent.validValue(element))
+    isValid(data) {
+        const isArray = Array.isArray(data);
+        const isValidValues = data.every(element => PrimComponent.isValid(element))
 
         return isArray && isValidValues;
     }
 
     /**
      * Clone this array component.
-     * @param {boolean} deepCopy if true, each of the values in the array will be cloned. Default is false
-     * @returns {ArrayComponent} a new ArrayComponent with the same value as this one.
+     * @returns {ArrayComponent} a new ArrayComponent with the same data as this one copied over.
      */
-    clone(deepCopy = false) {
-        const data = deepCopy ? [...this.#data] : this.#data;
-        return new ArrayComponent(data, this.name);
+    clone() {
+        return new ArrayComponent([...this.#data], this.name);
     }
 
     /**
@@ -74,13 +95,9 @@ export default class ArrayComponent extends Component {
      * @param {string} options.parentName the name of this component's parent container, default is an empty string
      */
     applyToShader(shaderProgram, options={}) {
-        for (let i = 0; i < this.#data.length; i++) {
-            let uniformName;
-            if (typeof options.parentName === 'string' && options.parentName.trim() !== '') {
-                uniformName = options.parentName + `[${i}].` + this.name;
-            } else {
-                uniformName = this.name + `[${i}]`;
-            }
+        for (let i = 0; i < this.length; i++) {
+            const parentNameExists = typeof options.parentName === 'string' && options.parentName.trim() !== '';
+            const uniformName = parentNameExists ? `${options.parentName}[${i}].${this.name}` : `${this.name}[${i}]`;
 
             if (shaderProgram.supports(uniformName)) {
                 shaderProgram.setUniform(uniformName, this.#data[i]);

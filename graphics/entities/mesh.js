@@ -28,17 +28,14 @@ export default class Mesh extends Entity {
         }
         if (!(material instanceof Material)) {
             console.error(`[Mesh ID#${this.ID}] Expected 'material' to be an instance of Material. Setting default 'BasicMaterial'`);
-            this.#material = Material.BasicMaterial();
+            this.#material = Material.BasicMaterial().acquire();
         } else {
-            this.#material = material;
+            this.#material = material.acquire();
         }
+        this.addComponent(this.#material);
 
         this.#geometry = geometry;
-        this.#material.parentContainer = this;
         this.toggles = { rayCast: true, ...toggles };
-
-        this.dispatcher.subscribe(EventDispatcher.EventType.POSITION_CHANGE, (event) => this.position = event.position);
-        this.dispatcher.subscribe(EventDispatcher.EventType.ROTATION_CHANGE, (event) => this.rotation = event.rotation);
 
         this.#populateCapabilities();
     }
@@ -128,11 +125,8 @@ export default class Mesh extends Entity {
      * @param {ShaderProgram} shaderProgram the shader to apply the mesh to. Should already be in use.
      */
     applyToShader(shaderProgram) {
-        this.transform.applyToShader(shaderProgram);
-        this.#material.applyToShader(shaderProgram);
-
         for (const component of this.componentList) {
-            if (component.hasModifier(Component.Modifier.SHADEABLE)) {
+            if (component.hasModifier(Component.Modifier.SHADABLE)) {
                 component.applyToShader(shaderProgram);
             }
         }

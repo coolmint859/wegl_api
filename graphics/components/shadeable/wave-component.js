@@ -8,32 +8,24 @@ export default class WaveComponent extends Component {
     #waveComponents;
     #maxNumWaves = 20;
 
-    /**
-     * Get the names that the array components should have for a WaveComponent instance
-     */
-    static get waveCompNames() {
-        return ['direction', 'wavelength', 'angularFreq', 'amplitude', 'phase']
-    }
-
     constructor(name, components=[]) {
-        super(name, [Component.Modifier.SHADEABLE])
-        this.value = components;
+        super(name, [Component.Modifier.SHADABLE])
+        this.data = components;
     }
 
     /**
      * Set the data array of this array component.
-     * @param {object} params the wave data parameters to set
+     * @param {object} components the wave data parameters to set
      */
-    set value(components=[]) {
-        if (!this.validValue(components)) {
-            console.warn(`[ArrayComponent] Expected 'components' to be an array of known array components. Unable to set value.`);
+    set data(components=[]) {
+        if (!this.isValid(components)) {
+            console.warn(`[WaveComponent] Expected 'components' to be an array of known array components. Unable to set value.`);
             return;
         }
 
         this.#waveComponents = [];
         components.forEach(comp => {
-            this.#waveComponents.push(comp);
-            comp.parentContainer = this;
+            this.#waveComponents.push(comp.acquire());
         });
     }
 
@@ -41,7 +33,7 @@ export default class WaveComponent extends Component {
      * Get the value of this boolean component.
      * @returns {boolean} the boolean associated with this material component 
      */
-    get value() {
+    get data() {
         return this.#waveComponents;
     }
 
@@ -50,7 +42,7 @@ export default class WaveComponent extends Component {
      * @param {any} value the value to check
      * @returns {boolean} true if the value is a valid type, false otherwise
      */
-    validValue(value) {
+    isValid(value) {
         if (!Array.isArray(value)) return false;
 
         let length = value[0].length;
@@ -88,5 +80,12 @@ export default class WaveComponent extends Component {
             comp.applyToShader(shaderProgram, { parentName: this.name });
         }
         shaderProgram.setUniform('numWaves', this.#waveComponents[0].length);
+    }
+
+    /**
+     * Get the names that the array components should have for a WaveComponent instance
+     */
+    static get waveCompNames() {
+        return ['direction', 'wavelength', 'angularFreq', 'amplitude', 'phase']
     }
 }

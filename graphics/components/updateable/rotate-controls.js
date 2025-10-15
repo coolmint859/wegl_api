@@ -65,8 +65,7 @@ export default class RotationControls extends Component {
         const yawQuat = Quaternion.fromAxisAngle(Transform.localUp, this.#currentYaw);
         const pitchQuat = Quaternion.fromAxisAngle(Transform.localRight, this.#currentPitch);
 
-        const totalRotation = yawQuat.mult(pitchQuat).normal();
-        host.dispatcher.dispatch(EventDispatcher.EventType.ROTATION_CHANGE, { rotation: totalRotation });
+        host.rotation = yawQuat.mult(pitchQuat).normal();
 
         this.#shouldUpdate = false;
     }

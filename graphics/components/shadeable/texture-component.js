@@ -11,12 +11,12 @@ export default class TexComponent extends Component {
 
     /**
      * Create a new texture component
-     * @param {string} texturePath the path to the texture to store in the component
      * @param {string} name the name of the texture component
+     * @param {string} texturePath the path to the texture to store in the component
      * @param {object} options webgl texture configuration options (see docs for possible values)
      */
-    constructor(texturePath, name, options={}) {
-        super(name, [Component.Modifier.SHADEABLE]);
+    constructor(name, texturePath, options={}) {
+        super(name, [Component.Modifier.SHADABLE]);
         this.set(texturePath, options);
     }
 
@@ -27,7 +27,7 @@ export default class TexComponent extends Component {
      * @param {object} options webgl texture configuration options (see docs for possible values)
      */
     set(texturePath, options={}) {
-        if (!this.validValue(texturePath)) {
+        if (!this.isValid(texturePath)) {
             console.warn(`[TexComponent] Expected 'texturePath' to be a non-empty string and 'textureType' to be a valid texture type. Unable to load texture.`)
         } else {
             this.#texturePath = texturePath;
@@ -89,7 +89,7 @@ export default class TexComponent extends Component {
      * @param {string} texturePath the texture path to check
      * @returns {boolean} true if the path is valid, false otherwise
      */
-    validValue(texturePath) {
+    isValid(texturePath) {
         return typeof texturePath === 'string' && texturePath.trim() !== '';
     }
 

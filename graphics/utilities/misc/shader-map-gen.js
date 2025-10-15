@@ -1,6 +1,7 @@
 import { TextureHandler } from "../../systems/index.js";
 import { Vector2, Vector3, Vector4 } from '../math/vector.js'
-import { Matrix2, Matrix3, Matrix4 } from "../math/matrix.js";
+import { Matrix2, Matrix3 } from "../math/matrix.js";
+import Matrix4 from '../math/matrix4.js';
 import Color from '../math/color.js'
 
 /** 

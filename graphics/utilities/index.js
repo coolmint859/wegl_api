@@ -7,7 +7,8 @@ export { default as StreamReader } from './file-parsing/stream-reader.js';
 export { default as MathUtils } from './math/utils.js';
 export { default as Quaternion } from './math/quaternion.js';
 export { Vector2, Vector3, Vector4 } from './math/vector.js';
-export { Matrix2, Matrix3, Matrix4 } from './math/matrix.js';
+export { Matrix2, Matrix3 } from './math/matrix.js';
+export { default as Matrix4 } from './math/matrix4.js';
 export { default as Color } from './math/color.js';
 
 export { default as KeyboardInput } from './interactivity/keyboard.js';

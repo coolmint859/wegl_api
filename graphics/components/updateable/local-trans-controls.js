@@ -1,4 +1,4 @@
-import { EventDispatcher, KeyboardInput, MouseInput, Vector3 } from "../../utilities/index.js";
+import { EventDispatcher, KeyboardInput, Vector3 } from "../../utilities/index.js";
 import Component from "../component.js";
 import Transform from "../shadeable/transform.js";
 
@@ -102,8 +102,7 @@ export default class LocalTranslationControls extends Component {
         }
 
         const localPosition = rotationSource.rotateVector(this.#deltaMovement);
-        const worldPosition = host.transform.position.add(localPosition);
-        host.dispatcher.dispatch(EventDispatcher.EventType.POSITION_CHANGE, { position: worldPosition });
+        host.position = host.transform.position.add(localPosition);
 
         this.#deltaMovement = new Vector3();
         this.#shouldUpdate = false;

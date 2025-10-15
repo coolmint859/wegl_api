@@ -6,6 +6,11 @@
             "name": "aPosition",
             "location": 0,
             "type": "vec3"
+        },
+        {
+            "name": "aNormal",
+            "location": 1,
+            "type": "vec3"
         }
     ],
     "blocks": [],
@@ -17,7 +22,7 @@
         { "name": "uModel", "type": "mat4" },
         { "name": "uView", "type": "mat4" },
         { "name": "uProjection", "type": "mat4" },
-        { "name": "waves", "type": "Wave", "isArray": true, "maxSize": 20 },
+        { "name": "waves", "type": "Wave", "isArray": true, "maxSize": 100 },
         { "name": "numWaves", "type": "int" },
         { "name": "totalTime", "type": "float" }
     ],

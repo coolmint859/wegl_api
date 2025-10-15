@@ -1,10 +1,11 @@
 import { ShaderProgram } from "../../systems/index.js";
 import { Matrix4, Quaternion, Vector3, Vector4 } from "../../utilities/index.js";
+import Component from "../component.js";
 
 /**
  * Encapsulates local to world space transformations.
  */
-export default class Transform {
+export default class Transform extends Component {
     // local orientation vectors, these are always constant
     static localRight   = new Vector3(1, 0, 0);
     static localUp      = new Vector3(0, 1, 0);
@@ -27,6 +28,7 @@ export default class Transform {
      * @param {Vector3} params.dimensions initial dimensions, default is Vector3(1, 1, 1)
      */
     constructor(params = {}) {
+        super('uModel', [Component.Modifier.SHADABLE, Component.Modifier.PHYSICAL]);
         if (params.position && !(params.position instanceof Vector3)) {
             console.warn(`[Transform] TypeError: Expected 'params.position' to be instance of Vector3. Assigning default position.`)
             params.position = new Vector3();
@@ -80,6 +82,13 @@ export default class Transform {
      */
     get dimensions() {
         return this.#dimensions;
+    }
+
+    /**
+     * Check if the orientation data has been updated but the world matrix has yet to be computed.
+     */
+    get isDirty() {
+        return this.#isDirty;
     }
     
     /**
@@ -164,6 +173,24 @@ export default class Transform {
     }
 
     /**
+     * Computes the view matrix (transpose of rotation + negated position) from this transform's world matrix.
+     * 
+     * Note: Assumes no shearing or scaling. If this world matrix has such, use an inversion technique.
+     * @returns {Matrix4} the inverse world matrix of this transform
+     */
+    get viewMatrix() {
+        const viewRotation = this.worldMatrix.rotationMatrix().transpose();
+        const viewPosition = viewRotation.transform(this.#position).negate();
+        
+        const viewMatrix = Matrix4.promoteFromMatrix3(viewRotation);
+        viewMatrix.set(0, 3, viewPosition.x);
+        viewMatrix.set(1, 3, viewPosition.y);
+        viewMatrix.set(2, 3, viewPosition.z);
+
+        return viewMatrix;
+    }
+
+    /**
      * Adds the given translation to the current transform position.
      * @param {Vector3 | number} translation the translation value - can be either a Vector3 or number.
      * 
@@ -171,7 +198,7 @@ export default class Transform {
      * @returns {boolean} true if the position was successfully changed, false otherwise
      */
     translate(translation) {
-        if (!(translation instanceof Vector3) && typeof translation !== 'number') {
+        if (!(translation instanceof Vector3) || (typeof translation !== 'number')) {
             console.error("TypeError: Expected 'translation' to be a number, or an instance of Vector3. Unable to update position vector.")
             return false
         }
@@ -181,8 +208,8 @@ export default class Transform {
     }
 
     /**
-     * Applies a rotation to the current rotation quaternion.
-     * @param {Quaternion} rotationQuat the rotation quaternion offset
+     * Applies a delta rotation to the current rotation quaternion.
+     * @param {Quaternion} rotationQuat the rotation quaternion delta
      * @returns {boolean} true if the rotation was successfully changed, false otherwise
      */
     rotate(rotationQuat) {
@@ -216,27 +243,28 @@ export default class Transform {
      * @param {Vector3} up the world space up, allowing for optional roll. Default is the local up axis.
      */
     lookAt(target, up = Transform.localUp) {
-        if (!(target instanceof Vector3 && up instanceof Vector3)) {
+        if (!(target instanceof Vector3) || !(up instanceof Vector3)) {
             console.error("TypeError: Expected 'target' and 'up' to be instances of Vector3. Unable to reorient coordinate system.")
             return;
         }
 
-        const lookDirection = target.sub(this.#position);
-        this.#rotation = Quaternion.fromForwardUp(lookDirection, up);
+        // everything is relative to the camera, so we sub the target from the camera position (instead of the other way around)
+        const lookDirection = this.#position.sub(target);
+        this.#rotation = Quaternion.fromForwardUp(lookDirection, up.normal());
 
         this.#isDirty = true;
     }
 
     /**
      * Combine this transform with another additively. Does not affect this transform.
-     * @param {Transform} transform the other transform
+     * @param {Transform} other the other transform
      * @returns {Transform} a new transform as a combination of both transforms
      */
-    combine(transform) {
+    combine(other) {
         return new Transform({
-            position: this.position.add(transform.position),
-            rotation: this.rotation.mult(transform.rotation),
-            dimensions: this.dimensions.add(transform.dimensions)
+            position: this.position.add(other.position),
+            rotation: this.rotation.mult(other.rotation),
+            dimensions: this.dimensions.add(other.dimensions)
         });
     }
 
@@ -265,8 +293,8 @@ export default class Transform {
      * @param {ShaderProgram} shaderProgram the shader program to apply this transform to
      */
     applyToShader(shaderProgram) {
-        if (shaderProgram.supports(Transform.#name)) {
-            shaderProgram.setUniform(Transform.#name, this.worldMatrix);
+        if (shaderProgram.supports(this.name)) {
+            shaderProgram.setUniform(this.name, this.worldMatrix);
         }
     }
 }

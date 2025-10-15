@@ -15,63 +15,49 @@ export default class PrimComponent extends Component {
         Quaternion, Color
     ]
 
-    #value;
+    #data;
 
     /**
      * Create a new primitive component
-     * @param {any} value the primitive data to store in the component
      * @param {string} name the name of the integer component
+     * @param {any} data the primitive data to store in the component
      */
-    constructor(value, name) {
-        super(name, [Component.Modifier.SHADEABLE]);
-        this.value = value;
+    constructor(name, data) {
+        super(name, [Component.Modifier.SHADABLE]);
+        this.data = data;
     }
     
     /**
      * Set the value of this primitive component.
-     * @param {any} value the primitive value to set.
+     * @param {any} newData the primitive value to set.
      */
-    set value(value) {
-        if (!PrimComponent.validValue(value)) {
-            console.warn(`[PrimComponent] Expected 'value' to be a primitive value. Unable to set value.`);
-            this.#value = null;
+    set data(newData) {
+        if (!PrimComponent.isValid(newData)) {
+            console.warn(`[PrimComponent] Expected 'newData' to be a valid primitive value. Unable to set value.`);
+            this.#data = null;
             return;
         }
-        this.#value = value;
+        this.#data = newData;
     }
 
     /**
      * Get the value of this primitive component.
      * @returns {any} the primitive associated with this material component 
      */
-    get value() {
-        return this.#value;
-    }
-
-    /**
-     * Check if the provided value is valid for this component
-     * @param {any} value the value to check
-     * @returns {boolean} true if the value is a valid type, false otherwise
-     */
-    static validValue(value) {    
-        const is_js_type = PrimComponent.valid_JS_Types.some(type => typeof value === type);
-        const is_math_type = PrimComponent.valid_Graphics_Types.some(Type => value instanceof Type);
-
-        return is_js_type || is_math_type;
+    get data() {
+        return this.#data;
     }
 
     /**
      * Clone this primitive component.
-     * @param {boolean} deepCopy if true, the value stored will be clones as well (all js primitives are cloned due to pass-by system). Default is false
-     * @returns {PrimComponent} a new PrimComponent with the same value as this one.
+     * @returns {PrimComponent} a new PrimComponent with the same data as this one.
      */
-    clone(deepCopy = false) {
+    clone() {
         const is_js_type = PrimComponent.valid_JS_Types.some(type => typeof value === type);
-
-        if (deepCopy && !is_js_type) {
-            return new PrimComponent(this.#value.clone(), this.name);
+        if (is_js_type) {
+            return new PrimComponent(this.#data.clone(), this.name);
         } else {
-            return new PrimComponent(this.#value, this.name);
+            return new PrimComponent(this.#data, this.name);
         }
     }
 
@@ -90,7 +76,19 @@ export default class PrimComponent extends Component {
         const uniformName = parentToken + this.name + indexToken;
 
         if (shaderProgram.supports(uniformName)) {
-            shaderProgram.setUniform(uniformName, this.#value);
+            shaderProgram.setUniform(uniformName, this.#data);
         }
+    }
+
+    /**
+     * Check if the provided value is valid for this component
+     * @param {any} value the value to check
+     * @returns {boolean} true if the value is a valid type, false otherwise
+     */
+    static isValid(value) {    
+        const is_js_type = PrimComponent.valid_JS_Types.some(type => typeof value === type);
+        const is_math_type = PrimComponent.valid_Graphics_Types.some(Type => value instanceof Type);
+
+        return is_js_type || is_math_type;
     }
 }

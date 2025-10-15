@@ -1,5 +1,6 @@
 import { Vector3 } from './vector.js';
-import { Matrix3, Matrix4 } from './matrix.js';
+import { Matrix3 } from './matrix.js';
+import Matrix4 from './matrix4.js';
 import MathUtils from './utils.js';
 
 /** 

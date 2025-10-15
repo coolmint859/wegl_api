@@ -59,8 +59,8 @@ export default class ZoomControls extends Component {
         }
         if (!this.#shouldUpdate) return;
 
-        const FOV = MathUtils.clamp(host.FOV + this.#deltaFOV, this.#minFOV, this.#maxFOV);
-        host.dispatcher.dispatch(EventDispatcher.EventType.FOV_CHANGE, { fov: FOV });
+        const totalFOV = host.FOV + this.#deltaFOV;
+        host.FOV = MathUtils.clamp(totalFOV, this.#minFOV, this.#maxFOV);
 
         this.#deltaFOV = 0;
         this.#shouldUpdate = false;

@@ -1,14 +1,11 @@
 import { Component, LocalTranslationControls, RotationControls, ZoomControls } from "../components/index.js";
 import { ShaderProgram } from "../systems/index.js";
-import { EventDispatcher, Matrix4, MouseInput } from "../utilities/index.js";
+import { EventDispatcher, Matrix3, Matrix4, MouseInput, Quaternion } from "../utilities/index.js";
 import KeyBoardInput from "../utilities/interactivity/keyboard.js";
 import Entity from "./entity.js";
 
 /** Represents the view and projection into a scene. */
 export default class Camera extends Entity {
-    #viewMatrix;
-    #isViewDirty = true;
-    
     #projMatrix;
     #prevAspectRatio = 1;
     #fov;
@@ -18,7 +15,6 @@ export default class Camera extends Entity {
 
     constructor(options={}) {
         super('camera');
-        this.#viewMatrix = new Matrix4();
         this.#projMatrix = new Matrix4();
 
         this.#fov = options.fov ?? Math.PI/4;
@@ -26,10 +22,6 @@ export default class Camera extends Entity {
         this.#farPlane = options.farPlane ?? 500;
 
         this._capabilities.push('uView', 'uProjection');
-
-        this.dispatcher.subscribe(EventDispatcher.EventType.POSITION_CHANGE, this.#updatePosition.bind(this));
-        this.dispatcher.subscribe(EventDispatcher.EventType.ROTATION_CHANGE, this.#updateRotation.bind(this));
-        this.dispatcher.subscribe(EventDispatcher.EventType.FOV_CHANGE, this.#updateFOV.bind(this));
     }
 
     /**
@@ -37,7 +29,7 @@ export default class Camera extends Entity {
      * @returns {Matrix4} the view matrix
      */
     get viewMatrix() {
-        return this.#viewMatrix.clone();
+        return this.transform.viewMatrix.clone();
     }
 
     /**
@@ -64,6 +56,11 @@ export default class Camera extends Entity {
         return this.#fov;
     }
 
+    set FOV(newFOV) {
+        this.#fov = newFOV;
+        this.#isProjDirty = true;
+    }
+
     /**
      * Get near clipping plane of the camera's view frustum
      * @returns {number} the near clipping plane
@@ -79,21 +76,6 @@ export default class Camera extends Entity {
     get farPlane() {
         return this.#farPlane;
     }
-    
-    #updatePosition(event) {
-        this.position = event.position;
-        this.#isViewDirty = true;
-    }
-
-    #updateRotation(event) {
-        this.rotation = event.rotation;
-        this.#isViewDirty = true;
-    }
-
-    #updateFOV(event) {
-        this.#fov = event.fov;
-        this.#isProjDirty = true;
-    }
 
     /**
      * Update this camera instance
@@ -101,17 +83,10 @@ export default class Camera extends Entity {
      * @param {number} aspectRatio the aspect ratio of the camera viewport
      */
     update(dt, aspectRatio) {
-        for (const component of this._components.values()) {
+        for (const component of this._componentsByClass.values()) {
             if (component.hasModifier(Component.Modifier.UPDATABLE)) {
                 component.update(this, dt);
             }
-        }
-
-        if (this.#isViewDirty) {
-            const eye = this._transform.position;
-            const target = eye.add(this._transform.forwardVector);
-            this.#viewMatrix = Matrix4.lookAt(eye, target, this._transform.upVector);
-            this.#isViewDirty = false;
         }
 
         if (this.#isProjDirty || aspectRatio !== this.#prevAspectRatio) {
@@ -127,7 +102,7 @@ export default class Camera extends Entity {
      */
     applyToShader(shaderProgram) {
         if (shaderProgram.supports('uView')) {
-            shaderProgram.setUniform('uView', this.#viewMatrix);
+            shaderProgram.setUniform('uView', this.transform.viewMatrix);
         }
         if (shaderProgram.supports('uProjection')) {
             shaderProgram.setUniform('uProjection', this.#projMatrix);
@@ -150,7 +125,7 @@ export default class Camera extends Entity {
         const camera = new Camera(cameraOptions);
 
         const rotControlOptions = {
-            sensitivity: options.rotSensitivity ?? 0.005,
+            sensitivity: options.rotSensitivity ?? 0.002,
             minPitch: -Math.PI/2 + 0.05,
             maxPitch: Math.PI/2 - 0.05
         }

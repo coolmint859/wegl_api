@@ -135,12 +135,18 @@ export default class PlanarGeometry {
         ])
         const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }];
 
+        const uv = new Uint16Array([
+            0, 0, 0, 1, 1, 0, 1, 1
+        ])
+        const uvAttributes = [{ name: 'uv', size: 2, dataType: 'uint16', offset: 0 }];
+
         const index = new Uint16Array([
             1, 0, 2, 1, 2, 3
         ])
 
         const quad = {
             vertex: { data: vertex, attributes: vertexAttributes, stride: 0 },
+            uv: { data: uv, attributes: uvAttributes, stride: 0 },
             idxTriangles:  { data: index,  attributes: [], stride: 0, dataType: 'uint16' },
         }
 

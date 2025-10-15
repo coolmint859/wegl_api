@@ -6,7 +6,8 @@ export default class EventDispatcher {
         POSITION_CHANGE: 'position-change',
         ROTATION_CHANGE: 'rotation-change',
         SCALE_CHANGE: 'scale-change',
-        FOV_CHANGE: 'fov-change'
+        FOV_CHANGE: 'fov-change',
+        LOOKAT_TOGGLE: 'lookat_toggle'
     })
 
     #listenerMap;

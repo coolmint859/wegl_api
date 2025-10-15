@@ -10,6 +10,8 @@ export default class LookAtComponent extends Component {
     #prevPosition;
     #rotationSpeed;
 
+    isEnabled;
+
     /**
      * Enables entities to smoothly look in direction they are moving
      * @param {Vector3} options.startPosition the initial position that the entity will look at. Default is the origin.
@@ -17,8 +19,9 @@ export default class LookAtComponent extends Component {
      */
     constructor(options={}) {
         super('look-at', [Component.Modifier.UPDATABLE]);
-        this.#prevPosition = options.startPosition ?? new Vector3();
+        this.#prevPosition = options.startPosition ?? new Vector3().sub(Transform.localForward);
         this.#rotationSpeed = options.rotationSpeed ?? 5;
+        this.isEnabled = true;
     }
 
     update(host, dt) {
@@ -28,17 +31,14 @@ export default class LookAtComponent extends Component {
         if (displacement.magnitude() < 0.0001) return;
 
         const lookAtDirection = host instanceof Camera ? displacement.negate() : displacement;
-        const currForward = host.transform.forwardVector;
-        const alignment = currForward.dot(displacement);
+        const alignment = lookAtDirection.dot(host.transform.forwardVector);
 
         // when the alignment is very close to 1, the turn is finished.
-        if (alignment < 0.9999) {
+        if (alignment < 0.999999) {
             const t = Math.min(1.0, this.#rotationSpeed * dt);
 
             const fullRotation = Quaternion.fromForwardUp(lookAtDirection, Transform.localUp);
-            const interpRotation = Quaternion.slerp(host.rotation, fullRotation, t);
-
-            host.dispatcher.dispatch(EventDispatcher.EventType.ROTATION_CHANGE, { rotation: interpRotation });
+            host.rotation = Quaternion.slerp(host.rotation, fullRotation, t);
         }
 
         this.#prevPosition = currPosition.clone();
