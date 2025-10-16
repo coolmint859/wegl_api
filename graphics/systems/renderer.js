@@ -16,6 +16,7 @@ export default class Renderer {
     #prevHeight;
 
     #clearColor;
+    #wireFrameShader = 'basic';
 
     static glTypeMap;
 
@@ -75,6 +76,14 @@ export default class Renderer {
     }
 
     /**
+     * Set the shader to be used when rendering a mesh in wireframe mode.
+     * @param {string} shaderName the name of the shader.
+     */
+    set wireFrameShader(shaderName) {
+        this.#wireFrameShader = shaderName;
+    }
+
+    /**
      * Update the size of the viewport for the rendering context
      * @param {number} width the width of the viewport
      * @param {number} height the height of the viewport
@@ -123,7 +132,7 @@ export default class Renderer {
             // skip models if they aren't ready to be rendered (dependent data isn't yet loaded)
             if (!model.isReady()) continue;
 
-            const shaderName = model.currentShader;
+            const shaderName = model.toggles.wireframe ? this.#wireFrameShader : model.currentShader;
             const shader = ShaderHandler.getShaderProgram(shaderName);
             if (!shader || !shader.isReady) return;
 
@@ -164,10 +173,12 @@ export default class Renderer {
 
         shader.flush();
 
+        console.log()
         const indexBuffer = mesh.toggles.wireframe ? meshData.buffers.idxLines : meshData.buffers.idxTriangles;
+        const drawMode = mesh.toggles.wireframe ? gl.LINES : gl.TRIANGLES;
+
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-        
-        gl.drawElements(gl.TRIANGLES, numIndices, indexArrayType, 0);
+        gl.drawElements(drawMode, numIndices, indexArrayType, 0);
 
         shader.reset();
         

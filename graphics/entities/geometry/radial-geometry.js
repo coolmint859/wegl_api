@@ -44,28 +44,31 @@ export default class RadialGeometry {
         //----- indices -----//
 
         const numFaces = 2 * numBands;
-        const indexArray = new Uint16Array(3*numFaces);
+        const triIndexArray = numVertices < 65536 ? new Uint16Array(3*numFaces) : new Uint32Array(3*numFaces);
+        const indexType = numVertices < 65536 ? 'uint16' : 'uint32';
         for (let i = 0; i < numBands; i++) {
             const currBaseFace = 3*i;
-            indexArray[currBaseFace+0] = i+1;
-            indexArray[currBaseFace+1] = i === numBands-1 ? 1 : i+2;
-            indexArray[currBaseFace+2] = 0;
+            triIndexArray[currBaseFace+0] = i+1;
+            triIndexArray[currBaseFace+1] = i === numBands-1 ? 1 : i+2;
+            triIndexArray[currBaseFace+2] = 0;
 
             const currSideFace = 3*(numBands + i);
-            indexArray[currSideFace+0] = i === numBands-1 ? numBands+1 : numBands + i+2;
-            indexArray[currSideFace+1] = numBands + i+1;
-            indexArray[currSideFace+2] = 2*numBands + i+1;
+            triIndexArray[currSideFace+0] = i === numBands-1 ? numBands+1 : numBands + i+2;
+            triIndexArray[currSideFace+1] = numBands + i+1;
+            triIndexArray[currSideFace+2] = 2*numBands + i+1;
         }
+        const wireIndexArray = GeoUtils.generateWireframe(triIndexArray);
 
         //----- normals -----//
 
-        const normalArray = GeoUtils.generateNormals(vertexArray, indexArray);
+        const normalArray = GeoUtils.generateNormals(vertexArray, triIndexArray);
         const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
 
         const cone = {
             vertex: { data: GeoUtils.normalizeVertices(vertexArray), attributes: vertexAttributes, stride: 0 },
             normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
-            idxTriangles:  { data: indexArray,  attributes: [], stride: 0, dataType: 'uint16' },
+            idxTriangles: { data: triIndexArray, attributes: [], stride: 0, dataType: indexType },
+            idxLines: { data: wireIndexArray, attributes: [], stride: 0, dataType: indexType },
         }
 
         return cone;
@@ -120,38 +123,41 @@ export default class RadialGeometry {
         //----- indices -----//
 
         const numFaces = 4 * numBands;
-        const indexArray = new Uint16Array(3*numFaces);
+        const triIndexArray = numVertices < 65536 ? new Uint16Array(3*numFaces) : new Uint32Array(3*numFaces);
+        const indexType = numVertices < 65536 ? 'uint16' : 'uint32';
         for (let i = 0; i < numBands; i++) {
             const top_offset1 = 3*i;
-            indexArray[top_offset1+0] = i+2;
-            indexArray[top_offset1+1] = 0;
-            indexArray[top_offset1+2] = i < numBands-1 ? i+3 : 2;
+            triIndexArray[top_offset1+0] = i+2;
+            triIndexArray[top_offset1+1] = 0;
+            triIndexArray[top_offset1+2] = i < numBands-1 ? i+3 : 2;
 
             const top_offset2 = 3*(numBands+i);
-            indexArray[top_offset2+0] = i + numBands + 2;
-            indexArray[top_offset2+1] = i < numBands-1 ? numBands+i+3 : numBands+2;
-            indexArray[top_offset2+2] = i + 2*numBands + 2;
+            triIndexArray[top_offset2+0] = i + numBands + 2;
+            triIndexArray[top_offset2+1] = i < numBands-1 ? numBands+i+3 : numBands+2;
+            triIndexArray[top_offset2+2] = i + 2*numBands + 2;
 
             const bottom_offset1 = 3*(2*numBands + i);
-            indexArray[bottom_offset1+0] = i + 2*numBands + 2;
-            indexArray[bottom_offset1+1] = i < numBands-1 ? numBands+i+3 : numBands+2;
-            indexArray[bottom_offset1+2] = i < numBands-1 ? i + 2*numBands + 3 : 2*numBands + 2;
+            triIndexArray[bottom_offset1+0] = i + 2*numBands + 2;
+            triIndexArray[bottom_offset1+1] = i < numBands-1 ? numBands+i+3 : numBands+2;
+            triIndexArray[bottom_offset1+2] = i < numBands-1 ? i + 2*numBands + 3 : 2*numBands + 2;
 
             const bottom_offset2 = 3*(3*numBands + i);
-            indexArray[bottom_offset2+0] = i + 3*numBands + 2;
-            indexArray[bottom_offset2+1] = i < numBands-1 ? 3*numBands+i+3 : 3*numBands+2;
-            indexArray[bottom_offset2+2] = 1;
+            triIndexArray[bottom_offset2+0] = i + 3*numBands + 2;
+            triIndexArray[bottom_offset2+1] = i < numBands-1 ? 3*numBands+i+3 : 3*numBands+2;
+            triIndexArray[bottom_offset2+2] = 1;
         }
+        const wireIndexArray = GeoUtils.generateWireframe(triIndexArray);
 
         //----- normals -----//
 
-        const normalArray = GeoUtils.generateNormals(vertexArray, indexArray);
+        const normalArray = GeoUtils.generateNormals(vertexArray, triIndexArray);
         const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
 
         const cylinder = {
             vertex: { data: vertexArray, attributes: vertexAttributes, stride: 0 },
             normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
-            idxTriangles:  { data: indexArray,  attributes: [], stride: 0, dataType: 'uint16' },
+            idxTriangles: { data: triIndexArray, attributes: [], stride: 0, dataType: indexType },
+            idxLines: { data: wireIndexArray, attributes: [], stride: 0, dataType: indexType },
         }
 
         return cylinder;
@@ -178,6 +184,10 @@ export default class RadialGeometry {
 
         const numIndices = (2*(numRings-1) * numBands)*3;
         const triIndexArray = numVertices < 65536 ? new Uint16Array(numIndices) : new Uint32Array(numIndices);
+        const indexType = numVertices < 65536 ? 'uint16' : 'uint32';
+
+        const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }];
+        const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
 
         //----- vertices -----//
 
@@ -187,13 +197,23 @@ export default class RadialGeometry {
         const azimu = 2 * Math.PI / numBands;
         const polar = Math.PI / numRings;
 
+        const cosPhi = new Float32Array(numBands);
+        const sinPhi = new Float32Array(numBands);
+        for (let iBand = 0; iBand < numBands; iBand++) { 
+            const phi = azimu * iBand;
+            cosPhi[iBand] = Math.cos(phi);
+            sinPhi[iBand] = Math.sin(phi);
+        }
+
         for (let iRing = 1; iRing < numRings; iRing++) {
             const theta = polar * iRing;
+            const sinTheta = Math.sin(theta);
+            const cosTheta = Math.cos(theta);
+
             for (let iBand = 0; iBand < numBands; iBand++) {
-                const phi = azimu * iBand;
-                const x = Math.sin(theta) * Math.cos(phi);
-                const y = Math.sin(theta) * Math.sin(phi);
-                const z = Math.cos(theta);
+                const x = sinTheta * cosPhi[iBand];
+                const y = sinTheta * sinPhi[iBand];
+                const z = cosTheta;
 
                 vertexArray[vIndex++] = x;
                 vertexArray[vIndex++] = y;
@@ -217,11 +237,10 @@ export default class RadialGeometry {
         let iIndex = 0;
         for (let iBand = 0; iBand < numBands; iBand++) {
             for (let iRing = 1; iRing <= numRings; iRing++) {
-
                 const bottomLeft = numBands * (iRing-1) + iBand;
                 const topLeft = bottomLeft - numBands;
-                const bottomRight = iBand === numBands-1 ? numBands * (iRing-1) : (bottomLeft+1);
-                const topRight = iBand === numBands-1 ? bottomRight - numBands : (topLeft+1);
+                const bottomRight = iBand < numBands-1 ? bottomLeft+1 : numBands * (iRing-1);
+                const topRight = iBand < numBands-1 ? topLeft+1 : bottomRight - numBands;
 
                 // north pole triangle
                 if (iRing === 1) {
@@ -249,13 +268,13 @@ export default class RadialGeometry {
                 }
             }
         }
+        const wireIndexArray = GeoUtils.generateWireframe(triIndexArray);
 
-        const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }];
-        const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
         return {
             vertex: { data: vertexArray, attributes: vertexAttributes, stride: 0 },
             normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
-            idxTriangles:  { data: triIndexArray,  attributes: [], stride: 0, dataType: 'uint16' },
+            idxTriangles: { data: triIndexArray,  attributes: [], stride: 0, dataType: indexType },
+            idxLines: { data: wireIndexArray,  attributes: [], stride: 0, dataType: indexType },
         }
     }
 }

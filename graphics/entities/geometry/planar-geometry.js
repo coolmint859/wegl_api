@@ -35,7 +35,8 @@ export default class PlanarGeometry {
         const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }]
 
         const numIndices = rows * cols * 6;
-        const indexArray = new Uint32Array(numIndices);
+        const triIndexArray = numVertices < 65536 ? new Uint16Array(numIndices) : new Uint32Array(numIndices);
+        const indexType = numVertices < 65536 ? 'uint16' : 'uint32';
 
         let vOffset = 0, iOffset = 0;
         for (let i = 0; i < rows+1; i++) {
@@ -55,23 +56,25 @@ export default class PlanarGeometry {
                 const btmRight = btmLeft + 1;
 
                 // create two triangles from the quad
-                indexArray[iOffset++] = topLeft;
-                indexArray[iOffset++] = btmLeft;
-                indexArray[iOffset++] = topRight;
+                triIndexArray[iOffset++] = topLeft;
+                triIndexArray[iOffset++] = btmLeft;
+                triIndexArray[iOffset++] = topRight;
 
-                indexArray[iOffset++] = topRight;
-                indexArray[iOffset++] = btmLeft;
-                indexArray[iOffset++] = btmRight;
+                triIndexArray[iOffset++] = topRight;
+                triIndexArray[iOffset++] = btmLeft;
+                triIndexArray[iOffset++] = btmRight;
             }
         }
 
-        const normalArray = GeoUtils.generateNormals(vertexArray, indexArray);
+        const normalArray = GeoUtils.generateNormals(vertexArray, triIndexArray);
         const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
+        const wireIndexArray = GeoUtils.generateWireframe(triIndexArray);
 
         const plane = {
             vertex: { data: vertexArray, attributes: vertexAttributes, stride: 0 },
             normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
-            idxTriangles:  { data: indexArray,  attributes: [], stride: 0, dataType: 'uint32' },
+            idxTriangles: { data: triIndexArray, attributes: [], stride: 0, dataType: indexType },
+            idxLines: { data: wireIndexArray, attributes: [], stride: 0, dataType: indexType },
         }
 
         return plane;
@@ -116,10 +119,13 @@ export default class PlanarGeometry {
         const normalArray = GeoUtils.generateNormals(shape.vertex, shape.idxTriangles);
         const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
 
+        const wireIndexArray = GeoUtils.generateWireframe(shape.idxTriangles);
+
         const regpoly = {
             vertex: { data: shape.vertex, attributes: vertexAttributes, stride: 0 },
             normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
-            idxTriangles:  { data: shape.idxTriangles,  attributes: [], stride: 0, dataType: 'uint16' },
+            idxTriangles: { data: shape.idxTriangles, attributes: [], stride: 0, dataType: 'uint16' },
+            idxLines: { data: wireIndexArray, attributes: [], stride: 0, dataType: 'uint16' },
         }
 
         return regpoly;
@@ -130,24 +136,26 @@ export default class PlanarGeometry {
      * @returns {object} an object containing the vertex data and index array.
      */
     static generateRectangle() {
-        const vertex = new Float32Array([
+        const vertexArray = new Float32Array([
             -1, -1, 0, -1, 1, 0, 1, -1, 0, 1, 1, 0 
         ])
         const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }];
 
-        const uv = new Uint16Array([
+        const uvArray = new Uint16Array([
             0, 0, 0, 1, 1, 0, 1, 1
         ])
         const uvAttributes = [{ name: 'uv', size: 2, dataType: 'uint16', offset: 0 }];
 
-        const index = new Uint16Array([
+        const triIndexArray = new Uint16Array([
             1, 0, 2, 1, 2, 3
         ])
+        const wireIndexArray = GeoUtils.generateWireframe(triIndexArray);
 
         const quad = {
-            vertex: { data: vertex, attributes: vertexAttributes, stride: 0 },
-            uv: { data: uv, attributes: uvAttributes, stride: 0 },
-            idxTriangles:  { data: index,  attributes: [], stride: 0, dataType: 'uint16' },
+            vertex: { data: vertexArray, attributes: vertexAttributes, stride: 0 },
+            uv: { data: uvArray, attributes: uvAttributes, stride: 0 },
+            idxTriangles: { data: triIndexArray, attributes: [], stride: 0, dataType: 'uint16' },
+            idxLines: { data: wireIndexArray, attributes: [], stride: 0, dataType: 'uint16' },
         }
 
         return quad;

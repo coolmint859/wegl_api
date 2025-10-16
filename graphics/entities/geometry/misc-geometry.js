@@ -22,15 +22,17 @@ export default class MiscGeometry {
         ]);
         
         // [ 0, 1, 2, 3, ...];
-        const indexArray = Uint16Array.from({ length: 18 }, (v, i) => i);
+        const triIndexArray = Uint16Array.from({ length: 18 }, (v, i) => i);
 
-        const normalArray = GeoUtils.generateNormals(vertexArray, indexArray);
+        const normalArray = GeoUtils.generateNormals(vertexArray, triIndexArray);
         const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
 
+        const wireIndexArray = GeoUtils.generateWireframe(triIndexArray);
         const pyramid = {
             vertex: { data: GeoUtils.normalizeVertices(vertexArray), attributes: vertexAttributes, stride: 0 },
             normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
-            idxTriangles:  { data: indexArray,  attributes: [], stride: 0, dataType: 'uint16' },
+            idxTriangles: { data: triIndexArray, attributes: [], stride: 0, dataType: 'uint16' },
+            idxLines: { data: wireIndexArray, attributes: [], stride: 0, dataType: 'uint16' },
         }
 
         return pyramid;

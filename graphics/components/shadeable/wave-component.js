@@ -79,7 +79,10 @@ export default class WaveComponent extends Component {
         for (const comp of this.#waveComponents) {
             comp.applyToShader(shaderProgram, { parentName: this.name });
         }
-        shaderProgram.setUniform('numWaves', this.#waveComponents[0].length);
+        
+        if (shaderProgram.supports('numWaves')) {
+            shaderProgram.setUniform('numWaves', this.#waveComponents[0].length);
+        }
     }
 
     /**

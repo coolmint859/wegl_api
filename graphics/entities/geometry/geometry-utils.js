@@ -1,4 +1,4 @@
-import { Quaternion, Vector4, ResourceCollector } from "../../utilities/index.js";
+import { Quaternion, Vector4, ResourceCollector, StreamReader } from "../../utilities/index.js";
 import { Transform } from "../../components/index.js";
 import Geometry from "./geometry.js";
 
@@ -10,7 +10,7 @@ export default class GeoUtils {
      * Load and create geometry data from a geometry file (e.g. PLY, OBJ...) 
      * @param {string} geometryPath the path to the geometry file.
      * @param {object} options options for loading and storage of the data
-     * @returns {Geometry | null} a promise that resolves with a new geometry instance created with the loaded data
+     * @returns {Geometry | null} a promise that resolves with a new geometry instance created with the loaded data, or null if the file data could be loaded.
      */
     static async load(geometryPath, options={}) {
         if (typeof geometryPath !== 'string' || geometryPath.trim() === '') {
@@ -36,6 +36,7 @@ export default class GeoUtils {
             }
         )
 
+        // BUG: only works properly when vertices are not interleaved - need to fix so interleaving happens after loading.
         if (options.normalizeVertices) {
             geometryData.vertex.data = GeoUtils.normalizeVertices(geometryData.vertex.data, options)
         }
@@ -153,6 +154,7 @@ export default class GeoUtils {
 
         const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }];
         const polyhedron = GeoUtils.tessellate(primitive.vertex, primitive.idxTriangles, transforms);
+        const wireIndexArray = GeoUtils.generateWireframe(polyhedron.idxTriangles);
 
         const normalArray = GeoUtils.generateNormals(polyhedron.vertex, polyhedron.idxTriangles);
         const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
@@ -160,7 +162,8 @@ export default class GeoUtils {
         return {
             vertex: { data: GeoUtils.normalizeVertices(polyhedron.vertex), attributes: vertexAttributes, stride: 0 },
             normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
-            idxTriangles:  { data: polyhedron.idxTriangles,  attributes: [], stride: 0, dataType: 'uint16' },
+            idxTriangles: { data: polyhedron.idxTriangles, attributes: [], stride: 0, dataType: 'uint16' },
+            idxLines: { data: wireIndexArray, attributes: [], stride: 0, dataType: 'uint16' },
         }
     }
 
@@ -337,5 +340,41 @@ export default class GeoUtils {
         }
 
         return { vertex: newVertices, idxTriangles: newIndices };
+    }
+
+    /**
+     * Generate a wireframe index array for drawing lines from a triangle-based index array.
+     * @param {ArrayBufferLike} idxArrayTriangle an index array representing triangles on an arbitrary mesh.
+     * @returns {ArrayBufferLike | null} a new index array representing unique edges between vertices from the provided index array. Returns null if the provided array was invalid.
+     */
+    static generateWireframe(idxArrayTriangle) {
+        if (!idxArrayTriangle || idxArrayTriangle.length % 3 !== 0) {
+            console.error(`[GeoUtils] Expected 'idxArrayTriangle' to be a typed array of indices whose length is divisible by 3. Cannot create wireframe array.`);
+            return null;
+        }
+
+        const uniqueEdges = new Set();
+        const idxArrayWire = [];
+
+        const addEdge = function(a, b) {
+            const key = a < b ? `${a}-${b}` : `${b}-${a}`;
+            if (!uniqueEdges.has(key)) {
+                uniqueEdges.add(key);
+                idxArrayWire.push(a, b);
+            }
+        }
+
+        for (let i = 0; i < idxArrayTriangle.length; i+=3) {
+            const v0 = idxArrayTriangle[i+0];
+            const v1 = idxArrayTriangle[i+1];
+            const v2 = idxArrayTriangle[i+2];
+
+            addEdge(v0, v1);
+            addEdge(v1, v2);
+            addEdge(v2, v0);
+        }
+
+        const ArrayType = idxArrayTriangle.constructor;
+        return new ArrayType(idxArrayWire);
     }
 }
