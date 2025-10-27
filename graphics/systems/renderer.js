@@ -167,14 +167,13 @@ export default class Renderer {
 
         mesh.applyToShader(shader);
 
-        const indexArray = mesh.toggles.wireframe ? meshData.geometry.idxLines :  meshData.geometry.idxTriangles;
+        const indexArray = mesh.toggles.wireframe ? meshData.geometry.idxLin :  meshData.geometry.idxTri;
         const indexArrayType = Renderer.glTypeMap.get(indexArray.dataType);
         const numIndices = indexArray.data.length;
 
         shader.flush();
 
-        console.log()
-        const indexBuffer = mesh.toggles.wireframe ? meshData.buffers.idxLines : meshData.buffers.idxTriangles;
+        const indexBuffer = mesh.toggles.wireframe ? meshData.buffers.idxLin : meshData.buffers.idxTri;
         const drawMode = mesh.toggles.wireframe ? gl.LINES : gl.TRIANGLES;
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);

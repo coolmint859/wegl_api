@@ -41,8 +41,7 @@ export default class GeometryHandler {
             for (const arrayName in data) {
                 const array = data[arrayName];
 
-                const isIndexArray = arrayName === 'idxTriangles' || arrayName === 'idxLines';
-                const bufferType = isIndexArray ? gl.ELEMENT_ARRAY_BUFFER : gl.ARRAY_BUFFER;
+                const bufferType = array.isIndex ? gl.ELEMENT_ARRAY_BUFFER : gl.ARRAY_BUFFER;
 
                 const glBuffer = gl.createBuffer();
                 gl.bindBuffer(bufferType, glBuffer);
@@ -121,7 +120,7 @@ export default class GeometryHandler {
                 attribLocations.normal = shaderProgram.getAttributeLocation('aNormal')
             }
             if (shaderProgram.supports('aTexCoord')) {
-                attribLocations.uv = shaderProgram.getAttributeLocation('aTexCoord')
+                attribLocations.texCrd = shaderProgram.getAttributeLocation('aTexCoord')
             }
             
             const VAO = gl.createVertexArray();
@@ -131,7 +130,7 @@ export default class GeometryHandler {
                 const array = geometry.data[arrayName];
                 const buffer = geometry.buffers[arrayName];
 
-                if (arrayName === 'idxTriangles' || arrayName === 'idxLines') continue;
+                if (array.isIndex) continue;
 
                 gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
 

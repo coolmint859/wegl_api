@@ -1,4 +1,8 @@
+import { Transform } from "../../components/index.js";
+import { Quaternion, Vector3 } from "../../utilities/index.js";
 import GeoUtils from "./geometry-utils.js";
+import MiscGeometry from "./misc-geometry.js";
+import PlanarGeometry from "./planar-geometry.js";
 
 /**
  * Contains functions for generating curved (radius-based) geometry
@@ -11,65 +15,34 @@ export default class RadialGeometry {
      */
     static generateCone(numBands) {
         if (typeof numBands !== 'number' || numBands < 3) {
-            console.warn(`[GenerateCone] numBands must be greater than 2. Assigning default (numBands=5).`);
+            console.warn(`[GenerateCylinder] numBands must be greater than 2. Assigning default (numBands=5).`);
             numBands = 5;
         }
 
-        //----- vertices -----//
+        const sideTransform = new Transform()
+            .translate(new Vector3(0, -1, 0))
+            .rotate(Quaternion.fromAxisAngle(
+                new Vector3(-1, 0, 0), Math.PI/2
+            ));
 
-        const numVertices = 3 * numBands + 1;
-        const vertexArray = new Float32Array(3*numVertices);
-        const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }];
+        const baseTransform = new Transform()
+            .translate(new Vector3(0, -1, 0))
+            .rotate(Quaternion.fromAxisAngle(
+                new Vector3(1, 0, 0), Math.PI/2
+            ));
 
-        // base center
-        vertexArray[0] = 0;
-        vertexArray[1] = -1;
-        vertexArray[2] = 0;
+        const sideOffset = Math.sqrt(2);
+        const base = PlanarGeometry.generateRegularPolygon(numBands, { transform: baseTransform });
+        const side = PlanarGeometry.generateRegularPolygon(numBands, { 
+            transform: sideTransform, 
+            centerOffset: sideOffset, 
+            shareVertices: false 
+        });
 
-        const angleStep = 2*Math.PI/numBands;
-        for (let i = 0; i < numBands; i++) {
-            const angle = angleStep * i;
-            let x = Math.cos(angle);
-            let z = Math.sin(angle);
+        const cone = GeoUtils.mergeGeometries([base, side]);
 
-            for (let k = 0; k < 3; k++) {
-                // k=0 -> base; k=1 -> side; k=2 -> apex;
-                const offset = 3 * (k * numBands + i + 1);
-                vertexArray[offset+0] = k === 2 ? 0 : x;
-                vertexArray[offset+1] = k === 2 ? 1 : -1;
-                vertexArray[offset+2] = k === 2 ? 0 : z;
-            }
-        }
-
-        //----- indices -----//
-
-        const numFaces = 2 * numBands;
-        const triIndexArray = numVertices < 65536 ? new Uint16Array(3*numFaces) : new Uint32Array(3*numFaces);
-        const indexType = numVertices < 65536 ? 'uint16' : 'uint32';
-        for (let i = 0; i < numBands; i++) {
-            const currBaseFace = 3*i;
-            triIndexArray[currBaseFace+0] = i+1;
-            triIndexArray[currBaseFace+1] = i === numBands-1 ? 1 : i+2;
-            triIndexArray[currBaseFace+2] = 0;
-
-            const currSideFace = 3*(numBands + i);
-            triIndexArray[currSideFace+0] = i === numBands-1 ? numBands+1 : numBands + i+2;
-            triIndexArray[currSideFace+1] = numBands + i+1;
-            triIndexArray[currSideFace+2] = 2*numBands + i+1;
-        }
-        const wireIndexArray = GeoUtils.generateWireframe(triIndexArray);
-
-        //----- normals -----//
-
-        const normalArray = GeoUtils.generateNormals(vertexArray, triIndexArray);
-        const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
-
-        const cone = {
-            vertex: { data: GeoUtils.normalizeVertices(vertexArray), attributes: vertexAttributes, stride: 0 },
-            normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
-            idxTriangles: { data: triIndexArray, attributes: [], stride: 0, dataType: indexType },
-            idxLines: { data: wireIndexArray, attributes: [], stride: 0, dataType: indexType },
-        }
+        const precision = 0.3 / numBands * 11; // empirically derived
+        cone.vertex = GeoUtils.snapVertices(cone.vertex, precision);
 
         return cone;
     }
@@ -80,85 +53,31 @@ export default class RadialGeometry {
      * @returns {object} an object containing vertex data, designed to work with a geometry instance
      */
     static generateCylinder(numBands) {
-        if (numBands < 3) {
-            console.warn(`[GeneratePyramid] numBands must be greater than 2. Assigning default (numBands=10).`);
-            numBands = 10;
+        if (typeof numBands !== 'number' || numBands < 3) {
+            console.warn(`[GenerateCylinder] numBands must be greater than 2. Assigning default (numBands=5).`);
+            numBands = 5;
         }
 
-        //----- vertices -----//
+        const topCapTransform = new Transform()
+            .translate(new Vector3(0, 0.5, 0))
+            .rotate(Quaternion.fromAxisAngle(
+                new Vector3(-1, 0, 0), Math.PI/2
+            ));
 
-        const numVertices = 4 * numBands + 2;
-        const vertexArray = new Float32Array(3*numVertices);
-        const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }]
+        const bottomCapTransform = new Transform()
+            .translate(new Vector3(0, -0.5, 0))
+            .rotate(Quaternion.fromAxisAngle(
+                new Vector3(1, 0, 0), Math.PI/2
+            ));
 
-        // top center
-        vertexArray[0] = 0;
-        vertexArray[1] = 1;
-        vertexArray[2] = 0;
+        const topCap = PlanarGeometry.generateRegularPolygon(numBands, { transform: topCapTransform});
+        const bottomCap = PlanarGeometry.generateRegularPolygon(numBands, { transform: bottomCapTransform});
+        const prism = MiscGeometry.generatePrismWall(numBands, 0.5, false);
 
-        // bottom center
-        vertexArray[3] = 0;
-        vertexArray[4] = -1;
-        vertexArray[5] = 0;
+        const wall = GeoUtils.weldVertices(prism.vertex, prism.idxTri);
 
-        const angleStep = 2*Math.PI/numBands;
-        for (let i = 0; i < numBands; i++) {
-            const angle = angleStep * i;
-            let x = Math.cos(angle);
-            let z = Math.sin(angle);
-
-            const epsilon = 0.00001;
-            x = Math.abs(x) > epsilon ? x : 0;
-            z = Math.abs(z) > epsilon ? z : 0;
-
-            for (let k = 0; k < 4; k++) {
-                // k=0 -> top1; k=1 -> top2; k=2 -> bottom1; k=3 -> bottom2
-                const offset = 3 * (k * numBands + i + 2);
-                vertexArray[offset+0] = x;
-                vertexArray[offset+1] = k < 2 ? 1 : -1;
-                vertexArray[offset+2] = z;
-            }
-        }
-
-        //----- indices -----//
-
-        const numFaces = 4 * numBands;
-        const triIndexArray = numVertices < 65536 ? new Uint16Array(3*numFaces) : new Uint32Array(3*numFaces);
-        const indexType = numVertices < 65536 ? 'uint16' : 'uint32';
-        for (let i = 0; i < numBands; i++) {
-            const top_offset1 = 3*i;
-            triIndexArray[top_offset1+0] = i+2;
-            triIndexArray[top_offset1+1] = 0;
-            triIndexArray[top_offset1+2] = i < numBands-1 ? i+3 : 2;
-
-            const top_offset2 = 3*(numBands+i);
-            triIndexArray[top_offset2+0] = i + numBands + 2;
-            triIndexArray[top_offset2+1] = i < numBands-1 ? numBands+i+3 : numBands+2;
-            triIndexArray[top_offset2+2] = i + 2*numBands + 2;
-
-            const bottom_offset1 = 3*(2*numBands + i);
-            triIndexArray[bottom_offset1+0] = i + 2*numBands + 2;
-            triIndexArray[bottom_offset1+1] = i < numBands-1 ? numBands+i+3 : numBands+2;
-            triIndexArray[bottom_offset1+2] = i < numBands-1 ? i + 2*numBands + 3 : 2*numBands + 2;
-
-            const bottom_offset2 = 3*(3*numBands + i);
-            triIndexArray[bottom_offset2+0] = i + 3*numBands + 2;
-            triIndexArray[bottom_offset2+1] = i < numBands-1 ? 3*numBands+i+3 : 3*numBands+2;
-            triIndexArray[bottom_offset2+2] = 1;
-        }
-        const wireIndexArray = GeoUtils.generateWireframe(triIndexArray);
-
-        //----- normals -----//
-
-        const normalArray = GeoUtils.generateNormals(vertexArray, triIndexArray);
-        const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
-
-        const cylinder = {
-            vertex: { data: vertexArray, attributes: vertexAttributes, stride: 0 },
-            normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
-            idxTriangles: { data: triIndexArray, attributes: [], stride: 0, dataType: indexType },
-            idxLines: { data: wireIndexArray, attributes: [], stride: 0, dataType: indexType },
-        }
+        const cylinder = GeoUtils.mergeGeometries([topCap, bottomCap, wall]);
+        cylinder.vertex = GeoUtils.snapVertices(cylinder.vertex);
 
         return cylinder;
     }
@@ -178,21 +97,13 @@ export default class RadialGeometry {
             numBands = 10;
         }
 
-        const numVertices =  numBands * (numRings-1) + 2;
+        const numVertices = numBands * (numRings-1) + 2;
         const vertexArray = new Float32Array(numVertices*3);
-        const normalArray = new Float32Array(numVertices*3);
 
         const numIndices = (2*(numRings-1) * numBands)*3;
-        const triIndexArray = numVertices < 65536 ? new Uint16Array(numIndices) : new Uint32Array(numIndices);
-        const indexType = numVertices < 65536 ? 'uint16' : 'uint32';
-
-        const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }];
-        const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
+        const indexArray = numVertices < 65536 ? new Uint16Array(numIndices) : new Uint32Array(numIndices);
 
         //----- vertices -----//
-
-        let vIndex = 0;
-        let nIndex = 0;
 
         const azimu = 2 * Math.PI / numBands;
         const polar = Math.PI / numRings;
@@ -205,29 +116,22 @@ export default class RadialGeometry {
             sinPhi[iBand] = Math.sin(phi);
         }
 
+        let vIndex = 0;
         for (let iRing = 1; iRing < numRings; iRing++) {
             const theta = polar * iRing;
             const sinTheta = Math.sin(theta);
             const cosTheta = Math.cos(theta);
 
             for (let iBand = 0; iBand < numBands; iBand++) {
-                const x = sinTheta * cosPhi[iBand];
-                const y = sinTheta * sinPhi[iBand];
-                const z = cosTheta;
-
-                vertexArray[vIndex++] = x;
-                vertexArray[vIndex++] = y;
-                vertexArray[vIndex++] = z;
-
-                normalArray[nIndex++] = x;
-                normalArray[nIndex++] = y;
-                normalArray[nIndex++] = z;
+                vertexArray[vIndex++] = sinTheta * cosPhi[iBand];
+                vertexArray[vIndex++] = cosTheta;
+                vertexArray[vIndex++] = sinTheta * sinPhi[iBand];
             }
         }
 
         // poles
-        vertexArray[vIndex+2] = 1; normalArray[nIndex+2] = 1;
-        vertexArray[vIndex+5] = -1; normalArray[nIndex+5] = -1;
+        vertexArray[vIndex+1] = 1;
+        vertexArray[vIndex+4] = -1;
 
         //----- indices -----//
 
@@ -244,37 +148,31 @@ export default class RadialGeometry {
 
                 // north pole triangle
                 if (iRing === 1) {
-                    triIndexArray[iIndex++] = northIndex;
-                    triIndexArray[iIndex++] = bottomLeft;
-                    triIndexArray[iIndex++] = bottomRight;
+                    indexArray[iIndex++] = northIndex;
+                    indexArray[iIndex++] = bottomRight;
+                    indexArray[iIndex++] = bottomLeft;
                 }
                 // inner quad
                 else if (iRing > 1 && iRing < numRings) {
                     // bottom-left triangle
-                    triIndexArray[iIndex++] = bottomLeft;
-                    triIndexArray[iIndex++] = bottomRight;
-                    triIndexArray[iIndex++] = topLeft;
+                    indexArray[iIndex++] = bottomLeft;
+                    indexArray[iIndex++] = topLeft;
+                    indexArray[iIndex++] = bottomRight;
 
                     // top-right triangle
-                    triIndexArray[iIndex++] = topLeft;
-                    triIndexArray[iIndex++] = bottomRight;
-                    triIndexArray[iIndex++] = topRight;
+                    indexArray[iIndex++] = topLeft;
+                    indexArray[iIndex++] = topRight;
+                    indexArray[iIndex++] = bottomRight;
                 }
                 // south pole triangle
                 else {
-                    triIndexArray[iIndex++] = southIndex;
-                    triIndexArray[iIndex++] = topRight;
-                    triIndexArray[iIndex++] = topLeft;
+                    indexArray[iIndex++] = southIndex;
+                    indexArray[iIndex++] = topLeft;
+                    indexArray[iIndex++] = topRight;
                 }
             }
         }
-        const wireIndexArray = GeoUtils.generateWireframe(triIndexArray);
 
-        return {
-            vertex: { data: vertexArray, attributes: vertexAttributes, stride: 0 },
-            normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
-            idxTriangles: { data: triIndexArray,  attributes: [], stride: 0, dataType: indexType },
-            idxLines: { data: wireIndexArray,  attributes: [], stride: 0, dataType: indexType },
-        }
+        return { vertex: vertexArray, idxTri: indexArray };
     }
 }

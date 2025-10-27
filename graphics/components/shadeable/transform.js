@@ -195,46 +195,46 @@ export default class Transform extends Component {
      * @param {Vector3 | number} translation the translation value - can be either a Vector3 or number.
      * 
      * Note: Providing a number effectively only increases/decreases the distance from the world space origin.
-     * @returns {boolean} true if the position was successfully changed, false otherwise
+     * @returns {Transform} a reference to this transform instance.
      */
     translate(translation) {
-        if (!(translation instanceof Vector3) || (typeof translation !== 'number')) {
+        if (!(translation instanceof Vector3) && (typeof translation !== 'number')) {
             console.error("TypeError: Expected 'translation' to be a number, or an instance of Vector3. Unable to update position vector.")
-            return false
+            return this;
         }
         this.#position = this.#position.add(translation);
         this.#isDirty = true;
-        return true;
+        return this;
     }
 
     /**
      * Applies a delta rotation to the current rotation quaternion.
      * @param {Quaternion} rotationQuat the rotation quaternion delta
-     * @returns {boolean} true if the rotation was successfully changed, false otherwise
+     * @returns {Transform} a reference to this transform instance.
      */
     rotate(rotationQuat) {
         if (!(rotationQuat instanceof Quaternion)) {
             console.error("TypeError: Expected 'rotationQuat' to be instance of Quaternion. Unable to update rotation quaternion.")
-            return false
+            return this;
         }
         this.#rotation = this.#rotation.mult(rotationQuat).normal();
         this.#isDirty = true;
-        return true;
+        return this;
     }
 
     /**
      * Multiplies this transform's dimensions by the given scaling vector. Note that this is a linear operation.
      * @param {Vector3} scaleVector the amount to scale
-     * @returns {boolean} true if the scale was successfully changed, false otherwise
+     * @returns {Transform} a reference to this transform instance.
      */
     scale(scaleVector) {
         if (!(scaleVector instanceof Vector3)) {
             console.error("TypeError: Expected 'scaleVector' to be instance of Vector3. Unable to update scale vector.")
-            return false;
+            return this;
         }
         this.#dimensions.mult(scaleVector);
         this.#isDirty = true;
-        return true;
+        return this;
     }
 
     /**

@@ -1,6 +1,7 @@
 import { Quaternion } from "../../utilities/index.js";
-import Planar from "./planar-geometry.js";
+import PlanarGeometry from "./planar-geometry.js";
 import GeoUtils from "./geometry-utils.js";
+import { Transform } from "../../components/index.js";
 
 /**
  * Contains functions for generating the five platonic solids
@@ -11,7 +12,6 @@ export default class PlatonicGeometry {
      * @returns {object} an object containing vertex data, designed to work with a geometry instance
      */
     static generateTetrahedron() {
-        const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }];
         const hh = 2 / Math.sqrt(8);
         const vertexArray = new Float32Array([
             1,  hh,  0,  0, -hh, -1, -1,  hh,  0,
@@ -21,20 +21,9 @@ export default class PlatonicGeometry {
         ]);
 
         // [ 0, 1, 2, 3, ...];
-        const triIndexArray = Uint16Array.from({ length: 12 }, (v, i) => i);
-        const wireIndexArray = GeoUtils.generateWireframe(triIndexArray);
+        const indexArray = Uint16Array.from({ length: 12 }, (v, i) => i);
 
-        const normalArray = GeoUtils.generateNormals(vertexArray, triIndexArray);
-        const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
-
-        const tetrahedron = {
-            vertex: { data: GeoUtils.normalizeVertices(vertexArray), attributes: vertexAttributes, stride: 0 },
-            normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
-            idxTriangles: { data: triIndexArray, attributes: [], stride: 0, dataType: 'uint16' },
-            idxLines: { data: wireIndexArray, attributes: [], stride: 0, dataType: 'uint16' },
-        }
-
-        return tetrahedron;
+        return { vertex: vertexArray, idxTri: indexArray };
     }
 
     /**
@@ -42,30 +31,34 @@ export default class PlatonicGeometry {
      * @returns {object} an object containing vertex data, designed to work with a geometry instance
      */
     static generateCube() {
-        const baseSquare = GeoUtils.triangulate(new Float32Array([ 1, -1, 0, 1, 1, 0, -1,  1, 0, -1, -1, 0 ]));
-        const rotations = [
-            new Quaternion(),                               // front face
-            Quaternion.fromEulerAngles(0, Math.PI, 0),      // back face
-            Quaternion.fromEulerAngles(0, Math.PI/2, 0),    // right face
-            Quaternion.fromEulerAngles(0, -Math.PI/2, 0),   // left face
-            Quaternion.fromEulerAngles(-Math.PI/2, 0, 0),   // top face
-            Quaternion.fromEulerAngles(Math.PI/2, 0, 0)     // bottom face
-        ];
+        const vertexArray = new Float32Array([
+             1, -1, -1,  1,  1, -1, -1, -1, -1, -1,  1, -1, // back
+            -1, -1,  1,  1, -1,  1, -1,  1,  1,  1,  1,  1, // front
+             1, -1,  1,  1,  1,  1,  1, -1, -1,  1,  1, -1, // right
+            -1, -1, -1, -1,  1, -1, -1, -1,  1, -1,  1,  1, // left
+            -1,  1,  1, -1,  1, -1,  1,  1,  1,  1,  1, -1, // top
+            -1, -1, -1, -1, -1,  1,  1, -1, -1,  1, -1,  1  // bottom
+        ])
 
-        const uvAttributes = [{ name: 'uv', size: 2, dataType: 'float', offset: 0 }]
+        const indexArray = new Uint16Array([
+            0,  2,  1,  1,  2,  3,  // back
+            4,  5,  6,  5,  7,  6,  // front
+            9,  8,  10, 9,  10, 11, // right
+            15, 12, 14, 15, 13, 12, // left
+            17, 16, 18, 17, 18, 19, // top
+            20, 23, 21, 20, 22, 23  // bottom
+        ])
+
         const uvArray = new Float32Array([
-            1, 1, 1, 0, 0, 0, 0, 1,
-            1, 1, 1, 0, 0, 0, 0, 1,
-            1, 1, 1, 0, 0, 0, 0, 1,
-            1, 1, 1, 0, 0, 0, 0, 1,
-            1, 1, 1, 0, 0, 0, 0, 1,
-            1, 1, 1, 0, 0, 0, 0, 1,
+            0, 1, 0, 0, 1, 1, 1, 0,
+            0, 1, 1, 1, 0, 0, 1, 0,
+            0, 1, 0, 0, 1, 1, 1, 0,
+            0, 1, 0, 0, 1, 1, 1, 0,
+            0, 1, 0, 0, 1, 1, 1, 0,
+            0, 1, 0, 0, 1, 1, 1, 0
         ]);
 
-        const cube = GeoUtils.createRegularPolyhedron(baseSquare, rotations, 1);
-        cube.uv = { data: uvArray, attributes: uvAttributes, stride: 0};
-
-        return cube;
+        return { vertex: vertexArray, idxTri: indexArray, texCrd: uvArray };
     }
 
     /**
@@ -73,7 +66,6 @@ export default class PlatonicGeometry {
      * @returns {object} an object containing vertex data, designed to work with a geometry instance
      */
     static generateOctahedron() {
-        const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }];
         const h = Math.sqrt(2);
         const vertexArray = new Float32Array([
             0,  h, 0,  1, 0,  1,  1, 0, -1,
@@ -87,20 +79,9 @@ export default class PlatonicGeometry {
         ]);
 
         // [ 0, 1, 2, 3, ...];
-        const triIndexArray = Uint16Array.from({ length: 24 }, (v, i) => i);
-        const wireIndexArray = GeoUtils.generateWireframe(triIndexArray);
+        const indexArray = Uint16Array.from({ length: 24 }, (v, i) => i);
 
-        const normalArray = GeoUtils.generateNormals(vertexArray, triIndexArray);
-        const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
-
-        const octahedron = {
-            vertex: { data: GeoUtils.normalizeVertices(vertexArray), attributes: vertexAttributes, stride: 0 },
-            normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
-            idxTriangles: { data: triIndexArray, attributes: [], stride: 0, dataType: 'uint16' },
-            idxLines: { data: wireIndexArray, attributes: [], stride: 0, dataType: 'uint16' },
-        }
-
-        return octahedron;
+        return { vertex: vertexArray, idxTri: indexArray };
     }
 
     /**
@@ -110,10 +91,10 @@ export default class PlatonicGeometry {
     static generateDodecahedron() {
         const midRadius = 1.309;
         const goldRatio = (1 + Math.sqrt(5)) / 2;
-        const basePentagon = Planar.generateRegularPolygon(5, 1);
-        const pentagon = { vertex: basePentagon.vertex.data, idxTriangles: basePentagon.idxTriangles.data };
+        const pentagon = PlanarGeometry.generateRegularPolygon(5, 1);
 
         const pi_2 = Math.PI/2;
+
         const rotations = [
             // these are for the 'top' and 'bottom' pentagons
             Quaternion.fromEulerAngles(pi_2, 0, pi_2, Quaternion.EulerOrder.YXZ),
@@ -125,10 +106,17 @@ export default class PlatonicGeometry {
             const pitch = (i % 2 === 0 ? Math.atan(2) : 2*Math.atan(goldRatio)) + pi_2;
             const yaw = i * Math.PI/5;
             const roll = i % 2 === 0 ? -pi_2 : pi_2;
-            rotations.push(Quaternion.fromEulerAngles(pitch, yaw, roll, Quaternion.EulerOrder.YXZ))
+
+            rotations.push(Quaternion.fromEulerAngles(pitch, yaw, roll, Quaternion.EulerOrder.YXZ));
         }
 
-        return GeoUtils.createRegularPolyhedron(pentagon, rotations, midRadius);
+        const transforms = [];
+        for (let i = 0; i < rotations.length; i++) {
+            const pos = rotations[i].rotateVector(Transform.localForward).mult(midRadius);
+            transforms.push(new Transform({ position: pos, rotation: rotations[i] }));
+        }
+
+        return GeoUtils.tessellate(pentagon.vertex, pentagon.idxTri, transforms);
     }
 
     /**
@@ -137,10 +125,7 @@ export default class PlatonicGeometry {
      */
     static generateIcosahedron() {
         const midRadius = 1.3101;
-        const triangle = {
-            vertex: new Float32Array([1, 0, 0, -0.5, 0.866, 0, -0.5, -0.866, 0]),
-            idxTriangles: new Uint16Array([0, 1, 2])
-        }
+        const triangle = PlanarGeometry.generateRegularPolygon(3, 1);
 
         // empirically found as true angles weren't working, not sure why
         const ringPitch = 0.186;
@@ -160,6 +145,14 @@ export default class PlatonicGeometry {
             rotations.push(Quaternion.fromEulerAngles(pitch2, yaw2, roll2, Quaternion.EulerOrder.YXZ))
         }
 
-        return GeoUtils.createRegularPolyhedron(triangle, rotations, midRadius);
+        const transforms = [];
+        for (let i = 0; i < rotations.length; i++) {
+            const pos = rotations[i].rotateVector(Transform.localForward).mult(midRadius);
+            transforms.push(new Transform({ position: pos, rotation: rotations[i] }));
+        }
+
+        const icosa = GeoUtils.tessellate(triangle.vertex, triangle.idxTri, transforms);
+        icosa.vertex = GeoUtils.snapVertices(icosa.vertex, 0.08);
+        return icosa;
     }
 }

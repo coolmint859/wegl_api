@@ -1,4 +1,4 @@
-import { Quaternion, Vector4, ResourceCollector, StreamReader } from "../../utilities/index.js";
+import { Quaternion, Vector4, ResourceCollector, StreamReader, Vector3 } from "../../utilities/index.js";
 import { Transform } from "../../components/index.js";
 import Geometry from "./geometry.js";
 
@@ -55,17 +55,29 @@ export default class GeoUtils {
      */
     static triangulate(vertexArray, options={}) {
         const numVertices = Math.trunc(vertexArray.length/3);
+        if (numVertices === 3) {
+            return { vertex: vertexArray, idxTri: new Uint16Array([0, 1, 2]) };
+        } else if (numVertices === 4) {
+            return { vertex: vertexArray, idxTri: new Uint16Array([0, 1, 2, 0, 2, 3]) };
+        }
 
         let xSum = 0, ySum = 0, zSum = 0;
-        for (let i = 0; i < vertexArray.length-2; i+=3) {
+        for (let i = 0; i < vertexArray.length; i+=3) {
             xSum += vertexArray[i+0];
             ySum += vertexArray[i+1];
             zSum += vertexArray[i+2];
         }
-        const x = xSum / numVertices;
-        const y = ySum / numVertices;
-        const z = zSum / numVertices + (options.centerOffset ?? 0);
-        const centerVertex = { x, y, z };
+
+        const offset = options.centerOffset ?? 0;
+        let offsetVector = new Vector4(0, 0, offset, 0);
+        if (options.transform) {
+            offsetVector = options.transform.applyTo(offsetVector);
+        }
+
+        const cx = xSum / numVertices + offsetVector.x;
+        const cy = ySum / numVertices + offsetVector.y;
+        const cz = zSum / numVertices + offsetVector.z;
+        const centerVertex = new Vector3(cx, cy, cz);
 
         if (options.shareVertices ?? true) {
             return GeoUtils.#triangulateShared(vertexArray, centerVertex);
@@ -77,12 +89,6 @@ export default class GeoUtils {
     /** Fan triangulation where adjacent vertices are shared */
     static #triangulateShared(vertexArray, centerVertex) {
         const numVertices = Math.trunc(vertexArray.length/3);
-        if (numVertices === 3) {
-            return { vertex: vertexArray, idxTriangles: new Uint16Array([0, 1, 2]) };
-        } else if (numVertices === 4) {
-            return { vertex: vertexArray, idxTriangles: new Uint16Array([0, 1, 2, 0, 2, 3])};
-        }
-
         const indexArray = new Uint16Array(numVertices*3);
         const newVertices = new (vertexArray.constructor)(vertexArray.length+3);
 
@@ -102,20 +108,15 @@ export default class GeoUtils {
             indexArray[iOffset+2] = i < numVertices-1 ? i+2 : 1;
         }
 
-        return { vertex: newVertices, idxTriangles: indexArray };
+        return { vertex: newVertices, idxTri: indexArray };
     }
 
     /** Fan triangulation where triangles are independent (no shared vertices) */
     static #triangulateIndep(vertexArray, centerVertex) {
         const numVertices = Math.trunc(vertexArray.length/3);
-        if (numVertices === 3) {
-            return { vertex: vertexArray, idxTriangles: new Uint16Array([0, 1, 2]) };
-        } else if (numVertices === 4) {
-            return { vertex: vertexArray, idxTriangles: new Uint16Array([0, 1, 2, 0, 2, 3])};
-        }
-
         const numNewVertices = numVertices * 3;
         const newVertices = new (vertexArray.constructor)(numNewVertices*3);
+
         for (let i = 0; i < numVertices; i++) {
             const vOffset = i*9;
             newVertices[vOffset+0] = centerVertex.x;
@@ -135,43 +136,13 @@ export default class GeoUtils {
 
         const indexArray = Uint16Array.from({ length: numNewVertices }, (v, i) => i);
 
-        return { vertex: newVertices, idxTriangles: indexArray };
-    }
-
-    /**
-     * create a regular polyhedron by tesselating a 2D primitive
-     * @param {object} primitive the primitive shape to construct the polyhedron with (should include 'vertex' and 'index' properties, which are typed arrays)
-     * @param {Array<Quaternion>} rotations a array of quaternions representing the rotations needed
-     * @param {number} positionOffset value that is applied on the position vector of a primitive after rotating it, effively moving it along it's normal.
-     * @returns {object} an object containing the arrays and accompanying attributes
-     */
-    static createRegularPolyhedron(primitive, rotations, positionOffset) {
-        const transforms = [];
-        for (let i = 0; i < rotations.length; i++) {
-            const pos = rotations[i].rotateVector(Transform.localForward).mult(positionOffset);
-            transforms.push(new Transform({ position: pos, rotation: rotations[i] }));
-        }
-
-        const vertexAttributes = [{ name: 'vertex', size: 3, dataType: 'float', offset: 0 }];
-        const polyhedron = GeoUtils.tessellate(primitive.vertex, primitive.idxTriangles, transforms);
-        const wireIndexArray = GeoUtils.generateWireframe(polyhedron.idxTriangles);
-
-        const normalArray = GeoUtils.generateNormals(polyhedron.vertex, polyhedron.idxTriangles);
-        const normalAttributes = [{ name: 'normal', size: 3, dataType: 'float', offset: 0 }];
-
-        return {
-            vertex: { data: GeoUtils.normalizeVertices(polyhedron.vertex), attributes: vertexAttributes, stride: 0 },
-            normal: { data: normalArray, attributes: normalAttributes, stride: 0 },
-            idxTriangles: { data: polyhedron.idxTriangles, attributes: [], stride: 0, dataType: 'uint16' },
-            idxLines: { data: wireIndexArray, attributes: [], stride: 0, dataType: 'uint16' },
-        }
+        return { vertex: newVertices, idxTri: indexArray };
     }
 
     /**
      * Generate vertex normals given a flat vertex array and a flat index array. These can be any kind of typed array.
      * @param {ArrayBufferLike} vertexArray a flat typed array of vertices. This function treats each three consecutive values as the three components for a vertex.
      * @param {ArrayBufferLike} indexArray a flat typed array of indices into the vertex array, representing faces.
-     * @param {object} options options for generating the normals.
      * @returns {Float32Array} a flat Float32Array of vertex normals
      */
     static generateNormals(vertexArray, indexArray) {
@@ -303,7 +274,7 @@ export default class GeoUtils {
      */
     static tessellate(vertexArray, indexArray, transforms) {
         if (transforms.length === 0) {
-            return { vertex: vertexArray, idxTriangles: indexArray };
+            return { vertex: vertexArray, idxTri: indexArray };
         }
 
         const basisVectors = [];
@@ -339,42 +310,233 @@ export default class GeoUtils {
             }
         }
 
-        return { vertex: newVertices, idxTriangles: newIndices };
+        return { vertex: newVertices, idxTri: newIndices };
     }
 
     /**
      * Generate a wireframe index array for drawing lines from a triangle-based index array.
-     * @param {ArrayBufferLike} idxArrayTriangle an index array representing triangles on an arbitrary mesh.
+     * @param {ArrayBufferLike} indexTriangle an index array representing triangles on an arbitrary mesh.
      * @returns {ArrayBufferLike | null} a new index array representing unique edges between vertices from the provided index array. Returns null if the provided array was invalid.
      */
-    static generateWireframe(idxArrayTriangle) {
-        if (!idxArrayTriangle || idxArrayTriangle.length % 3 !== 0) {
-            console.error(`[GeoUtils] Expected 'idxArrayTriangle' to be a typed array of indices whose length is divisible by 3. Cannot create wireframe array.`);
+    static generateWireframe(indexTriangle) {
+        if (!indexTriangle || indexTriangle.length % 3 !== 0) {
+            console.error(`[GeoUtils] Expected 'indexTriangle' to be a typed array of indices whose length is divisible by 3. Cannot create wireframe array.`);
             return null;
         }
 
         const uniqueEdges = new Set();
-        const idxArrayWire = [];
+        const indexWire = [];
 
         const addEdge = function(a, b) {
             const key = a < b ? `${a}-${b}` : `${b}-${a}`;
             if (!uniqueEdges.has(key)) {
                 uniqueEdges.add(key);
-                idxArrayWire.push(a, b);
+                indexWire.push(a, b);
             }
         }
 
-        for (let i = 0; i < idxArrayTriangle.length; i+=3) {
-            const v0 = idxArrayTriangle[i+0];
-            const v1 = idxArrayTriangle[i+1];
-            const v2 = idxArrayTriangle[i+2];
+        for (let i = 0; i < indexTriangle.length; i+=3) {
+            const v0 = indexTriangle[i+0];
+            const v1 = indexTriangle[i+1];
+            const v2 = indexTriangle[i+2];
 
             addEdge(v0, v1);
             addEdge(v1, v2);
             addEdge(v2, v0);
         }
 
-        const ArrayType = idxArrayTriangle.constructor;
-        return new ArrayType(idxArrayWire);
+        const ArrayType = indexTriangle.constructor;
+        return new ArrayType(indexWire);
+    }
+
+    /**
+     * Merges geometric data into a single set of data.
+     * @param {Array<object>} geometries an array of objects containing the raw arrays mapped by arrayname
+     * @returns {object} a single object of raw arrays mapped by array name.
+     */
+    static mergeGeometries(geometries) {
+        let totalVertexComponents = 0, totalIndices = 0;
+        for (const geo of geometries) {
+            totalVertexComponents += geo.vertex.length;
+            totalIndices += geo.idxTri.length;
+        }
+
+        const vertexArray = new Float32Array(totalVertexComponents);
+        const indexArray = new Uint32Array(totalIndices);
+
+        let vIndexComp = 0, vIndex = 0, iIndex = 0;
+        for (const geo of geometries) {
+            const currVertexCompCount = geo.vertex.length;
+            const currVertexCount = currVertexCompCount / 3;
+            const currIndexCount = geo.idxTri.length;
+
+            vertexArray.set(geo.vertex, vIndexComp);
+            for (let i = 0; i < currIndexCount; i++) {
+                indexArray[iIndex+i] = geo.idxTri[i] + vIndex;
+            }
+
+            vIndexComp += currVertexCompCount;
+            vIndex += currVertexCount;
+            iIndex += currIndexCount;
+        }
+
+        return { vertex: vertexArray, idxTri: indexArray };
+    }
+
+    /**
+     * Formats typed arrays into a form easily transformable into webgl buffers.
+     * @param {object} arrays an object mapping array names to their raw typed arrays
+     * @param {boolean} interleave if true, will interleave non-index arrays in the order they were recieved. Otherwise will keep every array independent.
+     * @returns {object} the array data formatted with metadata
+     */
+    static formatArrays(arrays, interleave = false) {
+        const sizes = { vertex: 3, normal: 3, color: 4, texCrd: 2 };
+
+        const indexArrays = {}, vertexArrays = {}
+        for (const arrayName in arrays) {
+            const array = arrays[arrayName];
+
+            let arrayEntry = {
+                data: array,
+                attributes: [],
+                stride: 0,
+                isIndex: arrayName.startsWith('idx')
+            }
+
+            if (arrayEntry.isIndex) {
+                arrayEntry.dataType = array.constructor.name.startsWith('Uint16') ? 'uint16' : 'uint32';
+                indexArrays[arrayName] = arrayEntry;
+            } else {
+                arrayEntry.attributes.push({
+                    name: arrayName, size: sizes[arrayName], dataType: 'float', offset: 0
+                });
+                vertexArrays[arrayName] = arrayEntry;
+            }
+        }
+
+        let formattedOutput = {};
+        if (interleave) {
+            formattedOutput.vertex = GeoUtils.#interleave(vertexArrays);
+        } else {
+            formattedOutput = {...vertexArrays};
+        }
+
+        formattedOutput = {...formattedOutput, ...indexArrays};
+
+        return formattedOutput;
+    }
+
+    /**
+     * Interleaves a set of arrays into a single contiguous array.
+     */
+    static #interleave(vertexArrays) {
+
+    }
+
+    /**
+     * Generates a map of quantized vertices to a list of their indices, influenced by a precision value.
+     * @param {ArrayBufferLike} vertexArray the vertex array to merge vertices with with the given merge function
+     * @param {number} precision the size of the volume that determines how vertices are grouped. A larger value means less precision and higher chance of grouping.
+     * @returns {Map<String, Array<number>>} an map of quantized vertices to indices.
+     */
+    static #genVertexMap(vertexArray, precision=0.01) {
+        const vertexMap = new Map();
+
+        for (let i = 0; i < vertexArray.length; i+=3) {
+            const x = vertexArray[i+0];
+            const y = vertexArray[i+1];
+            const z = vertexArray[i+2];
+            const index = i / 3;
+
+            const qx = Math.trunc(x / precision);
+            const qy = Math.trunc(y / precision);
+            const qz = Math.trunc(z / precision);
+
+            const key = `${qx}-${qy}-${qz}`;
+
+            if (!vertexMap.has(key)) {
+                vertexMap.set(key, []);
+            }
+            vertexMap.get(key).push(index);
+        }
+
+        return vertexMap;
+    }
+
+    /**
+     * Welds vertices that are close together using their average. Use to preserve/introduce smooth shading
+     * @param {ArrayBufferLike} oldVertexArray the vertex array to merge vertices with with the given merge function
+     * @param {ArrayBufferLike} oldIndexArray the index array for the vertices
+     * @param {number} precision the size of the volume that determines how vertices are grouped. A larger value means less precision and higher chance of grouping.
+     * @returns {object} an object containing the new welded vertex and index arrays
+     */
+    static weldVertices(oldVertexArray, oldIndexArray, precision=0.01) {
+        const vertexMap = GeoUtils.#genVertexMap(oldVertexArray, precision);
+
+        const numIndices = oldVertexArray.length / 3;
+        const indexTable = new Uint32Array(numIndices);
+        for (let i = 0; i < numIndices; i++) {
+            indexTable[i] = i;
+        }
+
+        const newVertexArray = new Float32Array(vertexMap.size*3);
+        let vIndex = 0;
+        for (const indices of vertexMap.values()) {
+            let newIndex = vIndex/3;
+
+            let sumX = 0, sumY = 0, sumZ = 0;
+            for (const idx of indices) {
+                const vertexIndex = idx*3;
+                sumX += oldVertexArray[vertexIndex+0];
+                sumY += oldVertexArray[vertexIndex+1];
+                sumZ += oldVertexArray[vertexIndex+2];
+
+                indexTable[idx] = newIndex;
+            }
+
+            newVertexArray[vIndex++] = sumX / indices.length;
+            newVertexArray[vIndex++] = sumY / indices.length;
+            newVertexArray[vIndex++] = sumZ / indices.length;
+        }
+
+        const ArrayType = oldIndexArray.constructor;
+        const newIndexArray = new ArrayType(oldIndexArray.length);
+
+        for (let i = 0; i < oldIndexArray.length; i++) {
+            const iOld = oldIndexArray[i];
+            newIndexArray[i] = indexTable[iOld];
+        }
+
+        return { vertex: newVertexArray, idxTri: newIndexArray };
+    }
+
+    /**
+     * Snaps vertices that are close together using their average. Use to preserve flat shading.
+     * @param {ArrayBufferLike} oldVertexArray the vertex array to merge vertices with with the given merge function
+     * @param {number} precision the size of the volume that determines how vertices are grouped. A larger value means less precision and higher chance of grouping.
+     * @returns {object} an object containing the new snapped vertex and index arrays
+     */
+    static snapVertices(oldVertexArray, precision=0.01) {
+        const vertexMap = GeoUtils.#genVertexMap(oldVertexArray, precision);
+        const newVertexArray = oldVertexArray.slice();
+
+        for (const indices of vertexMap.values()) {
+            let sumX = 0, sumY = 0, sumZ = 0;
+            for (const idx of indices) {
+                const vertexIndex = idx*3;
+                sumX += oldVertexArray[vertexIndex+0];
+                sumY += oldVertexArray[vertexIndex+1];
+                sumZ += oldVertexArray[vertexIndex+2];
+            }
+
+            for (const idx of indices) {
+                const vertexIndex = idx*3;
+                newVertexArray[vertexIndex+0] = sumX / indices.length;
+                newVertexArray[vertexIndex+1] = sumY / indices.length;
+                newVertexArray[vertexIndex+2] = sumZ / indices.length;
+            }
+        }
+
+        return newVertexArray;
     }
 }
